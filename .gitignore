@@ -5,6 +5,7 @@ CMakeFiles
 CMakeScripts
 Testing
 Makefile
+!python/Makefile
 cmake_install.cmake
 install_manifest.txt
 compile_commands.json
@@ -34,3 +35,7 @@ out/
 *.filters
 *.user
 
+# python
+python/build/
+python/dist/
+python/RocketSim.egg-info/
