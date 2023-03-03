@@ -157,6 +157,7 @@ PyObject *Car::GetState (Car *self_) noexcept
 	state->angVel->vec             = state->state.angVel;
 	state->lastRelDodgeTorque->vec = state->state.lastRelDodgeTorque;
 	state->lastControls->controls  = state->state.lastControls;
+	state->worldContactNormal->vec = state->state.worldContact.contactNormal;
 
 	return state.giftObject ();
 }
@@ -192,13 +193,14 @@ PyObject *Car::SetState (Car *self_, PyObject *args_) noexcept
 		return nullptr;
 
 	// copy values to state
-	::CarState newState         = state->state;
-	newState.pos                = state->pos->vec;
-	newState.angles             = state->angles->angle;
-	newState.vel                = state->vel->vec;
-	newState.angVel             = state->angVel->vec;
-	newState.lastRelDodgeTorque = state->lastRelDodgeTorque->vec;
-	newState.lastControls       = state->lastControls->controls;
+	::CarState newState                 = state->state;
+	newState.pos                        = state->pos->vec;
+	newState.angles                     = state->angles->angle;
+	newState.vel                        = state->vel->vec;
+	newState.angVel                     = state->angVel->vec;
+	newState.lastRelDodgeTorque         = state->lastRelDodgeTorque->vec;
+	newState.lastControls               = state->lastControls->controls;
+	newState.worldContact.contactNormal = state->worldContactNormal->vec;
 
 	self_->car->SetState (newState);
 
