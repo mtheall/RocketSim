@@ -45,7 +45,7 @@ public:
 		if (!_collisionShape) {
 			return -1;
 		} else {
-			return _collisionShape->getRadius();
+			return _collisionShape->getRadius() * BT_TO_UU;
 		}
 	}
 

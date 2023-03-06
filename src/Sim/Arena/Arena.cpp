@@ -1,6 +1,8 @@
 #include "Arena.h"
 #include "../../RLConst.h"
 
+#include <new>
+
 Car* Arena::AddCar(Team team, const CarConfig& config) {
 	Car* car = Car::_AllocateCar();
 	_cars.push_back(car);
@@ -528,6 +530,38 @@ void Arena::Step(int ticksToSimulate) {
 
 		tickCount++;
 	}
+}
+
+Arena *Arena::Clone()
+{
+	auto arena = new (std::nothrow) Arena(gameMode, GetTickRate());
+	if (!arena)
+		return nullptr;
+
+	arena->ball->SetState(ball->GetState());
+
+	for (unsigned i = 0; i < _boostPads.size(); ++i)
+		arena->_boostPads[i]->SetState(_boostPads[i]->GetState());
+
+	for (auto car : _cars)
+	{
+		auto newCar = arena->AddCar(car->team, car->config);
+		if (!newCar)
+		{
+			delete arena;
+			return nullptr;
+		}
+
+		newCar->id = car->id;
+		newCar->controls = car->controls;
+		newCar->SetState(car->GetState());
+	}
+
+	arena->_lastCarID = _lastCarID;
+	arena->tickCount = tickCount;
+	arena->_goalScoreCallbacks = _goalScoreCallbacks;
+
+	return arena;
 }
 
 Arena::~Arena() {
