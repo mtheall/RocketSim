@@ -3,33 +3,24 @@
 #include <cstddef>
 #include <cstring>
 
-namespace
-{
-#ifdef BT_USE_DOUBLE_PRECISION
-constexpr auto ELEMENT_TYPE = T_DOUBLE;
-#else
-constexpr auto ELEMENT_TYPE = T_FLOAT;
-#endif
-}
-
 namespace RocketSim::Python
 {
 PyTypeObject *Vec::Type = nullptr;
 
 PyMemberDef Vec::Members[] = {
     {.name      = "x",
-        .type   = ELEMENT_TYPE,
-        .offset = offsetof (Vec, vec) + offsetof (btVector3, m_floats[0]),
+        .type   = T_FLOAT,
+        .offset = offsetof (Vec, vec) + offsetof (::Vec, x),
         .flags  = 0,
         .doc    = "x"},
     {.name      = "y",
-        .type   = ELEMENT_TYPE,
-        .offset = offsetof (Vec, vec) + offsetof (btVector3, m_floats[1]),
+        .type   = T_FLOAT,
+        .offset = offsetof (Vec, vec) + offsetof (::Vec, y),
         .flags  = 0,
         .doc    = "y"},
     {.name      = "z",
-        .type   = ELEMENT_TYPE,
-        .offset = offsetof (Vec, vec) + offsetof (btVector3, m_floats[2]),
+        .type   = T_FLOAT,
+        .offset = offsetof (Vec, vec) + offsetof (::Vec, z),
         .flags  = 0,
         .doc    = "z"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -60,6 +51,21 @@ PyType_Spec Vec::Spec = {
     .slots     = Vec::Slots,
 };
 
+PyRef<Vec> Vec::NewFromVec (::Vec const &vec_) noexcept
+{
+	auto const self = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
+	if (!self || !InitFromVec (self.borrow (), vec_))
+		return nullptr;
+
+	return self;
+}
+
+bool Vec::InitFromVec (Vec *const self_, ::Vec const &vec_) noexcept
+{
+	self_->vec = vec_;
+	return true;
+}
+
 PyObject *Vec::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -68,25 +74,26 @@ PyObject *Vec::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) no
 	if (!self)
 		return nullptr;
 
-	new (&self->vec) btVector3 (0.0f, 0.0f, 0.0f);
+	new (&self->vec) ::Vec{};
 
 	return self.giftObject ();
 }
 
 int Vec::Init (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	auto vec = btVector3 (0.0f, 0.0f, 0.0f);
-	if (!PyArg_ParseTuple (args_, "|fff", &vec.m_floats[0], &vec.m_floats[1], &vec.m_floats[2]))
+	auto vec = ::Vec{};
+	if (!PyArg_ParseTuple (args_, "|fff", &vec.x, &vec.y, &vec.z))
 		return -1;
 
-	self_->vec = vec;
+	if (!InitFromVec (self_, vec))
+		return -1;
 
 	return 0;
 }
 
 void Vec::Dealloc (Vec *self_) noexcept
 {
-	self_->vec.~btVector3 ();
+	self_->vec.~Vec ();
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
@@ -98,7 +105,7 @@ PyObject *Vec::Repr (Vec *self_) noexcept
 	if (!tp_repr)
 		return nullptr;
 
-	auto tuple = PyObjectRef::steal (Py_BuildValue ("fff", self_->vec.getX (), self_->vec.getY (), self_->vec.getZ ()));
+	auto tuple = PyObjectRef::steal (AsTuple (self_));
 	if (!tuple)
 		return nullptr;
 
@@ -130,7 +137,7 @@ PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O!", &PyUnicode_Type, &spec))
 		return nullptr;
 
-	auto const x = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.getX ()));
+	auto const x = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.x));
 	if (!x)
 		return nullptr;
 
@@ -138,7 +145,7 @@ PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 	if (!xString)
 		return nullptr;
 
-	auto const y = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.getY ()));
+	auto const y = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.y));
 	if (!y)
 		return nullptr;
 
@@ -146,7 +153,7 @@ PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 	if (!yString)
 		return nullptr;
 
-	auto const z = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.getZ ()));
+	auto const z = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.z));
 	if (!z)
 		return nullptr;
 
@@ -159,7 +166,7 @@ PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 
 PyObject *Vec::AsTuple (Vec *self_) noexcept
 {
-	return Py_BuildValue ("fff", self_->vec.getX (), self_->vec.getY (), self_->vec.getZ ());
+	return Py_BuildValue ("fff", self_->vec.x, self_->vec.y, self_->vec.z);
 }
 
 PyObject *Vec::Round (Vec *self_, PyObject *args_) noexcept
@@ -168,10 +175,10 @@ PyObject *Vec::Round (Vec *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "f", &precision))
 		return nullptr;
 
-	auto result = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
+	auto vec = Vec::NewFromVec (Math::RoundVec (self_->vec, precision));
+	if (!vec)
+		return nullptr;
 
-	result->vec = Math::RoundVec (self_->vec, precision);
-
-	return result.giftObject ();
+	return vec.giftObject ();
 }
 }

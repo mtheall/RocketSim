@@ -41,6 +41,35 @@ PyType_Spec CarConfig::Spec = {
     .slots     = CarConfig::Slots,
 };
 
+PyRef<CarConfig> CarConfig::NewFromCarConfig (::CarConfig const &config_) noexcept
+{
+	auto const self = PyRef<CarConfig>::stealObject (CarConfig::New (CarConfig::Type, nullptr, nullptr));
+	if (!self || !InitFromCarConfig (self.borrow (), config_))
+		return nullptr;
+
+	return self;
+}
+
+bool CarConfig::InitFromCarConfig (CarConfig *const self_, ::CarConfig const &config_) noexcept
+{
+	auto hitboxSize      = Vec::NewFromVec (config_.hitboxSize);
+	auto hitboxPosOffset = Vec::NewFromVec (config_.hitboxPosOffset);
+	auto frontWheels     = WheelPairConfig::NewFromWheelPairConfig (config_.frontWheels);
+	auto backWheels      = WheelPairConfig::NewFromWheelPairConfig (config_.backWheels);
+
+	if (!hitboxSize || !hitboxPosOffset || !frontWheels || !backWheels)
+		return false;
+
+	PyRef<Vec>::assign (self_->hitboxSize, hitboxSize.borrowObject ());
+	PyRef<Vec>::assign (self_->hitboxPosOffset, hitboxPosOffset.borrowObject ());
+	PyRef<WheelPairConfig>::assign (self_->frontWheels, frontWheels.borrowObject ());
+	PyRef<WheelPairConfig>::assign (self_->backWheels, backWheels.borrowObject ());
+
+	self_->config = config_;
+
+	return true;
+}
+
 PyObject *CarConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -61,24 +90,8 @@ PyObject *CarConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 
 int CarConfig::Init (CarConfig *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	self_->config = ::CarConfig{};
-
-	auto hitboxSize      = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	auto hitboxPosOffset = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	auto frontWheels =
-	    PyRef<WheelPairConfig>::stealObject (WheelPairConfig::New (WheelPairConfig::Type, nullptr, nullptr));
-	auto backWheels =
-	    PyRef<WheelPairConfig>::stealObject (WheelPairConfig::New (WheelPairConfig::Type, nullptr, nullptr));
-
-	if (!hitboxSize || !hitboxPosOffset || !frontWheels || !backWheels ||
-	    WheelPairConfig::Init (frontWheels.borrow (), nullptr, nullptr) < 0 ||
-	    WheelPairConfig::Init (backWheels.borrow (), nullptr, nullptr) < 0)
+	if (!InitFromCarConfig (self_, ::CarConfig{}))
 		return -1;
-
-	PyRef<Vec>::assign (self_->hitboxSize, hitboxSize.borrowObject ());
-	PyRef<Vec>::assign (self_->hitboxPosOffset, hitboxPosOffset.borrowObject ());
-	PyRef<WheelPairConfig>::assign (self_->frontWheels, frontWheels.borrowObject ());
-	PyRef<WheelPairConfig>::assign (self_->backWheels, backWheels.borrowObject ());
 
 	return 0;
 }

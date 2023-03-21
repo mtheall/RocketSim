@@ -48,6 +48,28 @@ PyType_Spec WheelPairConfig::Spec = {
     .slots     = WheelPairConfig::Slots,
 };
 
+PyRef<WheelPairConfig> WheelPairConfig::NewFromWheelPairConfig (::WheelPairConfig const &config_) noexcept
+{
+	auto const self = PyRef<WheelPairConfig>::stealObject (WheelPairConfig::New (WheelPairConfig::Type, nullptr, nullptr));
+	if (!self || !InitFromWheelPairConfig (self.borrow (), config_))
+		return nullptr;
+
+	return self;
+}
+
+bool WheelPairConfig::InitFromWheelPairConfig (WheelPairConfig *const self_, ::WheelPairConfig const &config_) noexcept
+{
+	auto connectionPointOffset = Vec::NewFromVec (config_.connectionPointOffset);
+	if (!connectionPointOffset)
+		return false;
+
+	PyRef<Vec>::assign (self_->connectionPointOffset, connectionPointOffset.borrowObject ());
+
+	self_->config = config_;
+
+	return true;
+}
+
 PyObject *WheelPairConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -65,15 +87,8 @@ PyObject *WheelPairConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObjec
 
 int WheelPairConfig::Init (WheelPairConfig *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	self_->config = ::WheelPairConfig{};
-
-	auto connectionPointOffset = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	if (!connectionPointOffset)
+	if (!InitFromWheelPairConfig (self_, ::WheelPairConfig{}))
 		return -1;
-
-	PyRef<Vec>::assign (self_->connectionPointOffset, connectionPointOffset.borrowObject ());
-
-	self_->connectionPointOffset->vec = self_->config.connectionPointOffset;
 
 	return 0;
 }

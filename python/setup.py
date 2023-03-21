@@ -24,7 +24,7 @@ for root, dirs, files in os.walk('../src'):
 
 class build_ext_ex(build_ext):
     extra_compile_args = {
-        'unix': ['-flto', '-g0'],
+        'unix': ['-std=c++20', '-flto', '-g0'],
         'msvc': ['/std:c++20', '/GL']
     }
 

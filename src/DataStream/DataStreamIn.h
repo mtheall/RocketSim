@@ -60,7 +60,7 @@ struct DataStreamIn {
 
 	template<typename... Args>
 	void ReadMultiple(Args&... args) {
-		https://stackoverflow.com/questions/12030538/calling-a-function-for-each-variadic-template-argument-and-an-array
+		// https://stackoverflow.com/questions/12030538/calling-a-function-for-each-variadic-template-argument-and-an-array
 		[](...) {}((Read(std::forward<Args&>(args)), 0)...);
 	}
 

@@ -40,6 +40,33 @@ PyType_Spec BallState::Spec = {
     .slots     = BallState::Slots,
 };
 
+PyRef<BallState> BallState::NewFromBallState (::BallState const &state_) noexcept
+{
+	auto const self = PyRef<BallState>::stealObject (BallState::New (BallState::Type, nullptr, nullptr));
+	if (!self || !InitFromBallState (self.borrow (), state_))
+		return nullptr;
+
+	return self;
+}
+
+bool BallState::InitFromBallState (BallState *const self_, ::BallState const &state_) noexcept
+{
+	auto pos    = Vec::NewFromVec (state_.pos);
+	auto vel    = Vec::NewFromVec (state_.vel);
+	auto angVel = Vec::NewFromVec (state_.angVel);
+
+	if (!pos || !vel || !angVel)
+		return false;
+
+	RocketSim::Python::PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
+	RocketSim::Python::PyRef<Vec>::assign (self_->vel, vel.borrowObject ());
+	RocketSim::Python::PyRef<Vec>::assign (self_->angVel, angVel.borrowObject ());
+
+	self_->state = state_;
+
+	return true;
+}
+
 PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -59,22 +86,8 @@ PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 
 int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	self_->state = ::BallState{};
-
-	auto pos    = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	auto vel    = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	auto angVel = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-
-	if (!pos || !vel || !angVel)
+	if (!InitFromBallState (self_, ::BallState{}))
 		return -1;
-
-	PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
-	PyRef<Vec>::assign (self_->vel, vel.borrowObject ());
-	PyRef<Vec>::assign (self_->angVel, angVel.borrowObject ());
-
-	self_->pos->vec    = self_->state.pos;
-	self_->vel->vec    = self_->state.vel;
-	self_->angVel->vec = self_->state.angVel;
 
 	return 0;
 }

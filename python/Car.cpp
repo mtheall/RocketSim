@@ -5,6 +5,10 @@ namespace RocketSim::Python
 PyTypeObject *Car::Type = nullptr;
 
 PyMethodDef Car::Methods[] = {
+    {.ml_name     = "demolish",
+        .ml_meth  = (PyCFunction)&Car::Demolish,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = "Demolish"},
     {.ml_name     = "get_config",
         .ml_meth  = (PyCFunction)&Car::GetConfig,
         .ml_flags = METH_NOARGS,
@@ -13,10 +17,26 @@ PyMethodDef Car::Methods[] = {
         .ml_meth  = (PyCFunction)&Car::GetControls,
         .ml_flags = METH_NOARGS,
         .ml_doc   = "Get car controls"},
+    {.ml_name     = "get_forward_dir",
+        .ml_meth  = (PyCFunction)&Car::GetForwardDir,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = "Get forward direction"},
+    {.ml_name     = "get_right_dir",
+        .ml_meth  = (PyCFunction)&Car::GetRightDir,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = "Get right direction"},
     {.ml_name     = "get_state",
         .ml_meth  = (PyCFunction)&Car::GetState,
         .ml_flags = METH_NOARGS,
         .ml_doc   = "Get car state"},
+    {.ml_name     = "get_up_dir",
+        .ml_meth  = (PyCFunction)&Car::GetUpDir,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = "Get up direction"},
+    {.ml_name     = "respawn",
+        .ml_meth  = (PyCFunction)&Car::Respawn,
+        .ml_flags = METH_VARARGS,
+        .ml_doc   = "Respawn"},
     {.ml_name     = "set_controls",
         .ml_meth  = (PyCFunction)&Car::SetControls,
         .ml_flags = METH_VARARGS,
@@ -95,6 +115,19 @@ PyObject *Car::Getteam (Car *self_, void *) noexcept
 	return PyLong_FromLong (static_cast<int> (self_->car->team));
 }
 
+PyObject *Car::Demolish (Car *self_) noexcept
+{
+	if (!self_->arena)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "This car does not belong to any arena");
+		return nullptr;
+	}
+
+	self_->car->Demolish ();
+
+	Py_RETURN_NONE;
+}
+
 PyObject *Car::GetConfig (Car *self_) noexcept
 {
 	if (!self_->arena)
@@ -103,18 +136,9 @@ PyObject *Car::GetConfig (Car *self_) noexcept
 		return nullptr;
 	}
 
-	auto config = PyRef<CarConfig>::stealObject (CarConfig::New (CarConfig::Type, nullptr, nullptr));
-	if (!config || CarConfig::Init (config.borrow (), nullptr, nullptr) < 0)
+	auto config = CarConfig::NewFromCarConfig (self_->car->config);
+	if (!config)
 		return nullptr;
-
-	// copy values from config
-	config->config                                  = self_->car->config;
-	config->hitboxSize->vec                         = config->config.hitboxSize;
-	config->hitboxPosOffset->vec                    = config->config.hitboxPosOffset;
-	config->frontWheels->config                     = config->config.frontWheels;
-	config->frontWheels->connectionPointOffset->vec = config->config.frontWheels.connectionPointOffset;
-	config->backWheels->config                      = config->config.backWheels;
-	config->backWheels->connectionPointOffset->vec  = config->config.backWheels.connectionPointOffset;
 
 	return config.giftObject ();
 }
@@ -127,14 +151,41 @@ PyObject *Car::GetControls (Car *self_) noexcept
 		return nullptr;
 	}
 
-	auto controls = PyRef<CarControls>::stealObject (CarControls::New (CarControls::Type, nullptr, nullptr));
+	auto controls = CarControls::NewFromCarControls (self_->car->controls);
 	if (!controls)
 		return nullptr;
 
-	// copy values from controls
-	controls->controls = self_->car->controls;
-
 	return controls.giftObject ();
+}
+
+PyObject *Car::GetForwardDir (Car *self_) noexcept
+{
+	if (!self_->arena)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "This car does not belong to any arena");
+		return nullptr;
+	}
+
+	auto dir = Vec::NewFromVec (self_->car->GetForwardDir ());
+	if (!dir)
+		return nullptr;
+
+	return dir.giftObject ();
+}
+
+PyObject *Car::GetRightDir (Car *self_) noexcept
+{
+	if (!self_->arena)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "This car does not belong to any arena");
+		return nullptr;
+	}
+
+	auto dir = Vec::NewFromVec (self_->car->GetRightDir ());
+	if (!dir)
+		return nullptr;
+
+	return dir.giftObject ();
 }
 
 PyObject *Car::GetState (Car *self_) noexcept
@@ -145,21 +196,43 @@ PyObject *Car::GetState (Car *self_) noexcept
 		return nullptr;
 	}
 
-	auto state = PyRef<CarState>::stealObject (CarState::New (CarState::Type, nullptr, nullptr));
-	if (!state || CarState::Init (state.borrow (), nullptr, nullptr) != 0)
+	auto state = CarState::NewFromCarState (self_->car->GetState ());
+	if (!state)
 		return nullptr;
 
-	// copy values from state
-	state->state                   = self_->car->GetState ();
-	state->pos->vec                = state->state.pos;
-	state->angles->angle           = state->state.angles;
-	state->vel->vec                = state->state.vel;
-	state->angVel->vec             = state->state.angVel;
-	state->lastRelDodgeTorque->vec = state->state.lastRelDodgeTorque;
-	state->lastControls->controls  = state->state.lastControls;
-	state->worldContactNormal->vec = state->state.worldContact.contactNormal;
-
 	return state.giftObject ();
+}
+
+PyObject *Car::GetUpDir (Car *self_) noexcept
+{
+	if (!self_->arena)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "This car does not belong to any arena");
+		return nullptr;
+	}
+
+	auto dir = Vec::NewFromVec (self_->car->GetUpDir ());
+	if (!dir)
+		return nullptr;
+
+	return dir.giftObject ();
+}
+
+PyObject *Car::Respawn (Car *self_, PyObject *args_) noexcept
+{
+	if (!self_->arena)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "This car does not belong to any arena");
+		return nullptr;
+	}
+
+	int seed = -1;
+	if (!PyArg_ParseTuple (args_, "|i", &seed))
+		return nullptr;
+
+	self_->car->Respawn (seed);
+
+	Py_RETURN_NONE;
 }
 
 PyObject *Car::SetControls (Car *self_, PyObject *args_) noexcept
@@ -195,7 +268,7 @@ PyObject *Car::SetState (Car *self_, PyObject *args_) noexcept
 	// copy values to state
 	::CarState newState                 = state->state;
 	newState.pos                        = state->pos->vec;
-	newState.angles                     = state->angles->angle;
+	newState.rotMat                     = state->rotMat->mat;
 	newState.vel                        = state->vel->vec;
 	newState.angVel                     = state->angVel->vec;
 	newState.lastRelDodgeTorque         = state->lastRelDodgeTorque->vec;

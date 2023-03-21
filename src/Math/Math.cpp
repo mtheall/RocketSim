@@ -1,5 +1,7 @@
 #include "Math.h"
 
+#include <thread>
+
 float LinearPieceCurve::GetOutput(float input, float defaultOutput) const {
 	float output = input;
 
