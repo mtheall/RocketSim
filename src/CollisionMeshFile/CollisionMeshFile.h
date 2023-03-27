@@ -2,7 +2,12 @@
 #include "../Framework.h"
 #include "../BulletLink.h"
 
+#ifdef __SWITCH__
+#define COLLISION_MESH_BASE_PATH "romfs:/collision_meshes/"
+#else
 #define COLLISION_MESH_BASE_PATH "./collision_meshes/"
+#endif
+
 #define COLLISION_MESH_FILE_EXTENSION ".cmf"
 
 class btTriangleMesh;

@@ -8,7 +8,7 @@
 #include "../MutatorConfig/MutatorConfig.h"
 
 struct BallHitInfo {
-	uint32_t carID = NULL; // ID of the car that hit the ball
+	uint32_t carID = 0; // ID of the car that hit the ball
 	Vec relativePosOnBall; // Position of the hit relative to the ball's position
 	Vec ballPos; // World position of the ball when the hit occured
 	Vec extraHitVel; // Extra velocity added to base collision velocity

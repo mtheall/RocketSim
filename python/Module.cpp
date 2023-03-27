@@ -5,14 +5,7 @@
 
 namespace RocketSim::Python
 {
-PyObject *test (PyObject *self_) noexcept
-{
-	Py_RETURN_NONE;
-}
-
-PyMethodDef Methods[] = {{"test", (PyCFunction)&test, METH_NOARGS, "Test function"}, {nullptr, nullptr, 0, nullptr}};
-
-struct PyModuleDef Module = {PyModuleDef_HEAD_INIT, "RocketSim", nullptr, -1, Methods};
+struct PyModuleDef Module = {PyModuleDef_HEAD_INIT, "RocketSim", nullptr, -1, nullptr};
 }
 
 PyMODINIT_FUNC PyInit_RocketSim () noexcept
@@ -42,6 +35,7 @@ PyMODINIT_FUNC PyInit_RocketSim () noexcept
 	MAKE_TYPE (CarConfig);
 	MAKE_TYPE (CarControls);
 	MAKE_TYPE (CarState);
+	MAKE_TYPE (RotMat);
 	MAKE_TYPE (Vec);
 	MAKE_TYPE (WheelPairConfig);
 

@@ -1,6 +1,8 @@
 #pragma once
 #include "../BaseInc.h"
 
+#include <cstring>
+
 // Stores all control inputs to a car
 struct CarControls {
 	// Driving control
@@ -34,3 +36,4 @@ struct CarControls {
 name.throttle, name.steer, \
 name.pitch, name.yaw, name.roll, \
 name.boost, name.jump, name.handbrake
+

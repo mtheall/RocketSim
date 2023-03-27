@@ -56,7 +56,11 @@ public:
 
 	PyRef () noexcept = default;
 
-	PyRef (PyRef &that_) noexcept : m_object (that_.m_object)
+	PyRef (nullptr_t) noexcept : PyRef ()
+	{
+	}
+
+	PyRef (PyRef const &that_) noexcept : m_object (that_.m_object)
 	{
 		Py_XINCREF (m_object);
 	}
@@ -67,7 +71,7 @@ public:
 		that_.m_object = nullptr;
 	}
 
-	PyRef &operator= (PyRef &that_) noexcept
+	PyRef &operator= (PyRef const &that_) noexcept
 	{
 		if (this != &that_)
 		{

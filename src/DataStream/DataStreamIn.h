@@ -3,6 +3,8 @@
 
 #include "SerializeObject.h"
 
+#include <cstring>
+
 // Basic struct for reading raw data from a file
 struct DataStreamIn {
 	vector<char> data;

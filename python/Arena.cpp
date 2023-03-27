@@ -1,6 +1,14 @@
 #include "Module.h"
 
+#include "../src/RocketSim.h"
+
+#include <mutex>
 #include <new>
+
+namespace
+{
+std::once_flag init;
+}
 
 namespace RocketSim::Python
 {
@@ -24,6 +32,8 @@ PyMethodDef Arena::Methods[] = {
         .ml_flags = METH_NOARGS,
         .ml_doc   = nullptr},
     {.ml_name = "remove_car", .ml_meth = (PyCFunction)&Arena::RemoveCar, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name = "reset_kickoff", .ml_meth = (PyCFunction)&Arena::ResetKickoff, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name = "set_goal_score_callback", .ml_meth = (PyCFunction)&Arena::SetGoalScoreCallback, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = "step", .ml_meth = (PyCFunction)&Arena::Step, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
@@ -63,9 +73,11 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 		return nullptr;
 
 	new (&self->arena) std::shared_ptr<::Arena>{};
-	self->cars      = new (std::nothrow) std::map<std::uint32_t, PyRef<Car>>{};
-	self->boostPads = new (std::nothrow) std::vector<PyRef<BoostPad>>{};
-	self->ball      = nullptr;
+	self->cars                      = new (std::nothrow) std::map<std::uint32_t, PyRef<Car>>{};
+	self->boostPads                 = new (std::nothrow) std::vector<PyRef<BoostPad>>{};
+	self->ball                      = nullptr;
+	self->goalScoreCallback         = nullptr;
+	self->goalScoreCallbackUserData = nullptr;
 
 	if (!self->cars || !self->boostPads)
 	{
@@ -87,13 +99,17 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 	if (!PyArg_ParseTuple (args_, "i|f", &gameMode, &tickRate))
 		return -1;
 
+	std::call_once (init, &RocketSim::Init, "collision_meshes");
+
 	try
 	{
-		auto arena = std::make_shared<::Arena> (static_cast<GameMode> (gameMode), tickRate);
+		auto arena = std::shared_ptr<::Arena> (::Arena::Create (static_cast<GameMode> (gameMode), tickRate));
+		if (!arena)
+			throw -1;
 
 		auto ball = PyRef<Ball>::steal (Ball::New ());
 		if (!ball)
-			return -1;
+			throw -1;
 
 		auto boostPads = std::vector<PyRef<BoostPad>>{};
 		boostPads.reserve (arena->GetBoostPads ().size ());
@@ -101,7 +117,7 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		{
 			auto &back = boostPads.emplace_back (PyRef<BoostPad>::steal (BoostPad::New ()));
 			if (!back)
-				throw 0;
+				throw -1;
 
 			back->pad = pad;
 		}
@@ -114,6 +130,9 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		PyRef<Ball>::assign (self_->ball, ball.borrowObject ());
 		self_->ball->arena = self_->arena;
 		self_->ball->ball  = self_->arena->ball;
+
+		PyObjectRef::assign (self_->goalScoreCallback, Py_None);
+		PyObjectRef::assign (self_->goalScoreCallbackUserData, Py_None);
 
 		return 0;
 	}
@@ -130,6 +149,8 @@ void Arena::Dealloc (Arena *self_) noexcept
 	delete self_->cars;
 	delete self_->boostPads;
 	Py_XDECREF (self_->ball);
+	Py_XDECREF (self_->goalScoreCallback);
+	Py_XDECREF (self_->goalScoreCallbackUserData);
 
 	auto const tp_free = (freefunc)PyType_GetSlot ((PyTypeObject *)Type, Py_tp_free);
 	tp_free (self_);
@@ -199,44 +220,60 @@ PyObject *Arena::Clone (Arena *self_) noexcept
 	if (!clone)
 		return nullptr;
 
-	auto arena = std::shared_ptr<::Arena> (self_->arena->Clone ());
-	if (!arena)
-	{
-		return PyErr_NoMemory ();
-	}
-
-	auto ball = PyRef<Ball>::steal (Ball::New ());
-	if (!ball)
-		return nullptr;
-
 	try
 	{
+		auto arena = std::shared_ptr<::Arena> (self_->arena->Clone (true));
+		if (!arena)
+			return PyErr_NoMemory ();
+
+		auto ball = PyRef<Ball>::steal (Ball::New ());
+		if (!ball)
+			return PyErr_NoMemory ();
+
 		auto boostPads = std::vector<PyRef<BoostPad>>{};
 		boostPads.reserve (arena->GetBoostPads ().size ());
 		for (auto const &pad : arena->GetBoostPads ())
 		{
 			auto &back = boostPads.emplace_back (PyRef<BoostPad>::steal (BoostPad::New ()));
 			if (!back)
-				throw 0;
+				return PyErr_NoMemory ();
 
 			back->pad = pad;
 		}
 
+		auto cars = std::map<std::uint32_t, PyRef<Car>>{};
+		for (auto const &car : arena->GetCars ())
+		{
+			auto &carRef = cars[car->id];
+
+			carRef = PyRef<Car>::steal (Car::New ());
+			if (!carRef)
+				return PyErr_NoMemory ();
+
+			carRef->arena = arena;
+			carRef->car   = car;
+		}
+
 		// no exceptions thrown after this point
-		clone->arena = arena;
-		clone->cars->clear ();
+		clone->arena      = arena;
 		*clone->boostPads = std::move (boostPads);
+		*clone->cars      = std::move (cars);
 
 		PyRef<Ball>::assign (clone->ball, ball.borrowObject ());
 		clone->ball->arena = clone->arena;
 		clone->ball->ball  = clone->arena->ball;
 
+		PyObjectRef::assign (clone->goalScoreCallback, self_->goalScoreCallback);
+		PyObjectRef::assign (clone->goalScoreCallbackUserData, self_->goalScoreCallbackUserData);
+
+		if (clone->goalScoreCallback != Py_None)
+			clone->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, clone.borrow ());
+
 		return clone.giftObject ();
 	}
 	catch (...)
 	{
-		PyErr_NoMemory ();
-		return nullptr;
+		return PyErr_NoMemory ();
 	}
 }
 
@@ -319,6 +356,38 @@ PyObject *Arena::RemoveCar (Arena *self_, PyObject *args_) noexcept
 	Py_RETURN_NONE;
 }
 
+PyObject *Arena::ResetKickoff (Arena *self_, PyObject *args_) noexcept
+{
+	int seed = -1;
+	if (!PyArg_ParseTuple (args_, "|i", &seed))
+		return nullptr;
+
+	self_->arena->ResetToRandomKickoff (seed);
+
+	Py_RETURN_NONE;
+}
+
+PyObject *Arena::SetGoalScoreCallback (Arena *self_, PyObject *args_) noexcept
+{
+	PyObject *callback; // borrowed references
+	PyObject *userData;
+	if (!PyArg_ParseTuple (args_, "OO", &callback, &userData))
+		return nullptr;
+
+	if (!PyCallable_Check (callback))
+	{
+		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object");
+		return nullptr;
+	}
+
+	PyObjectRef::assign (self_->goalScoreCallback, callback);
+	PyObjectRef::assign (self_->goalScoreCallbackUserData, userData);
+
+	self_->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, self_);
+
+	Py_RETURN_NONE;
+}
+
 PyObject *Arena::Step (Arena *self_, PyObject *args_) noexcept
 {
 	int ticksToSimulate = 1;
@@ -328,6 +397,25 @@ PyObject *Arena::Step (Arena *self_, PyObject *args_) noexcept
 	self_->arena->Step (ticksToSimulate);
 
 	Py_RETURN_NONE;
+}
+
+void Arena::HandleGoalScoreCallback (::Arena *arena_, Team scoringTeam_, void *userData_) noexcept
+{
+	auto const self = reinterpret_cast<Arena*> (userData_);
+
+	if (self->goalScoreCallback == Py_None)
+		return;
+
+	auto const ref      = PyRef<Arena>::incRef (self);
+	auto const callback = PyObjectRef::incRef (self->goalScoreCallback);
+	auto const userData = PyObjectRef::incRef (self->goalScoreCallbackUserData);
+
+	auto const team = static_cast<std::underlying_type_t<Team>> (scoringTeam_);
+	auto const args = PyObjectRef::steal (Py_BuildValue ("OiO", ref.borrow (), team, userData.borrow ()));
+	if (!args)
+		return;
+
+	Py_XDECREF (PyObject_Call (callback.borrow (), args.borrow (), nullptr));
 }
 
 PyObject *Arena::Getgame_mode (Arena *self_, void *) noexcept

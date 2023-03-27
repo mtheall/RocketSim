@@ -9,100 +9,121 @@ PyTypeObject *CarState::Type = nullptr;
 
 PyMemberDef CarState::Members[] = {
     {.name      = "is_on_ground",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::CarState::isOnGround)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, isOnGround),
         .flags  = 0,
         .doc    = "Is on ground"},
     {.name      = "has_jumped",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::CarState::hasJumped)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, hasJumped),
         .flags  = 0,
         .doc    = "Has jumped"},
     {.name      = "has_double_jumped",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::CarState::hasDoubleJumped)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, hasDoubleJumped),
         .flags  = 0,
         .doc    = "Has double jumped"},
     {.name      = "has_flipped",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::CarState::hasFlipped)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, hasFlipped),
         .flags  = 0,
         .doc    = "Has flipped"},
     {.name      = "jump_time",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::jumpTime)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, jumpTime),
         .flags  = 0,
         .doc    = "Jump time"},
     {.name      = "flip_time",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::flipTime)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, flipTime),
         .flags  = 0,
         .doc    = "Flip time"},
     {.name      = "is_jumping",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::CarState::isJumping)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, isJumping),
         .flags  = 0,
         .doc    = "Is jumping"},
     {.name      = "air_time_since_jump",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::airTimeSinceJump)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, airTimeSinceJump),
         .flags  = 0,
         .doc    = "Air time since jump"},
     {.name      = "boost",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::boost)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, boost),
         .flags  = 0,
         .doc    = "Boost"},
     {.name      = "time_spent_boosting",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::timeSpentBoosting)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, timeSpentBoosting),
         .flags  = 0,
         .doc    = "Time spent boosting"},
     {.name      = "is_supersonic",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::CarState::isSupersonic)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, isSupersonic),
         .flags  = 0,
         .doc    = "Is supersonic"},
     {.name      = "supersonic_time",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::supersonicTime)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, supersonicTime),
         .flags  = 0,
         .doc    = "Supersonic time"},
     {.name      = "handbrake_val",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::handbrakeVal)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, handbrakeVal),
         .flags  = 0,
         .doc    = "Handbrake val"},
     {.name      = "is_auto_flipping",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::CarState::isAutoFlipping)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, isAutoFlipping),
         .flags  = 0,
         .doc    = "Is auto flipping"},
     {.name      = "auto_flip_timer",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::autoFlipTimer)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, autoFlipTimer),
         .flags  = 0,
         .doc    = "Auto flip timer"},
     {.name      = "auto_flip_torque_scale",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarState::autoFlipTorqueScale)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, autoFlipTorqueScale),
         .flags  = 0,
         .doc    = "Auto flip torque scale"},
     {.name      = "has_world_contact",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::CarState::worldContact.hasContact)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, worldContact.hasContact),
         .flags  = 0,
         .doc    = "Has world contact"},
+    {.name      = "car_contact_id",
+        .type   = TypeHelper<decltype (::CarState::carContact.otherCarID)>::type,
+        .offset = offsetof (CarState, state) + offsetof (::CarState, carContact.otherCarID),
+        .flags  = 0,
+        .doc    = "Car contact other car id"},
+    {.name      = "car_contact_cooldown_timer",
+        .type   = TypeHelper<decltype (::CarState::carContact.cooldownTimer)>::type,
+        .offset = offsetof (CarState, state) + offsetof (::CarState, carContact.cooldownTimer),
+        .flags  = 0,
+        .doc    = "Car contact cooldown timer"},
+    {.name      = "is_demoed",
+        .type   = TypeHelper<decltype (::CarState::isDemoed)>::type,
+        .offset = offsetof (CarState, state) + offsetof (::CarState, isDemoed),
+        .flags  = 0,
+        .doc    = "Is demoed"},
+    {.name      = "demo_respawn_timer",
+        .type   = TypeHelper<decltype (::CarState::demoRespawnTimer)>::type,
+        .offset = offsetof (CarState, state) + offsetof (::CarState, demoRespawnTimer),
+        .flags  = 0,
+        .doc    = "Demo respawn timer"},
+    {.name      = "last_hit_ball_tick",
+        .type   = TypeHelper<decltype (::CarState::lastHitBallTick)>::type,
+        .offset = offsetof (CarState, state) + offsetof (::CarState, lastHitBallTick),
+        .flags  = 0,
+        .doc    = "Last hit ball tick"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
-};
-
-PyMethodDef CarState::Methods[] = {
-    {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
 PyGetSetDef CarState::GetSet[] = {
     GETSET_ENTRY (CarState, pos),
-    GETSET_ENTRY (CarState, angles),
+    GETSET_ENTRY (CarState, rot_mat),
     GETSET_ENTRY (CarState, vel),
     GETSET_ENTRY (CarState, ang_vel),
     GETSET_ENTRY (CarState, last_rel_dodge_torque),
@@ -116,7 +137,6 @@ PyType_Slot CarState::Slots[] = {
     {Py_tp_init, (void *)&CarState::Init},
     {Py_tp_dealloc, (void *)&CarState::Dealloc},
     {Py_tp_members, &CarState::Members},
-    {Py_tp_methods, &CarState::Methods},
     {Py_tp_getset, &CarState::GetSet},
     {0, nullptr},
 };
@@ -129,6 +149,41 @@ PyType_Spec CarState::Spec = {
     .slots     = CarState::Slots,
 };
 
+PyRef<CarState> CarState::NewFromCarState (::CarState const &state_) noexcept
+{
+	auto const self = PyRef<CarState>::stealObject (CarState::New (CarState::Type, nullptr, nullptr));
+	if (!self || !InitFromCarState (self.borrow (), state_))
+		return nullptr;
+
+	return self;
+}
+
+bool CarState::InitFromCarState (CarState *const self_, ::CarState const &state_) noexcept
+{
+	auto pos                = Vec::NewFromVec (state_.pos);
+	auto rotMat             = RotMat::NewFromRotMat (state_.rotMat);
+	auto vel                = Vec::NewFromVec (state_.vel);
+	auto angVel             = Vec::NewFromVec (state_.angVel);
+	auto lastRelDodgeTorque = Vec::NewFromVec (state_.lastRelDodgeTorque);
+	auto lastControls       = CarControls::NewFromCarControls (state_.lastControls);
+	auto worldContactNormal = Vec::NewFromVec (state_.worldContact.contactNormal);
+
+	if (!pos || !rotMat || !vel || !angVel || !lastRelDodgeTorque || !lastControls || !worldContactNormal)
+		return false;
+
+	PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
+	PyRef<RotMat>::assign (self_->rotMat, rotMat.borrowObject ());
+	PyRef<Vec>::assign (self_->vel, vel.borrowObject ());
+	PyRef<Vec>::assign (self_->angVel, angVel.borrowObject ());
+	PyRef<Vec>::assign (self_->lastRelDodgeTorque, lastRelDodgeTorque.borrowObject ());
+	PyRef<CarControls>::assign (self_->lastControls, lastControls.borrowObject ());
+	PyRef<Vec>::assign (self_->worldContactNormal, worldContactNormal.borrowObject ());
+
+	self_->state = state_;
+
+	return true;
+}
+
 PyObject *CarState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -140,7 +195,7 @@ PyObject *CarState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds
 	new (&self->state)::CarState ();
 
 	self->pos                = nullptr;
-	self->angles             = nullptr;
+	self->rotMat             = nullptr;
 	self->vel                = nullptr;
 	self->angVel             = nullptr;
 	self->lastRelDodgeTorque = nullptr;
@@ -152,34 +207,8 @@ PyObject *CarState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds
 
 int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	auto pos                = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	auto angles             = PyRef<Angle>::stealObject (Angle::New (Angle::Type, nullptr, nullptr));
-	auto vel                = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	auto angVel             = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	auto lastRelDodgeTorque = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-	auto lastControls       = PyRef<CarControls>::stealObject (CarControls::New (CarControls::Type, nullptr, nullptr));
-	auto worldContactNormal = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
-
-	if (!pos || !angles || !vel || !angVel || !lastRelDodgeTorque || !lastControls || !worldContactNormal)
+	if (!InitFromCarState (self_, ::CarState{}))
 		return -1;
-
-	self_->state = ::CarState{};
-
-	PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
-	PyRef<Angle>::assign (self_->angles, angles.borrowObject ());
-	PyRef<Vec>::assign (self_->vel, vel.borrowObject ());
-	PyRef<Vec>::assign (self_->angVel, angVel.borrowObject ());
-	PyRef<Vec>::assign (self_->lastRelDodgeTorque, lastRelDodgeTorque.borrowObject ());
-	PyRef<CarControls>::assign (self_->lastControls, lastControls.borrowObject ());
-	PyRef<Vec>::assign (self_->worldContactNormal, worldContactNormal.borrowObject ());
-
-	self_->pos->vec                = self_->state.pos;
-	self_->angles->angle           = self_->state.angles;
-	self_->vel->vec                = self_->state.vel;
-	self_->angVel->vec             = self_->state.angVel;
-	self_->lastRelDodgeTorque->vec = self_->state.lastRelDodgeTorque;
-	self_->lastControls->controls  = self_->state.lastControls;
-	self_->worldContactNormal->vec = self_->state.worldContact.contactNormal;
 
 	return 0;
 }
@@ -187,7 +216,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 void CarState::Dealloc (CarState *self_) noexcept
 {
 	Py_XDECREF (self_->pos);
-	Py_XDECREF (self_->angles);
+	Py_XDECREF (self_->rotMat);
 	Py_XDECREF (self_->vel);
 	Py_XDECREF (self_->angVel);
 	Py_XDECREF (self_->lastRelDodgeTorque);
@@ -223,26 +252,26 @@ int CarState::Setpos (CarState *self_, PyObject *value_, void *) noexcept
 	return 0;
 }
 
-PyObject *CarState::Getangles (CarState *self_, void *) noexcept
+PyObject *CarState::Getrot_mat (CarState *self_, void *) noexcept
 {
-	return PyRef<Angle>::incRef (self_->angles).giftObject ();
+	return PyRef<RotMat>::incRef (self_->rotMat).giftObject ();
 }
 
-int CarState::Setangles (CarState *self_, PyObject *value_, void *) noexcept
+int CarState::Setrot_mat (CarState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'angle' attribute of 'RocketSim.CarState' objects");
+		PyErr_SetString (PyExc_TypeError, "can't delete 'rot_mat' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
-	if (!Py_IS_TYPE (value_, Angle::Type))
+	if (!Py_IS_TYPE (value_, RotMat::Type))
 	{
-		PyErr_SetString (PyExc_TypeError, "attribute value type must be RocketSim.Angle");
+		PyErr_SetString (PyExc_TypeError, "attribute value type must be RocketSim.RotMat");
 		return -1;
 	}
 
-	PyRef<Angle>::assign (self_->angles, value_);
+	PyRef<RotMat>::assign (self_->rotMat, value_);
 
 	return 0;
 }

@@ -4,13 +4,17 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
 import os
+import numpy
 
 sources = []
+headers = []
 
 for root, dirs, files in os.walk('.'):
     for file in files:
         if file.endswith('.cpp'):
             sources.append(os.path.join(root, file))
+        elif file.endswith('.h'):
+            headers.append(os.path.join(root, file))
 
 for root, dirs, files in os.walk('../libsrc'):
     for file in files:
@@ -24,7 +28,7 @@ for root, dirs, files in os.walk('../src'):
 
 class build_ext_ex(build_ext):
     extra_compile_args = {
-        'unix': ['-flto', '-g0'],
+        'unix': ['-std=c++20', '-flto', '-g0'],
         'msvc': ['/std:c++20', '/GL']
     }
 

@@ -49,6 +49,21 @@ PyType_Spec Angle::Spec = {
     .slots     = Angle::Slots,
 };
 
+PyRef<Angle> Angle::NewFromAngle (::Angle const &angle_) noexcept
+{
+	auto const self = PyRef<Angle>::stealObject (Angle::New (Angle::Type, nullptr, nullptr));
+	if (!self || !InitFromAngle (self.borrow (), angle_))
+		return nullptr;
+
+	return self;
+}
+
+bool Angle::InitFromAngle (Angle *const self_, ::Angle const &angle_) noexcept
+{
+	self_->angle = angle_;
+	return true;
+}
+
 PyObject *Angle::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -57,16 +72,18 @@ PyObject *Angle::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	if (!self)
 		return nullptr;
 
-	new (&self->angle)::Angle{0.0f, 0.0f, 0.0f};
+	new (&self->angle)::Angle{};
 
 	return self.giftObject ();
 }
 
 int Angle::Init (Angle *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	self_->angle = ::Angle{0.0f, 0.0f, 0.0f};
+	::Angle angle{};
+	if (!PyArg_ParseTuple (args_, "|fff", &angle.yaw, &angle.pitch, &angle.roll))
+		return -1;
 
-	if (!PyArg_ParseTuple (args_, "|fff", &self_->angle.yaw, &self_->angle.pitch, &self_->angle.roll))
+	if (!InitFromAngle (self_, angle))
 		return -1;
 
 	return 0;

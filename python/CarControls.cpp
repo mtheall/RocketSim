@@ -73,6 +73,21 @@ PyType_Spec CarControls::Spec = {
     .slots     = CarControls::Slots,
 };
 
+PyRef<CarControls> CarControls::NewFromCarControls (::CarControls const &controls_) noexcept
+{
+	auto const self = PyRef<CarControls>::stealObject (CarControls::New (CarControls::Type, nullptr, nullptr));
+	if (!self || !InitFromCarControls (self.borrow (), controls_))
+		return nullptr;
+
+	return self;
+}
+
+bool CarControls::InitFromCarControls (CarControls *const self_, ::CarControls const &controls_) noexcept
+{
+	self_->controls = controls_;
+	return true;
+}
+
 PyObject *CarControls::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -88,7 +103,8 @@ PyObject *CarControls::New (PyTypeObject *subtype_, PyObject *args_, PyObject *k
 
 int CarControls::Init (CarControls *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	self_->controls = ::CarControls{};
+	if (!InitFromCarControls (self_, ::CarControls{}))
+		return -1;
 
 	return 0;
 }

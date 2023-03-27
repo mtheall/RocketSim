@@ -73,11 +73,9 @@ PyObject *BoostPad::Getis_big (BoostPad *self_, void *) noexcept
 
 PyObject *BoostPad::GetPos (BoostPad *self_) noexcept
 {
-	auto pos = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
+	auto pos = Vec::NewFromVec (self_->pad->_posBT * BT_TO_UU);
 	if (!pos)
 		return nullptr;
-
-	pos->vec = self_->pad->GetPos ();
 
 	return pos.giftObject ();
 }

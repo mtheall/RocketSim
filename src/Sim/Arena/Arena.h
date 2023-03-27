@@ -113,9 +113,6 @@ public:
 
 	RSAPI void ResetToRandomKickoff(int seed = -1);
 
-	// Clone arena
-	RSAPI Arena *Clone();
-
 	// Free all associated memory
 	RSAPI ~Arena();
 
