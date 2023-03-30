@@ -4,11 +4,19 @@ namespace RocketSim::Python
 {
 PyTypeObject *Car::Type = nullptr;
 
+PyMemberDef Car::Members[] = {
+    {.name      = "boost_pickups",
+        .type   = T_UINT,
+        .offset = offsetof (Car, boostPickups),
+        .flags  = 0,
+        .doc    = "Boost pickups"},
+    {.name = "demos", .type = T_UINT, .offset = offsetof (Car, demos), .flags = 0, .doc = "Demos"},
+    {.name = "goals", .type = T_UINT, .offset = offsetof (Car, goals), .flags = 0, .doc = "Goals"},
+    {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
+};
+
 PyMethodDef Car::Methods[] = {
-    {.ml_name     = "demolish",
-        .ml_meth  = (PyCFunction)&Car::Demolish,
-        .ml_flags = METH_NOARGS,
-        .ml_doc   = "Demolish"},
+    {.ml_name = "demolish", .ml_meth = (PyCFunction)&Car::Demolish, .ml_flags = METH_NOARGS, .ml_doc = "Demolish"},
     {.ml_name     = "get_config",
         .ml_meth  = (PyCFunction)&Car::GetConfig,
         .ml_flags = METH_NOARGS,
@@ -33,10 +41,7 @@ PyMethodDef Car::Methods[] = {
         .ml_meth  = (PyCFunction)&Car::GetUpDir,
         .ml_flags = METH_NOARGS,
         .ml_doc   = "Get up direction"},
-    {.ml_name     = "respawn",
-        .ml_meth  = (PyCFunction)&Car::Respawn,
-        .ml_flags = METH_VARARGS,
-        .ml_doc   = "Respawn"},
+    {.ml_name = "respawn", .ml_meth = (PyCFunction)&Car::Respawn, .ml_flags = METH_VARARGS, .ml_doc = "Respawn"},
     {.ml_name     = "set_controls",
         .ml_meth  = (PyCFunction)&Car::SetControls,
         .ml_flags = METH_VARARGS,
@@ -55,9 +60,10 @@ PyGetSetDef Car::GetSet[] = {
 };
 
 PyType_Slot Car::Slots[] = {
-    {Py_tp_new, nullptr},
+    {Py_tp_new, (void *)&Car::NewStub},
     {Py_tp_init, nullptr},
     {Py_tp_dealloc, (void *)&Car::Dealloc},
+    {Py_tp_members, &Car::Members},
     {Py_tp_methods, &Car::Methods},
     {Py_tp_getset, &Car::GetSet},
     {0, nullptr},
@@ -67,8 +73,8 @@ PyType_Spec Car::Spec = {
     .name      = "RocketSim.Car",
     .basicsize = sizeof (Car),
     .itemsize  = 0,
-    .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_DISALLOW_INSTANTIATION,
-    .slots     = Car::Slots,
+    .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
+    .slots = Car::Slots,
 };
 
 Car *Car::New () noexcept
@@ -80,9 +86,16 @@ Car *Car::New () noexcept
 		return nullptr;
 
 	new (&self->arena) std::shared_ptr<::Arena>{};
-	self->car = nullptr;
+	self->car   = nullptr;
+	self->goals = 0;
 
 	return self.gift ();
+}
+
+PyObject *Car::NewStub (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	PyErr_SetString (PyExc_TypeError, "cannot create 'RocketSim.Car' instances");
+	return nullptr;
 }
 
 void Car::Dealloc (Car *self_) noexcept

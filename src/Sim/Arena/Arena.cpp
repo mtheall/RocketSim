@@ -95,6 +95,22 @@ void Arena::SetGoalScoreCallback(GoalScoreEventFn callbackFunc, void* userInfo) 
 	_goalScoreCallback.userInfo = userInfo;
 }
 
+void Arena::SetDemoCallback(DemoEventFn callbackFunc, void* userInfo) {
+	if (gameMode == GameMode::THE_VOID)
+		RS_ERR_CLOSE("Cannot set a demo callback when on THE_VOID gamemode!");
+
+	_demoCallback.func = callbackFunc;
+	_demoCallback.userInfo = userInfo;
+}
+
+void Arena::SetBoostCallback(BoostEventFn callbackFunc, void* userInfo) {
+	if (gameMode == GameMode::THE_VOID)
+		RS_ERR_CLOSE("Cannot set a boost callback when on THE_VOID gamemode!");
+
+	_boostCallback.func = callbackFunc;
+	_boostCallback.userInfo = userInfo;
+}
+
 void Arena::ResetToRandomKickoff(int seed) {
 	using namespace RLConst;
 
@@ -303,6 +319,8 @@ void Arena::_BtCallback_OnCarCarCollision(Car* car1, Car* car2, btManifoldPoint&
 						isDemo = car1->team != car2->team;
 
 					if (isDemo) {
+						if (_demoCallback.func)
+							_demoCallback.func(this, car1, car2, _demoCallback.userInfo);
 						car2->Demolish(_mutatorConfig.respawnDelay);
 					} else {
 						bool groundHit = car2->_internalState.isOnGround;
@@ -523,7 +541,11 @@ Arena* Arena::Clone(bool copyCallbacks) {
 	Arena* newArena = new Arena(this->gameMode, this->GetTickRate());
 	
 	if (copyCallbacks)
+	{
 		newArena->_goalScoreCallback = this->_goalScoreCallback;
+		newArena->_demoCallback      = this->_demoCallback;
+		newArena->_boostCallback     = this->_boostCallback;
+	}
 	
 	newArena->ball->SetState(this->ball->GetState());
 	newArena->ball->_velocityImpulseCache = this->ball->_velocityImpulseCache;
@@ -643,7 +665,8 @@ void Arena::Step(int ticksToSimulate) {
 			car->_PostTickUpdate(tickTime, _mutatorConfig);
 			car->_FinishPhysicsTick(_mutatorConfig);
 			if (gameMode == GameMode::SOCCAR) {
-				_boostPadGrid.CheckCollision(car);
+				if (_boostPadGrid.CheckCollision(car) && _boostCallback.func)
+					_boostCallback.func(this, car, _boostCallback.userInfo);
 			}
 		}
 

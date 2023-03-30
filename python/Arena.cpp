@@ -1,13 +1,162 @@
 #include "Module.h"
 
-#include "../src/RocketSim.h"
+#include "Array.h"
 
+#include "RocketSim.h"
+
+#include <algorithm>
+#include <bit>
+#include <cmath>
+#include <cstdlib>
 #include <mutex>
 #include <new>
+#include <tuple>
+#include <unordered_map>
 
 namespace
 {
-std::once_flag init;
+std::once_flag initRocketSim;
+
+void rocketSimInit () noexcept
+{
+	auto const path = std::getenv ("RS_COLLISION_MESHES");
+	RocketSim::Init (path ? path : COLLISION_MESH_BASE_PATH);
+}
+
+std::uint64_t makeKey (float a_, float b_) noexcept
+{
+	return (static_cast<std::uint64_t> (std::bit_cast<std::uint32_t> (a_)) << 32) | std::bit_cast<std::uint32_t> (b_);
+}
+
+std::unordered_map<std::uint64_t, unsigned> const boostMapping = {
+    // clang-format off
+    { makeKey (    0.0f, -4240.0f),  0 },
+    { makeKey (-1792.0f, -4184.0f),  1 },
+    { makeKey ( 1792.0f, -4184.0f),  2 },
+    { makeKey (-3072.0f, -4096.0f),  3 },
+    { makeKey ( 3072.0f, -4096.0f),  4 },
+    { makeKey (- 940.0f, -3308.0f),  5 },
+    { makeKey (  940.0f, -3308.0f),  6 },
+    { makeKey (    0.0f, -2816.0f),  7 },
+    { makeKey (-3584.0f, -2484.0f),  8 },
+    { makeKey ( 3584.0f, -2484.0f),  9 },
+    { makeKey (-1788.0f, -2300.0f), 10 },
+    { makeKey ( 1788.0f, -2300.0f), 11 },
+    { makeKey (-2048.0f, -1036.0f), 12 },
+    { makeKey (    0.0f, -1024.0f), 13 },
+    { makeKey ( 2048.0f, -1036.0f), 14 },
+    { makeKey (-3584.0f,     0.0f), 15 },
+    { makeKey (-1024.0f,     0.0f), 16 },
+    { makeKey ( 1024.0f,     0.0f), 17 },
+    { makeKey ( 3584.0f,     0.0f), 18 },
+    { makeKey (-2048.0f,  1036.0f), 19 },
+    { makeKey (    0.0f,  1024.0f), 20 },
+    { makeKey ( 2048.0f,  1036.0f), 21 },
+    { makeKey (-1788.0f,  2300.0f), 22 },
+    { makeKey ( 1788.0f,  2300.0f), 23 },
+    { makeKey (-3584.0f,  2484.0f), 24 },
+    { makeKey ( 3584.0f,  2484.0f), 25 },
+    { makeKey (    0.0f,  2816.0f), 26 },
+    { makeKey (- 940.0f,  3310.0f), 27 },
+    { makeKey (  940.0f,  3308.0f), 28 },
+    { makeKey (-3072.0f,  4096.0f), 29 },
+    { makeKey ( 3072.0f,  4096.0f), 30 },
+    { makeKey (-1792.0f,  4184.0f), 31 },
+    { makeKey ( 1792.0f,  4184.0f), 32 },
+    { makeKey (    0.0f,  4240.0f), 33 },
+    // clang-format on
+};
+
+int getBoostPadIndex (::BoostPad const *pad_) noexcept
+{
+	auto const it = boostMapping.find (makeKey (pad_->pos.x, pad_->pos.y));
+	if (it == std::end (boostMapping))
+		return -1;
+
+	return it->second;
+}
+
+void assign (RocketSim::Python::PyArrayRef &array_, unsigned row_, unsigned col_, btVector3 const &value_) noexcept
+{
+	array_ (row_, col_ + 0) = value_.x ();
+	array_ (row_, col_ + 1) = value_.y ();
+	array_ (row_, col_ + 2) = value_.z ();
+}
+
+void assign (RocketSim::Python::PyArrayRef &array_,
+    unsigned col_,
+    btVector3 const &value_,
+    bool angular_ = false) noexcept
+{
+	assign (array_, 0, col_, value_);
+
+	if (!angular_)
+		assign (array_, 1, col_, btVector3 (-value_.x (), -value_.y (), value_.z ()));
+	else
+		assign (array_, 1, col_, value_);
+}
+
+void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btQuaternion const &value_) noexcept
+{
+	array_ (0, col_ + 0) = value_.w ();
+	array_ (0, col_ + 1) = value_.x ();
+	array_ (0, col_ + 2) = value_.y ();
+	array_ (0, col_ + 3) = value_.z ();
+
+	array_ (1, col_ + 0) = value_.z ();
+	array_ (1, col_ + 1) = value_.y ();
+	array_ (1, col_ + 2) = -value_.x ();
+	array_ (1, col_ + 3) = -value_.w ();
+}
+
+btVector3 calcPYR (btMatrix3x3 const &mat_) noexcept
+{
+	// as from rlgym, but it's actually Yaw/Pitch/-Roll
+	btQuaternion q;
+	mat_.getRotation (q);
+
+	auto const &w = q.w ();
+	auto const &x = q.x ();
+	auto const &y = q.y ();
+	auto const &z = q.z ();
+
+	auto const sinr_cosp = 2.0f * (w * x + y * z);
+	auto const cosr_cosp = 1.0f - 2.0f * (x * x + y * y);
+	auto const sinp      = 2.0f * (w * y - z * x);
+	auto const siny_cosp = 2.0f * (w * z + x * y);
+	auto const cosy_cosp = 1.0f - 2.0f * (y * y + z * z);
+
+	auto const roll = -std::atan2 (sinr_cosp, cosr_cosp);
+	auto const yaw  = std::atan2 (siny_cosp, cosy_cosp);
+
+	if (std::abs (sinp) > 1.0f)
+		return btVector3 (std::copysign (M_PI_2, sinp), yaw, roll);
+
+	return btVector3 (std::asin (sinp), yaw, roll);
+}
+
+void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btMatrix3x3 const &mat_) noexcept
+{
+	auto const forward = mat_.getColumn (0);
+	auto const right   = mat_.getColumn (1);
+	auto const up      = mat_.getColumn (2);
+
+	assign (array_, col_ + 0, forward);
+	assign (array_, col_ + 3, right);
+	assign (array_, col_ + 6, up);
+
+	assign (array_, 0, col_ + 9, calcPYR (mat_));
+	assign (array_, 1, col_ + 9, calcPYR (btMatrix3x3 (-1, 0, 0, 0, -1, 0, 0, 0, 1) * mat_));
+}
+
+void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btRigidBody *rigidBody_) noexcept
+{
+	assign (array_, col_ + 0, rigidBody_->getWorldTransform ().getOrigin () * BT_TO_UU);
+	assign (array_, col_ + 3, rigidBody_->getOrientation ());
+	assign (array_, col_ + 7, rigidBody_->getLinearVelocity () * BT_TO_UU);
+	assign (array_, col_ + 10, rigidBody_->getAngularVelocity (), true);
+	assign (array_, col_ + 13, rigidBody_->getWorldTransform ().getBasis ());
+}
 }
 
 namespace RocketSim::Python
@@ -16,6 +165,16 @@ PyTypeObject *Arena::Type = nullptr;
 
 PyMemberDef Arena::Members[] = {
     {.name = "ball", .type = T_OBJECT_EX, .offset = offsetof (Arena, ball), .flags = READONLY, .doc = "Ball"},
+    {.name      = "blue_score",
+        .type   = T_UINT,
+        .offset = offsetof (Arena, blueScore),
+        .flags  = READONLY,
+        .doc    = "Blue score"},
+    {.name      = "orange_score",
+        .type   = T_UINT,
+        .offset = offsetof (Arena, orangeScore),
+        .flags  = READONLY,
+        .doc    = "Orange score"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -31,9 +190,19 @@ PyMethodDef Arena::Methods[] = {
         .ml_meth  = (PyCFunction)&Arena::GetBoostPads,
         .ml_flags = METH_NOARGS,
         .ml_doc   = nullptr},
+    {.ml_name     = "get_gym_state",
+        .ml_meth  = (PyCFunction)&Arena::GetGymState,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
     {.ml_name = "remove_car", .ml_meth = (PyCFunction)&Arena::RemoveCar, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
-    {.ml_name = "reset_kickoff", .ml_meth = (PyCFunction)&Arena::ResetKickoff, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
-    {.ml_name = "set_goal_score_callback", .ml_meth = (PyCFunction)&Arena::SetGoalScoreCallback, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name     = "reset_kickoff",
+        .ml_meth  = (PyCFunction)&Arena::ResetKickoff,
+        .ml_flags = METH_VARARGS,
+        .ml_doc   = nullptr},
+    {.ml_name     = "set_goal_score_callback",
+        .ml_meth  = (PyCFunction)&Arena::SetGoalScoreCallback,
+        .ml_flags = METH_VARARGS,
+        .ml_doc   = nullptr},
     {.ml_name = "step", .ml_meth = (PyCFunction)&Arena::Step, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
@@ -73,11 +242,14 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 		return nullptr;
 
 	new (&self->arena) std::shared_ptr<::Arena>{};
-	self->cars                      = new (std::nothrow) std::map<std::uint32_t, PyRef<Car>>{};
+	self->cars                      = new (std::nothrow) std::unordered_map<std::uint32_t, PyRef<Car>>{};
 	self->boostPads                 = new (std::nothrow) std::vector<PyRef<BoostPad>>{};
 	self->ball                      = nullptr;
 	self->goalScoreCallback         = nullptr;
 	self->goalScoreCallbackUserData = nullptr;
+	self->blueScore                 = 0;
+	self->orangeScore               = 0;
+	self->lastGoalTick              = 0;
 
 	if (!self->cars || !self->boostPads)
 	{
@@ -99,13 +271,15 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 	if (!PyArg_ParseTuple (args_, "i|f", &gameMode, &tickRate))
 		return -1;
 
-	std::call_once (init, &RocketSim::Init, "collision_meshes");
+	std::call_once (initRocketSim, &rocketSimInit);
 
 	try
 	{
 		auto arena = std::shared_ptr<::Arena> (::Arena::Create (static_cast<GameMode> (gameMode), tickRate));
 		if (!arena)
 			throw -1;
+
+		arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, self_);
 
 		auto ball = PyRef<Ball>::steal (Ball::New ());
 		if (!ball)
@@ -241,7 +415,7 @@ PyObject *Arena::Clone (Arena *self_) noexcept
 			back->pad = pad;
 		}
 
-		auto cars = std::map<std::uint32_t, PyRef<Car>>{};
+		auto cars = std::unordered_map<std::uint32_t, PyRef<Car>>{};
 		for (auto const &car : arena->GetCars ())
 		{
 			auto &carRef = cars[car->id];
@@ -252,6 +426,20 @@ PyObject *Arena::Clone (Arena *self_) noexcept
 
 			carRef->arena = arena;
 			carRef->car   = car;
+
+			auto it = self_->cars->find (car->id);
+			if (it != std::end (*self_->cars))
+			{
+				carRef->goals        = it->second->goals;
+				carRef->demos        = it->second->demos;
+				carRef->boostPickups = it->second->boostPickups;
+			}
+			else
+			{
+				carRef->goals        = 0;
+				carRef->demos        = 0;
+				carRef->boostPickups = 0;
+			}
 		}
 
 		// no exceptions thrown after this point
@@ -266,8 +454,11 @@ PyObject *Arena::Clone (Arena *self_) noexcept
 		PyObjectRef::assign (clone->goalScoreCallback, self_->goalScoreCallback);
 		PyObjectRef::assign (clone->goalScoreCallbackUserData, self_->goalScoreCallbackUserData);
 
-		if (clone->goalScoreCallback != Py_None)
-			clone->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, clone.borrow ());
+		clone->blueScore    = self_->blueScore;
+		clone->orangeScore  = self_->orangeScore;
+		clone->lastGoalTick = self_->lastGoalTick;
+
+		clone->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, clone.borrow ());
 
 		return clone.giftObject ();
 	}
@@ -336,6 +527,97 @@ PyObject *Arena::GetBoostPads (Arena *self_) noexcept
 	return list.gift ();
 }
 
+PyObject *Arena::GetGymState (Arena *self_) noexcept
+{
+	auto tuple = PyObjectRef::steal (PyTuple_New (3 + self_->cars->size ()));
+	if (!tuple)
+		return nullptr;
+
+	{
+		auto gameData = PyArrayRef (4);
+		if (!gameData)
+			return nullptr;
+
+		gameData (0) = static_cast<int> (self_->arena->gameMode);
+		gameData (1) = self_->arena->ball->_internalState.ballHitInfo.carID;
+		gameData (2) = self_->blueScore;
+		gameData (3) = self_->orangeScore;
+
+		PyTuple_SetItem (tuple.borrow (), 0, gameData.giftObject ());
+	}
+
+	{
+		auto const &boostPads   = self_->arena->GetBoostPads ();
+		auto const numBoostPads = self_->arena->GetBoostPads ().size ();
+
+		auto boostPadState = PyArrayRef (2, numBoostPads);
+		if (!boostPadState)
+			return nullptr;
+
+		for (unsigned i = 0; i < numBoostPads; ++i)
+		{
+			auto const &pad = boostPads[i];
+
+			auto const idx = getBoostPadIndex (pad);
+			if (idx < 0)
+				continue; // shouldn't happen
+
+			auto const inv = numBoostPads - idx - 1;
+
+			boostPadState (0, idx) = pad->_internalState.isActive;
+			boostPadState (1, inv) = pad->_internalState.isActive;
+		}
+
+		PyTuple_SetItem (tuple.borrow (), 1, boostPadState.giftObject ());
+	}
+
+	{
+		auto ballState = PyArrayRef (2, 25);
+		if (!ballState)
+			return nullptr;
+
+		auto const ball = self_->arena->ball;
+
+		assign (ballState, 0, ball->_rigidBody);
+
+		PyTuple_SetItem (tuple.borrow (), 2, ballState.giftObject ());
+	}
+
+	unsigned carIndex = 0;
+	for (auto const &[id, car] : *self_->cars)
+	{
+		auto carState = PyArrayRef (2, 36);
+		if (!carState)
+			return nullptr;
+
+		auto const &state = car->car->_internalState;
+
+		auto const hitLastStep = state.lastHitBallTick != ~0ULL && state.lastHitBallTick + 8 >= self_->arena->tickCount;
+
+		for (unsigned i = 0; i < 2; ++i)
+		{
+			carState (i, 0)  = car->car->id;
+			carState (i, 1)  = static_cast<int> (car->car->team);
+			carState (i, 2)  = car->goals;
+			carState (i, 3)  = 0; // todo saves
+			carState (i, 4)  = 0; // todo shots
+			carState (i, 5)  = car->demos;
+			carState (i, 6)  = car->boostPickups;
+			carState (i, 7)  = state.isDemoed;
+			carState (i, 8)  = state.isOnGround;
+			carState (i, 9)  = hitLastStep;
+			carState (i, 10) = state.boost;
+		}
+
+		assign (carState, 11, car->car->_rigidBody);
+
+		PyTuple_SetItem (tuple.borrow (), 3 + carIndex, carState.giftObject ());
+		++carIndex;
+	}
+
+	return tuple.giftObject ();
+}
+
 PyObject *Arena::RemoveCar (Arena *self_, PyObject *args_) noexcept
 {
 	Car *car;
@@ -383,8 +665,6 @@ PyObject *Arena::SetGoalScoreCallback (Arena *self_, PyObject *args_) noexcept
 	PyObjectRef::assign (self_->goalScoreCallback, callback);
 	PyObjectRef::assign (self_->goalScoreCallbackUserData, userData);
 
-	self_->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, self_);
-
 	Py_RETURN_NONE;
 }
 
@@ -401,7 +681,32 @@ PyObject *Arena::Step (Arena *self_, PyObject *args_) noexcept
 
 void Arena::HandleGoalScoreCallback (::Arena *arena_, Team scoringTeam_, void *userData_) noexcept
 {
-	auto const self = reinterpret_cast<Arena*> (userData_);
+	auto const self = reinterpret_cast<Arena *> (userData_);
+
+	if (scoringTeam_ == Team::BLUE)
+		++self->blueScore;
+	else
+		++self->orangeScore;
+
+	// find which car scored
+	Car *best = nullptr;
+	for (auto const &[id, car] : *self->cars)
+	{
+		if (scoringTeam_ != car->car->team)
+			continue;
+
+		if (car->car->_internalState.lastHitBallTick == ~0ULL ||
+		    car->car->_internalState.lastHitBallTick < self->lastGoalTick)
+			continue;
+
+		if (!best || best->car->_internalState.lastHitBallTick < car->car->_internalState.lastHitBallTick)
+			best = car.borrow ();
+	}
+
+	if (best)
+		++best->goals;
+
+	self->lastGoalTick = self->arena->tickCount;
 
 	if (self->goalScoreCallback == Py_None)
 		return;
@@ -416,6 +721,28 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, Team scoringTeam_, void *u
 		return;
 
 	Py_XDECREF (PyObject_Call (callback.borrow (), args.borrow (), nullptr));
+}
+
+void Arena::HandleDemoCallback (::Arena *arena_, ::Car *demoer_, ::Car *demoee_, void *userData_) noexcept
+{
+	auto const self = reinterpret_cast<Arena *> (userData_);
+
+	auto it = self->cars->find (demoer_->id);
+	if (it == std::end (*self->cars) || !it->second)
+		return;
+
+	++it->second->demos;
+}
+
+void Arena::HandleBoostCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept
+{
+	auto const self = reinterpret_cast<Arena *> (userData_);
+
+	auto it = self->cars->find (car_->id);
+	if (it == std::end (*self->cars) || !it->second)
+		return;
+
+	++it->second->boostPickups;
 }
 
 PyObject *Arena::Getgame_mode (Arena *self_, void *) noexcept

@@ -1,5 +1,7 @@
 #include "Module.h"
 
+#include "Array.h"
+
 #include <cstddef>
 #include <cstring>
 
@@ -8,27 +10,16 @@ namespace RocketSim::Python
 PyTypeObject *Vec::Type = nullptr;
 
 PyMemberDef Vec::Members[] = {
-    {.name      = "x",
-        .type   = T_FLOAT,
-        .offset = offsetof (Vec, vec) + offsetof (::Vec, x),
-        .flags  = 0,
-        .doc    = "x"},
-    {.name      = "y",
-        .type   = T_FLOAT,
-        .offset = offsetof (Vec, vec) + offsetof (::Vec, y),
-        .flags  = 0,
-        .doc    = "y"},
-    {.name      = "z",
-        .type   = T_FLOAT,
-        .offset = offsetof (Vec, vec) + offsetof (::Vec, z),
-        .flags  = 0,
-        .doc    = "z"},
+    {.name = "x", .type = T_FLOAT, .offset = offsetof (Vec, vec) + offsetof (::Vec, x), .flags = 0, .doc = "x"},
+    {.name = "y", .type = T_FLOAT, .offset = offsetof (Vec, vec) + offsetof (::Vec, y), .flags = 0, .doc = "y"},
+    {.name = "z", .type = T_FLOAT, .offset = offsetof (Vec, vec) + offsetof (::Vec, z), .flags = 0, .doc = "z"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
 PyMethodDef Vec::Methods[] = {
     {.ml_name = "round", .ml_meth = (PyCFunction)&Vec::Round, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&Vec::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&Vec::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__format__", .ml_meth = (PyCFunction)&Vec::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
@@ -74,7 +65,7 @@ PyObject *Vec::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) no
 	if (!self)
 		return nullptr;
 
-	new (&self->vec) ::Vec{};
+	new (&self->vec)::Vec{};
 
 	return self.giftObject ();
 }
@@ -167,6 +158,19 @@ PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 PyObject *Vec::AsTuple (Vec *self_) noexcept
 {
 	return Py_BuildValue ("fff", self_->vec.x, self_->vec.y, self_->vec.z);
+}
+
+PyObject *Vec::AsNumpy (Vec *self_) noexcept
+{
+	auto array = PyArrayRef (3);
+	if (!array)
+		return nullptr;
+
+	array (0) = self_->vec.x;
+	array (1) = self_->vec.y;
+	array (2) = self_->vec.z;
+
+	return array.giftObject ();
 }
 
 PyObject *Vec::Round (Vec *self_, PyObject *args_) noexcept

@@ -58,9 +58,9 @@ bool BallState::InitFromBallState (BallState *const self_, ::BallState const &st
 	if (!pos || !vel || !angVel)
 		return false;
 
-	RocketSim::Python::PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
-	RocketSim::Python::PyRef<Vec>::assign (self_->vel, vel.borrowObject ());
-	RocketSim::Python::PyRef<Vec>::assign (self_->angVel, angVel.borrowObject ());
+	PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
+	PyRef<Vec>::assign (self_->vel, vel.borrowObject ());
+	PyRef<Vec>::assign (self_->angVel, angVel.borrowObject ());
 
 	self_->state = state_;
 

@@ -1,5 +1,7 @@
 #include "Module.h"
 
+#include "Array.h"
+
 #include <cstring>
 
 namespace RocketSim::Python
@@ -13,14 +15,15 @@ PyMemberDef RotMat::Members[] = {
 PyMethodDef RotMat::Methods[] = {
     {.ml_name = "__format__", .ml_meth = (PyCFunction)&RotMat::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&RotMat::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&RotMat::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "as_angle", .ml_meth = (PyCFunction)&RotMat::AsAngle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
 PyGetSetDef RotMat::GetSet[] = {
-	GETSET_ENTRY (RotMat, forward),
-	GETSET_ENTRY (RotMat, right),
-	GETSET_ENTRY (RotMat, up),
+    GETSET_ENTRY (RotMat, forward),
+    GETSET_ENTRY (RotMat, right),
+    GETSET_ENTRY (RotMat, up),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -169,8 +172,7 @@ int RotMat::Setforward (RotMat *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (
-		    PyExc_TypeError, "can't delete 'forward' attribute of 'RocketSim.RotMat' objects");
+		PyErr_SetString (PyExc_TypeError, "can't delete 'forward' attribute of 'RocketSim.RotMat' objects");
 		return -1;
 	}
 
@@ -194,8 +196,7 @@ int RotMat::Setright (RotMat *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (
-		    PyExc_TypeError, "can't delete 'right' attribute of 'RocketSim.RotMat' objects");
+		PyErr_SetString (PyExc_TypeError, "can't delete 'right' attribute of 'RocketSim.RotMat' objects");
 		return -1;
 	}
 
@@ -219,8 +220,7 @@ int RotMat::Setup (RotMat *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (
-		    PyExc_TypeError, "can't delete 'up' attribute of 'RocketSim.RotMat' objects");
+		PyErr_SetString (PyExc_TypeError, "can't delete 'up' attribute of 'RocketSim.RotMat' objects");
 		return -1;
 	}
 
@@ -234,10 +234,31 @@ int RotMat::Setup (RotMat *self_, PyObject *value_, void *) noexcept
 
 	return 0;
 }
-	
+
 PyObject *RotMat::AsTuple (RotMat *self_) noexcept
 {
 	return Py_BuildValue ("OOO", self_->forward, self_->right, self_->up);
+}
+
+PyObject *RotMat::AsNumpy (RotMat *self_) noexcept
+{
+	auto array = PyArrayRef (3, 3);
+	if (!array)
+		return nullptr;
+
+	array (0, 0) = self_->forward->vec.x;
+	array (0, 1) = self_->forward->vec.y;
+	array (0, 2) = self_->forward->vec.z;
+
+	array (1, 0) = self_->right->vec.x;
+	array (1, 1) = self_->right->vec.y;
+	array (1, 2) = self_->right->vec.z;
+
+	array (2, 0) = self_->up->vec.x;
+	array (2, 1) = self_->up->vec.y;
+	array (2, 2) = self_->up->vec.z;
+
+	return array.giftObject ();
 }
 
 PyObject *RotMat::AsAngle (RotMat *self_) noexcept

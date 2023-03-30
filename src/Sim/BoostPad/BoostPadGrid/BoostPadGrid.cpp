@@ -1,13 +1,13 @@
 #include "BoostPadGrid.h"
 
-void BoostPadGrid::CheckCollision(Car* car) {
+bool BoostPadGrid::CheckCollision(Car* car) {
 	if (car->_internalState.isDemoed || car->_internalState.boost >= 100)
-		return;
+		return false;
 
 	Vec carPos = car->_rigidBody->m_worldTransform.m_origin * BT_TO_UU;
 
 	if (carPos.z > EXTENT_Z)
-		return;
+		return false;
 
 	int indexX = carPos.x / CELL_SIZE_X + (CELLS_X / 2);
 	int indexY = carPos.y / CELL_SIZE_Y + (CELLS_Y / 2);
@@ -15,11 +15,12 @@ void BoostPadGrid::CheckCollision(Car* car) {
 	for (int i = RS_MAX(indexX - 1, 0); i < CELLS_X; i++) {
 		for (int j = RS_MAX(indexY - 1, 0); j < CELLS_Y; j++) {
 			BoostPad* pad = pads[i][j];
-			if (pad) {
-				pad->_CheckCollide(car);
-			}
+			if (pad && pad->_CheckCollide(car))
+				return true;
 		}
 	}
+
+	return false;
 }
 
 void BoostPadGrid::Add(BoostPad* pad) {

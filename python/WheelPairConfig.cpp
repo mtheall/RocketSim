@@ -50,7 +50,8 @@ PyType_Spec WheelPairConfig::Spec = {
 
 PyRef<WheelPairConfig> WheelPairConfig::NewFromWheelPairConfig (::WheelPairConfig const &config_) noexcept
 {
-	auto const self = PyRef<WheelPairConfig>::stealObject (WheelPairConfig::New (WheelPairConfig::Type, nullptr, nullptr));
+	auto const self =
+	    PyRef<WheelPairConfig>::stealObject (WheelPairConfig::New (WheelPairConfig::Type, nullptr, nullptr));
 	if (!self || !InitFromWheelPairConfig (self.borrow (), config_))
 		return nullptr;
 

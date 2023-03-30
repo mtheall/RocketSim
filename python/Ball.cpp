@@ -25,7 +25,7 @@ PyGetSetDef Ball::GetSet[] = {
 };
 
 PyType_Slot Ball::Slots[] = {
-    {Py_tp_new, nullptr},
+    {Py_tp_new, (void *)&Ball::NewStub},
     {Py_tp_init, nullptr},
     {Py_tp_dealloc, (void *)&Ball::Dealloc},
     {Py_tp_methods, &Ball::Methods},
@@ -37,8 +37,8 @@ PyType_Spec Ball::Spec = {
     .name      = "RocketSim.Ball",
     .basicsize = sizeof (Ball),
     .itemsize  = 0,
-    .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_DISALLOW_INSTANTIATION,
-    .slots     = Ball::Slots,
+    .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
+    .slots = Ball::Slots,
 };
 
 Ball *Ball::New () noexcept
@@ -53,6 +53,12 @@ Ball *Ball::New () noexcept
 	self->ball = nullptr;
 
 	return self.gift ();
+}
+
+PyObject *Ball::NewStub (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	PyErr_SetString (PyExc_TypeError, "cannot create 'RocketSim.Ball' instances");
+	return nullptr;
 }
 
 void Ball::Dealloc (Ball *self_) noexcept

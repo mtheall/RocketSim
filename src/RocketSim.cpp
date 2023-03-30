@@ -58,7 +58,7 @@ void RocketSim::Init(std::filesystem::path collisionMeshesFolder) {
 			if (!std::filesystem::exists(soccarMeshesFolder)) {
 				RS_ERR_CLOSE(
 					"Failed to find arena collision mesh files at " << soccarMeshesFolder
-					<< ", the collision meshes folder should be in our current directory " << std::filesystem::current_path() << ".")
+					<< ", the collision meshes folder should be in our current directory.")
 			}
 
 			// How many of each collision mesh hash we have loaded

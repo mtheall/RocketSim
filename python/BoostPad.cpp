@@ -24,7 +24,7 @@ PyGetSetDef BoostPad::GetSet[] = {
 };
 
 PyType_Slot BoostPad::Slots[] = {
-    {Py_tp_new, nullptr},
+    {Py_tp_new, (void *)&BoostPad::NewStub},
     {Py_tp_init, nullptr},
     {Py_tp_dealloc, (void *)&BoostPad::Dealloc},
     {Py_tp_members, &BoostPad::Members},
@@ -37,8 +37,8 @@ PyType_Spec BoostPad::Spec = {
     .name      = "RocketSim.BoostPad",
     .basicsize = sizeof (BoostPad),
     .itemsize  = 0,
-    .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_DISALLOW_INSTANTIATION,
-    .slots     = BoostPad::Slots,
+    .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
+    .slots = BoostPad::Slots,
 };
 
 BoostPad *BoostPad::New () noexcept
@@ -53,6 +53,12 @@ BoostPad *BoostPad::New () noexcept
 	self->pad = nullptr;
 
 	return self.gift ();
+}
+
+PyObject *BoostPad::NewStub (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	PyErr_SetString (PyExc_TypeError, "cannot create 'RocketSim.BoostPad' instances");
+	return nullptr;
 }
 
 void BoostPad::Dealloc (BoostPad *self_) noexcept
@@ -99,6 +105,6 @@ PyObject *BoostPad::SetState (BoostPad *self_, PyObject *args_) noexcept
 
 	self_->pad->SetState (state->state);
 
-	return 0;
+	Py_RETURN_NONE;
 }
 }

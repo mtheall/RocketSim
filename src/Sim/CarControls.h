@@ -36,4 +36,3 @@ struct CarControls {
 name.throttle, name.steer, \
 name.pitch, name.yaw, name.roll, \
 name.boost, name.jump, name.handbrake
-

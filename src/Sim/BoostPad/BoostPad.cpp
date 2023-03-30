@@ -34,7 +34,7 @@ void BoostPad::_PreTickUpdate(float tickTime) {
 	_internalState.curLockedCar = NULL;
 }
 
-void BoostPad::_CheckCollide(Car* car) {
+bool BoostPad::_CheckCollide(Car* car) {
 	using namespace RLConst::BoostPads;
 
 	Vec carPosBT = car->_rigidBody->m_worldTransform.m_origin;
@@ -58,6 +58,8 @@ void BoostPad::_CheckCollide(Car* car) {
 
 	if (colliding)
 		_internalState.curLockedCar = car;
+
+	return colliding;
 }
 
 void BoostPad::_PostTickUpdate(float tickTime, const MutatorConfig& mutatorConfig) {

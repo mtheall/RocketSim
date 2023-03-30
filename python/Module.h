@@ -1,20 +1,26 @@
+#pragma once
+
 #include <Python.h>
 #include <structmember.h>
 
 #include "PyRef.h"
 
-#include "../src/Math/Math.h"
-#include "../src/Sim/Arena/Arena.h"
-#include "../src/Sim/Car/Car.h"
+#include "Math/Math.h"
+#include "Sim/Arena/Arena.h"
+#include "Sim/Car/Car.h"
 
-#include <map>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
+// clang-format off
 template <typename T>
-struct TypeHelper
-{
-};
+struct TypeHelper{};
+// clang-format on
+
+#if PY_VERSION_HEX < 0x03090000
+#define Py_IS_TYPE(ob_, type_) ((PyObject const*)(ob_)->ob_type == (type_))
+#endif
 
 // clang-format off
 #define TYPE_HELPER(a_, b_) \
@@ -81,6 +87,7 @@ struct Vec
 	static PyObject *Format (Vec *self_, PyObject *args_) noexcept;
 
 	static PyObject *AsTuple (Vec *self_) noexcept;
+	static PyObject *AsNumpy (Vec *self_) noexcept;
 	static PyObject *Round (Vec *self_, PyObject *args_) noexcept;
 };
 
@@ -111,6 +118,7 @@ struct RotMat
 
 	static PyObject *AsTuple (RotMat *self_) noexcept;
 	static PyObject *AsAngle (RotMat *self_) noexcept;
+	static PyObject *AsNumpy (RotMat *self_) noexcept;
 
 	GETSET_DECLARE (RotMat, forward)
 	GETSET_DECLARE (RotMat, right)
@@ -139,6 +147,7 @@ struct Angle
 	static PyObject *Format (Angle *self_, PyObject *args_) noexcept;
 
 	static PyObject *AsTuple (Angle *self_) noexcept;
+	static PyObject *AsNumpy (Angle *self_) noexcept;
 };
 
 struct BallState
@@ -184,6 +193,7 @@ struct Ball
 	static PyType_Spec Spec;
 
 	static Ball *New () noexcept; // internal-use only
+	static PyObject *NewStub (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (Ball *self_) noexcept;
 
 	static PyObject *GetRadius (Ball *self_) noexcept;
@@ -222,6 +232,7 @@ struct BoostPad
 	static PyType_Spec Spec;
 
 	static BoostPad *New () noexcept; // internal-use only
+	static PyObject *NewStub (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (BoostPad *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (BoostPad *self_) noexcept;
 
@@ -350,14 +361,19 @@ struct Car
 
 	std::shared_ptr<Arena> arena;
 	::Car *car;
+	unsigned goals;
+	unsigned demos;
+	unsigned boostPickups;
 
 	static PyTypeObject *Type;
+	static PyMemberDef Members[];
 	static PyMethodDef Methods[];
 	static PyGetSetDef GetSet[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
 
 	static Car *New () noexcept; // internal-use only
+	static PyObject *NewStub (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (Car *self_) noexcept;
 
 	GETONLY_DECLARE (Car, id)
@@ -380,11 +396,16 @@ struct Arena
 	PyObject_HEAD
 
 	std::shared_ptr<::Arena> arena;
-	std::map<std::uint32_t, PyRef<Car>> *cars;
+	std::unordered_map<std::uint32_t, PyRef<Car>> *cars;
 	std::vector<PyRef<BoostPad>> *boostPads;
 	Ball *ball;
 	PyObject *goalScoreCallback;
 	PyObject *goalScoreCallbackUserData;
+
+	unsigned blueScore;
+	unsigned orangeScore;
+
+	std::uint64_t lastGoalTick;
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
@@ -402,13 +423,15 @@ struct Arena
 	static PyObject *GetBoostPads (Arena *self_) noexcept;
 	static PyObject *GetCarFromId (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *GetCars (Arena *self_) noexcept;
-	static PyObject *RegisterGoalScoreCallback (Arena *self_, PyObject *args_) noexcept;
+	static PyObject *GetGymState (Arena *self_) noexcept;
 	static PyObject *RemoveCar (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *ResetKickoff (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *SetGoalScoreCallback (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *Step (Arena *self_, PyObject *args_) noexcept;
 
 	static void HandleGoalScoreCallback (::Arena *arena_, Team scoringTeam_, void *userData_) noexcept;
+	static void HandleDemoCallback (::Arena *arena_, ::Car *demoer_, ::Car *demoee_, void *userData_) noexcept;
+	static void HandleBoostCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept;
 
 	GETONLY_DECLARE (Arena, game_mode);
 	GETONLY_DECLARE (Arena, tick_count);

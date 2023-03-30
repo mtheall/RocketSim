@@ -1,4 +1,8 @@
+#pragma once
+
 #include <Python.h>
+
+#include <cstddef>
 
 namespace RocketSim::Python
 {
@@ -49,7 +53,7 @@ public:
 		old_ = reinterpret_cast<T *> (new_);
 	}
 
-	~PyRef () noexcept
+	virtual ~PyRef () noexcept
 	{
 		Py_XDECREF (m_object);
 	}
@@ -153,12 +157,13 @@ public:
 		return reinterpret_cast<PyObject *> (newRef ());
 	}
 
-private:
+protected:
 	explicit PyRef (T *object_) noexcept : m_object (object_)
 	{
 		// stolen reference
 	}
 
+private:
 	T *m_object = nullptr;
 };
 
