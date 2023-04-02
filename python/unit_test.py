@@ -4,8 +4,25 @@ import RocketSim
 import numpy as np
 import glm
 import math
+import random
 
 np.set_printoptions(formatter={"float": lambda x: f"{x: .6f}"}, linewidth=100)
+
+arena = RocketSim.Arena(RocketSim.SOCCAR)
+car1  = arena.add_car(RocketSim.BLUE)
+car2  = arena.add_car(RocketSim.ORANGE)
+
+for i in range(100):
+	for j in range(10):
+		arena.add_car(random.randint(0, 1), random.randint(0, 5))
+	while len(arena.get_cars()) > 0:
+		arena.remove_car(arena.get_cars()[0])
+
+for i in range(100):
+	for j in range(10):
+		arena.add_car(random.randint(0, 1), random.randint(0, 5))
+	for car in arena.get_cars():
+		arena.remove_car(car)
 
 x = glm.vec3(1, 0, 0)
 y = glm.vec3(0, 1, 0)
@@ -45,7 +62,7 @@ def invert_mat3(mat: glm.mat3) -> np.ndarray:
 def invert_quat(quat: np.ndarray) -> np.ndarray:
 	return np.array(glm.angleAxis(math.pi, z) * glm.quat(*quat))
 
-def compare_array(a: np.ndarray, b: np.ndarray, threshold = 1e-6) -> bool:
+def compare_array(a: np.ndarray, b: np.ndarray, threshold: float = 1e-6) -> bool:
 	error = np.amax(np.absolute(a - b))
 	if error >= threshold:
 		print(a)

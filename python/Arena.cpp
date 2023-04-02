@@ -647,6 +647,7 @@ PyObject *Arena::RemoveCar (Arena *self_, PyObject *args_) noexcept
 	}
 
 	self_->arena->RemoveCar (car->car);
+	self_->cars->erase (car->car->id);
 
 	// detach car from arena
 	car->arena.reset ();
