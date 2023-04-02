@@ -74,7 +74,7 @@ PyType_Spec Car::Spec = {
     .basicsize = sizeof (Car),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
-    .slots = Car::Slots,
+    .slots     = Car::Slots,
 };
 
 Car *Car::New () noexcept

@@ -38,7 +38,7 @@ TYPE_HELPER(unsigned short,     T_USHORT);
 TYPE_HELPER(unsigned int,       T_UINT);
 TYPE_HELPER(unsigned long,      T_ULONG);
 TYPE_HELPER(bool,               T_BOOL);
-TYPE_HELPER(long long,          T_ULONGLONG);
+TYPE_HELPER(long long,          T_LONGLONG);
 TYPE_HELPER(unsigned long long, T_ULONGLONG);
 #undef TYPE_HELPER
 // clang-format on
@@ -148,6 +148,35 @@ struct Angle
 
 	static PyObject *AsTuple (Angle *self_) noexcept;
 	static PyObject *AsNumpy (Angle *self_) noexcept;
+};
+
+struct BallHitInfo
+{
+	PyObject_HEAD
+
+	::BallHitInfo info;
+
+	Vec *relativePosOnBall;
+	Vec *ballPos;
+	Vec *extraHitVel;
+
+	static PyTypeObject *Type;
+	static PyMemberDef Members[];
+	static PyMethodDef Methods[];
+	static PyGetSetDef GetSet[];
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+
+	static PyRef<BallHitInfo> NewFromBallHitInfo (::BallHitInfo const &info_ = {}) noexcept;
+	static bool InitFromBallHitInfo (BallHitInfo *self_, ::BallHitInfo const &info_ = {}) noexcept;
+
+	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
+	static int Init (BallHitInfo *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static void Dealloc (BallHitInfo *self_) noexcept;
+
+	GETSET_DECLARE (BallHitInfo, relative_pos_on_ball)
+	GETSET_DECLARE (BallHitInfo, ball_pos)
+	GETSET_DECLARE (BallHitInfo, extra_hit_vel)
 };
 
 struct BallState
@@ -332,6 +361,7 @@ struct CarState
 	Vec *lastRelDodgeTorque;
 	CarControls *lastControls;
 	Vec *worldContactNormal;
+	BallHitInfo *ballHitInfo;
 
 	static PyRef<CarState> NewFromCarState (::CarState const &state_ = {}) noexcept;
 	static bool InitFromCarState (CarState *self_, ::CarState const &state_ = {}) noexcept;
@@ -353,6 +383,7 @@ struct CarState
 	GETSET_DECLARE (CarState, last_rel_dodge_torque)
 	GETSET_DECLARE (CarState, last_controls)
 	GETSET_DECLARE (CarState, world_contact_normal)
+	GETSET_DECLARE (CarState, ball_hit_info)
 };
 
 struct Car
@@ -430,7 +461,7 @@ struct Arena
 	static PyObject *Step (Arena *self_, PyObject *args_) noexcept;
 
 	static void HandleGoalScoreCallback (::Arena *arena_, Team scoringTeam_, void *userData_) noexcept;
-	static void HandleDemoCallback (::Arena *arena_, ::Car *demoer_, ::Car *demoee_, void *userData_) noexcept;
+	static void HandleCarBumpCallback (::Arena* arena_, ::Car* bumper_, ::Car* victim_, bool isDemo_, void* userData_) noexcept;
 	static void HandleBoostCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept;
 
 	GETONLY_DECLARE (Arena, game_mode);

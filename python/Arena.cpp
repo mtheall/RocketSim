@@ -533,13 +533,27 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 	if (!tuple)
 		return nullptr;
 
+	std::uint64_t ballLastCarHitTick = 0;
+	std::uint32_t ballLastCarHitId   = 0;
+	for (auto const &[id, car] : *self_->cars)
+	{
+		if (!car->car->_internalState.ballHitInfo.isValid)
+			continue;
+
+		if (car->car->_internalState.ballHitInfo.tickCountWhenHit <= ballLastCarHitTick)
+			continue;
+
+		ballLastCarHitTick = car->car->_internalState.ballHitInfo.tickCountWhenHit;
+		ballLastCarHitId   = car->car->id;
+	}
+
 	{
 		auto gameData = PyArrayRef (4);
 		if (!gameData)
 			return nullptr;
 
 		gameData (0) = static_cast<int> (self_->arena->gameMode);
-		gameData (1) = self_->arena->ball->_internalState.ballHitInfo.carID;
+		gameData (1) = ballLastCarHitId;
 		gameData (2) = self_->blueScore;
 		gameData (3) = self_->orangeScore;
 
@@ -592,7 +606,9 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 
 		auto const &state = car->car->_internalState;
 
-		auto const hitLastStep = state.lastHitBallTick != ~0ULL && state.lastHitBallTick + 8 >= self_->arena->tickCount;
+		auto const hitLastStep = state.ballHitInfo.isValid &&
+		                         state.ballHitInfo.tickCountWhenHit > self_->lastGoalTick &&
+		                         state.ballHitInfo.tickCountWhenHit + 8 >= self_->arena->tickCount;
 
 		for (unsigned i = 0; i < 2; ++i)
 		{
@@ -683,28 +699,33 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, Team scoringTeam_, void *u
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
 
-	if (scoringTeam_ == Team::BLUE)
-		++self->blueScore;
-	else
-		++self->orangeScore;
-
-	// find which car scored
-	Car *best = nullptr;
-	for (auto const &[id, car] : *self->cars)
+	// avoid continuously counting goals until the ball exits goal zone
+	if (self->lastGoalTick + 1 != self->arena->tickCount)
 	{
-		if (scoringTeam_ != car->car->team)
-			continue;
+		if (scoringTeam_ == Team::BLUE)
+			++self->blueScore;
+		else
+			++self->orangeScore;
 
-		if (car->car->_internalState.lastHitBallTick == ~0ULL ||
-		    car->car->_internalState.lastHitBallTick < self->lastGoalTick)
-			continue;
+		// find which car scored
+		Car *best = nullptr;
+		for (auto const &[id, car] : *self->cars)
+		{
+			if (scoringTeam_ != car->car->team)
+				continue;
 
-		if (!best || best->car->_internalState.lastHitBallTick < car->car->_internalState.lastHitBallTick)
-			best = car.borrow ();
+			if (!car->car->_internalState.ballHitInfo.isValid ||
+			    car->car->_internalState.ballHitInfo.tickCountWhenHit < self->lastGoalTick)
+				continue;
+
+			if (!best || best->car->_internalState.ballHitInfo.tickCountWhenHit <
+			                 car->car->_internalState.ballHitInfo.tickCountWhenHit)
+				best = car.borrow ();
+		}
+
+		if (best)
+			++best->goals;
 	}
-
-	if (best)
-		++best->goals;
 
 	self->lastGoalTick = self->arena->tickCount;
 
@@ -723,11 +744,18 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, Team scoringTeam_, void *u
 	Py_XDECREF (PyObject_Call (callback.borrow (), args.borrow (), nullptr));
 }
 
-void Arena::HandleDemoCallback (::Arena *arena_, ::Car *demoer_, ::Car *demoee_, void *userData_) noexcept
+void Arena::HandleCarBumpCallback (::Arena *arena_,
+    ::Car *bumper_,
+    ::Car *victim_,
+    bool isDemo_,
+    void *userData_) noexcept
 {
+	if (!isDemo_)
+		return;
+
 	auto const self = reinterpret_cast<Arena *> (userData_);
 
-	auto it = self->cars->find (demoer_->id);
+	auto it = self->cars->find (bumper_->id);
 	if (it == std::end (*self->cars) || !it->second)
 		return;
 

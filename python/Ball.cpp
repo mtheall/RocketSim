@@ -38,7 +38,7 @@ PyType_Spec Ball::Spec = {
     .basicsize = sizeof (Ball),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
-    .slots = Ball::Slots,
+    .slots     = Ball::Slots,
 };
 
 Ball *Ball::New () noexcept

@@ -24,7 +24,7 @@ enum class GameMode : byte {
 };
 
 using GoalScoreEventFn = std::function<void(class Arena* arena, Team scoringTeam, void* userInfo)>;
-using DemoEventFn      = std::function<void(class Arena* arena, Car *demoer, Car *demoee, void* userInfo)>;
+using CarBumpEventFn   = std::function<void(class Arena* arena, Car* bumper, Car* victim, bool isDemo, void* userInfo)>;
 using BoostEventFn     = std::function<void(class Arena* arena, Car *car, void* userInfo)>;
 
 // The container for all game simulation
@@ -89,10 +89,10 @@ public:
 	RSAPI void SetGoalScoreCallback(GoalScoreEventFn callbackFn, void* userInfo = NULL);
 
 	struct {
-		DemoEventFn func = NULL;
+		CarBumpEventFn func = NULL;
 		void* userInfo = NULL;
-	} _demoCallback;
-	RSAPI void SetDemoCallback(DemoEventFn callbackFn, void* userInfo = NULL);
+	} _carBumpCallback;
+	RSAPI void SetCarBumpCallback(CarBumpEventFn callbackFn, void* userInfo = NULL);
 
 	struct {
 		BoostEventFn func = NULL;
@@ -112,7 +112,6 @@ public:
 	Arena(const Arena& other) = delete; // No copy constructor, use Arena::Clone() instead
 	Arena& operator =(const Arena& other) = delete; // No copy operator, use Arena::Clone() instead
 
-	
 	Arena(Arena&& other) = delete; // No move constructor
 	Arena& operator =(Arena&& other) = delete; // No move operator
 
@@ -126,6 +125,11 @@ public:
 	RSAPI void Step(int ticksToSimulate = 1);
 
 	RSAPI void ResetToRandomKickoff(int seed = -1);
+
+	// Returns true if the ball is probably going in, does not account for wall or ceiling bounces
+	// NOTE: Purposefully overestimates, just like the real RL's shot prediction
+	// To check which goal it will score in, use the ball's velocity
+	RSAPI bool IsBallProbablyGoingIn(float maxTime = 2.f);
 
 	// Free all associated memory
 	RSAPI ~Arena();

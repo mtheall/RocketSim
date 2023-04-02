@@ -113,11 +113,6 @@ PyMemberDef CarState::Members[] = {
         .offset = offsetof (CarState, state) + offsetof (::CarState, demoRespawnTimer),
         .flags  = 0,
         .doc    = "Demo respawn timer"},
-    {.name      = "last_hit_ball_tick",
-        .type   = TypeHelper<decltype (::CarState::lastHitBallTick)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, lastHitBallTick),
-        .flags  = 0,
-        .doc    = "Last hit ball tick"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -129,6 +124,7 @@ PyGetSetDef CarState::GetSet[] = {
     GETSET_ENTRY (CarState, last_rel_dodge_torque),
     GETSET_ENTRY (CarState, last_controls),
     GETSET_ENTRY (CarState, world_contact_normal),
+    GETSET_ENTRY (CarState, ball_hit_info),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -167,8 +163,10 @@ bool CarState::InitFromCarState (CarState *const self_, ::CarState const &state_
 	auto lastRelDodgeTorque = Vec::NewFromVec (state_.lastRelDodgeTorque);
 	auto lastControls       = CarControls::NewFromCarControls (state_.lastControls);
 	auto worldContactNormal = Vec::NewFromVec (state_.worldContact.contactNormal);
+	auto ballHitInfo        = BallHitInfo::NewFromBallHitInfo (state_.ballHitInfo);
 
-	if (!pos || !rotMat || !vel || !angVel || !lastRelDodgeTorque || !lastControls || !worldContactNormal)
+	if (!pos || !rotMat || !vel || !angVel || !lastRelDodgeTorque || !lastControls || !worldContactNormal ||
+	    !ballHitInfo)
 		return false;
 
 	PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
@@ -178,6 +176,7 @@ bool CarState::InitFromCarState (CarState *const self_, ::CarState const &state_
 	PyRef<Vec>::assign (self_->lastRelDodgeTorque, lastRelDodgeTorque.borrowObject ());
 	PyRef<CarControls>::assign (self_->lastControls, lastControls.borrowObject ());
 	PyRef<Vec>::assign (self_->worldContactNormal, worldContactNormal.borrowObject ());
+	PyRef<BallHitInfo>::assign (self_->ballHitInfo, ballHitInfo.borrowObject ());
 
 	self_->state = state_;
 
@@ -394,6 +393,30 @@ int CarState::Setworld_contact_normal (CarState *self_, PyObject *value_, void *
 	}
 
 	PyRef<Vec>::assign (self_->worldContactNormal, value_);
+
+	return 0;
+}
+
+PyObject *CarState::Getball_hit_info (CarState *self_, void *) noexcept
+{
+	return PyRef<BallHitInfo>::incRef (self_->ballHitInfo).giftObject ();
+}
+
+int CarState::Setball_hit_info (CarState *self_, PyObject *value_, void *) noexcept
+{
+	if (!value_)
+	{
+		PyErr_SetString (PyExc_TypeError, "can't delete 'ball_hit_info' attribute of 'RocketSim.CarState' objects");
+		return -1;
+	}
+
+	if (!Py_IS_TYPE (value_, BallHitInfo::Type))
+	{
+		PyErr_SetString (PyExc_TypeError, "attribute value type must be RocketSim.BallHitInfo");
+		return -1;
+	}
+
+	PyRef<BallHitInfo>::assign (self_->ballHitInfo, value_);
 
 	return 0;
 }

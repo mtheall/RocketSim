@@ -38,7 +38,7 @@ PyType_Spec BoostPad::Spec = {
     .basicsize = sizeof (BoostPad),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
-    .slots = BoostPad::Slots,
+    .slots     = BoostPad::Slots,
 };
 
 BoostPad *BoostPad::New () noexcept

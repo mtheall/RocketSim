@@ -1,6 +1,7 @@
 #include "Arena.h"
 
 #include "../../RocketSim.h"
+
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/BroadphaseCollision/btDbvtBroadphase.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btBoxShape.h"
@@ -10,7 +11,6 @@
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionDispatch/btCollisionDispatcher.h"
 #include "../../../libsrc/bullet3-3.24/BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolver.h"
 #include "../../../libsrc/bullet3-3.24/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
-
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
 
 RSAPI void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
@@ -95,12 +95,9 @@ void Arena::SetGoalScoreCallback(GoalScoreEventFn callbackFunc, void* userInfo) 
 	_goalScoreCallback.userInfo = userInfo;
 }
 
-void Arena::SetDemoCallback(DemoEventFn callbackFunc, void* userInfo) {
-	if (gameMode == GameMode::THE_VOID)
-		RS_ERR_CLOSE("Cannot set a demo callback when on THE_VOID gamemode!");
-
-	_demoCallback.func = callbackFunc;
-	_demoCallback.userInfo = userInfo;
+void Arena::SetCarBumpCallback(CarBumpEventFn callbackFunc, void* userInfo) {
+	_carBumpCallback.func = callbackFunc;
+	_carBumpCallback.userInfo = userInfo;
 }
 
 void Arena::SetBoostCallback(BoostEventFn callbackFunc, void* userInfo) {
@@ -226,26 +223,30 @@ bool Arena::_BulletContactAddedCallback(
 void Arena::_BtCallback_OnCarBallCollision(Car* car, Ball* ball, btManifoldPoint& manifoldPoint, bool ballIsBodyA) {
 	using namespace RLConst;
 
+	auto carState = car->GetState();
+	auto ballState = ball->GetState();
+
 	// Manually override manifold friction/restitution
-	manifoldPoint.m_combinedFriction = RLConst::CARBALL_COLLISION_FRICTION;
-	manifoldPoint.m_combinedRestitution = RLConst::CARBALL_COLLISION_RESTITUTION;
+	manifoldPoint.m_combinedFriction = CARBALL_COLLISION_FRICTION;
+	manifoldPoint.m_combinedRestitution = CARBALL_COLLISION_RESTITUTION;
+
+	auto& ballHitInfo = car->_internalState.ballHitInfo;
+
+	ballHitInfo.isValid = true;
+
+	ballHitInfo.relativePosOnBall = (ballIsBodyA ? manifoldPoint.m_localPointA : manifoldPoint.m_localPointB) * BT_TO_UU;
+	ballHitInfo.tickCountWhenHit = this->tickCount;
+
+	ballHitInfo.ballPos = ballState.pos;
+	ballHitInfo.extraHitVel = Vec();
 
 	// Once we do an extra car-ball impulse, we need to wait at least 1 tick to do it again
-	if ((tickCount > car->_internalState.lastHitBallTick + 1) || (car->_internalState.lastHitBallTick > tickCount)) {
-		car->_internalState.lastHitBallTick = tickCount;
+	if ((tickCount > ballHitInfo.tickCountWhenExtraImpulseApplied + 1) || (ballHitInfo.tickCountWhenExtraImpulseApplied > tickCount)) {
+		ballHitInfo.tickCountWhenExtraImpulseApplied = this->tickCount;
 	} else {
 		// Don't do multiple extra impulses in a row
 		return;
 	}
-
-	ball->_internalState.ballHitInfo.carID = car->id;
-	ball->_internalState.ballHitInfo.relativePosOnBall = (ballIsBodyA ? manifoldPoint.m_localPointA : manifoldPoint.m_localPointB) * BT_TO_UU;
-	ball->_internalState.ballHitInfo.tickCountWhenHit = this->tickCount;
-	
-	auto carState = car->GetState();
-	auto ballState = ball->GetState();
-
-	ball->_internalState.ballHitInfo.ballPos = ballState.pos;
 
 	btVector3 carForward = car->GetForwardDir();
 	btVector3 relPos = ballState.pos - carState.pos;
@@ -259,12 +260,10 @@ void Arena::_BtCallback_OnCarBallCollision(Car* car, Ball* ball, btManifoldPoint
 		hitDir = (hitDir - forwardDirAdjustment).normalized();
 
 		btVector3 addedVel = (hitDir * relSpeed) * BALL_CAR_EXTRA_IMPULSE_FACTOR_CURVE.GetOutput(relSpeed) * _mutatorConfig.ballHitExtraForceScale;
-		ball->_internalState.ballHitInfo.extraHitVel = addedVel;
+		ballHitInfo.extraHitVel = addedVel;
 
 		// Velocity won't be actually added until the end of this tick
 		ball->_velocityImpulseCache += addedVel * UU_TO_BT;
-	} else {
-		ball->_internalState.ballHitInfo.extraHitVel = Vec();
 	}
 }
 
@@ -318,9 +317,10 @@ void Arena::_BtCallback_OnCarCarCollision(Car* car1, Car* car2, btManifoldPoint&
 					if (isDemo && !_mutatorConfig.enableTeamDemos)
 						isDemo = car1->team != car2->team;
 
+					if (_carBumpCallback.func)
+						_carBumpCallback.func(this, car1, car2, isDemo, _carBumpCallback.userInfo);
+
 					if (isDemo) {
-						if (_demoCallback.func)
-							_demoCallback.func(this, car1, car2, _demoCallback.userInfo);
 						car2->Demolish(_mutatorConfig.respawnDelay);
 					} else {
 						bool groundHit = car2->_internalState.isOnGround;
@@ -543,7 +543,7 @@ Arena* Arena::Clone(bool copyCallbacks) {
 	if (copyCallbacks)
 	{
 		newArena->_goalScoreCallback = this->_goalScoreCallback;
-		newArena->_demoCallback      = this->_demoCallback;
+		newArena->_carBumpCallback   = this->_carBumpCallback;
 		newArena->_boostCallback     = this->_boostCallback;
 	}
 	
@@ -689,6 +689,48 @@ void Arena::Step(int ticksToSimulate) {
 		}
 
 		tickCount++;
+	}
+}
+
+bool Arena::IsBallProbablyGoingIn(float maxTime) {
+	if (gameMode == GameMode::SOCCAR) {
+		Vec ballPos = ball->_rigidBody->m_worldTransform.m_origin * UU_TO_BT;
+		Vec ballVel = ball->_rigidBody->m_linearVelocity * UU_TO_BT;
+
+		if (ballVel.y < FLT_EPSILON)
+			return false;
+
+		float scoreDirSgn = RS_SGN(ballVel.y);
+		float goalScoreY = (RLConst::SOCCAR_GOAL_SCORE_BASE_THRESHOLD_Y + _mutatorConfig.ballRadius) * scoreDirSgn;
+		float distToGoal = abs(ballPos.y - scoreDirSgn);
+
+		float timeToGoal = distToGoal / abs(ballVel.y);
+
+		if (timeToGoal > maxTime)
+			return false;
+		
+		// Roughly account for drag
+		timeToGoal *= 1 + powf(1 - _mutatorConfig.ballDrag, timeToGoal);
+
+		Vec extrapPosWhenScore = ballPos + (ballVel * timeToGoal) + (_mutatorConfig.gravity * timeToGoal * timeToGoal) / 2;
+		
+		// From: https://github.com/RLBot/RLBot/wiki/Useful-Game-Values
+		constexpr float
+			APPROX_GOAL_HALF_WIDTH = 892.755f,
+			APPROX_GOAL_HEIGHT = 642.775;
+
+		float SCORE_MARGIN = _mutatorConfig.ballRadius * 0.64f;
+
+		if (extrapPosWhenScore.z > APPROX_GOAL_HEIGHT + SCORE_MARGIN)
+			return false; // Too high
+
+		if (abs(extrapPosWhenScore.x) > APPROX_GOAL_HALF_WIDTH + SCORE_MARGIN)
+			return false; // Too far to the side
+
+		// Ok it's probably gonna score, or at least be very close
+		return true;
+	} else {
+		return false;
 	}
 }
 

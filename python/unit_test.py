@@ -98,9 +98,19 @@ for i in range(10000):
 	state = arena.get_gym_state()
 
 	assert(state[0][0] == arena.game_mode)
-	#assert(state[0][1] == ball. last_hit_id)
+	#assert(state[0][1] == ball.last_hit_id)
 	assert(state[0][2] == arena.blue_score)
 	assert(state[0][3] == arena.orange_score)
+
+	if int(state[0][1]):
+		last_hit = arena.get_car_from_id(int(state[0][1])).get_state().ball_hit_info
+		assert(last_hit.is_valid)
+
+		for car in arena.get_cars():
+			car_hit = car.get_state().ball_hit_info
+			if not car_hit.is_valid:
+				continue
+			assert(car_hit.tick_count_when_hit <= last_hit.tick_count_when_hit)
 
 	ball_state = ball.get_state()
 

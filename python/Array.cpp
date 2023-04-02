@@ -22,8 +22,8 @@ RocketSim::Python::PyRef<PyArrayObject> makeArray (unsigned dim0_, unsigned dim1
 
 	npy_intp const dims[2] = {dim0_, dim1_};
 
-	auto const array = RocketSim::Python::PyRef<PyArrayObject>::stealObject (PyArray_New (
-	    &PyArray_Type, dim1_ ? 2 : 1, dims, NPY_FLOAT, nullptr, nullptr, 0, NPY_ARRAY_DEFAULT, nullptr));
+	auto const array = RocketSim::Python::PyRef<PyArrayObject>::stealObject (
+	    PyArray_New (&PyArray_Type, dim1_ ? 2 : 1, dims, NPY_FLOAT, nullptr, nullptr, 0, NPY_ARRAY_DEFAULT, nullptr));
 	if (!array)
 		return nullptr;
 
