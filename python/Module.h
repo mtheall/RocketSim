@@ -19,7 +19,7 @@ struct TypeHelper{};
 // clang-format on
 
 #if PY_VERSION_HEX < 0x03090000
-#define Py_IS_TYPE(ob_, type_) ((PyObject const*)(ob_)->ob_type == (type_))
+#define Py_IS_TYPE(ob_, type_) ((PyObject const*)(ob_)->ob_type == (PyObject const*)(type_))
 #endif
 
 // clang-format off
