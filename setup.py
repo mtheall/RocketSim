@@ -3,27 +3,31 @@
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
+from sys import argv
+
 import os
 import numpy
 
 sources = []
 headers = []
 
-for root, dirs, files in os.walk("."):
+base = os.path.abspath(os.path.dirname(argv[0]))
+
+for root, dirs, files in os.walk(os.path.join(base, "python")):
     for file in files:
         if file.endswith(".cpp"):
             sources.append(os.path.join(root, file))
         elif file.endswith(".h"):
             headers.append(os.path.join(root, file))
 
-for root, dirs, files in os.walk("../libsrc"):
+for root, dirs, files in os.walk(os.path.join(base, "libsrc")):
     for file in files:
         if file.endswith(".cpp"):
             sources.append(os.path.join(root, file))
         elif file.endswith(".h"):
             headers.append(os.path.join(root, file))
 
-for root, dirs, files in os.walk("../src"):
+for root, dirs, files in os.walk(os.path.join(base, "src")):
     for file in files:
         if file.endswith(".cpp"):
             sources.append(os.path.join(root, file))
@@ -51,7 +55,7 @@ RocketSim = Extension(
     name = "RocketSim",
     sources = sources,
     depends = headers,
-    include_dirs = ["../libsrc", "../src", numpy.get_include()],
+    include_dirs = [os.path.join(base, "libsrc"), os.path.join(base, "src"), numpy.get_include()],
     language = "c++",
     py_limited_api = True,
     define_macros = [
