@@ -14,24 +14,78 @@ jobs:
       matrix:
         os: [windows-2019, ubuntu-22.04, macos-12]
         python-version: ["3.9"]
+        include:
+        - os: windows-2019
+          pip-path: ~\AppData\Local\pip\Cache
+          ccache-variant: sccache
+          ccache-path: NUL
+          wheel-path: dist/RocketSim-1.0-cp34-abi3-win_amd64.whl
+        - os: ubuntu-22.04
+          pip-path: ~/.cache/pip
+          ccache-variant: ccache
+          ccache-path: /usr/lib/ccache
+          wheel-path: dist/RocketSim-1.0-cp34-abi3-linux_x86_64.whl
+        - os: macos-12
+          pip-path: ~/Library/Caches/pip
+          ccache-variant: ccache
+          ccache-path: /usr/local/opt/ccache/libexec
+          wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_11_0_x86_64.whl
 
     steps:
       - uses: actions/checkout@v3
-      
+
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Build wheels
-        working-directory: ./python
+      - uses: actions/cache/restore@v3
+        id: pip-cache-restore
+        with:
+          path: ${{ matrix.pip-path }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+
+      - name: Install dependencies
         run: |
-          pip install wheel oldest-supported-numpy
-          make wheel
+          pip3 install wheel oldest-supported-numpy PyGLM
+
+      - uses: actions/cache/save@v3
+        if: steps.pip-cache-restore.outputs.cache-hit != 'true'
+        id: pip-cache-save
+        with:
+          path: ${{ matrix.pip-path }}
+          key: ${{ steps.pip-cache-restore.outputs.cache-primary-key }}
+
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}
+          append-timestamp: false
+          variant: ${{ matrix.ccache-variant }}
+
+      - name: Copy sccache to cl
+        if: matrix.os == 'windows-2019'
+        run: |
+          copy ~/.cargo/bin/sccache.exe ~/.cargo/bin/cl.exe
+
+      - name: Build extension
+        run: |
+          python3 setup.py build
         env:
-          CC: gcc-12
-          CXX: g++-12
+          CC: ${{ matrix.ccache-path }}/gcc-12
+          CXX: ${{ matrix.ccache-path }}/g++-12
           MACOSX_DEPLOYMENT_TARGET: 10.15
+
+      - name: Build wheel
+        run: |
+          python3 setup.py bdist_wheel --py-limited-api=cp34
+        env:
+          CC: ${{ matrix.ccache-path }}/gcc-12
+          CXX: ${{ matrix.ccache-path }}/g++-12
+          MACOSX_DEPLOYMENT_TARGET: 10.15
+
+      - name: Install wheel
+        run: |
+          pip3 install ${{ matrix.wheel-path }}
 
       - uses: actions/upload-artifact@v3
         with:
-          path: ./python/dist/*.whl
+          path: ${{ matrix.wheel-path }}

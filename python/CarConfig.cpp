@@ -41,6 +41,27 @@ PyType_Spec CarConfig::Spec = {
     .slots     = CarConfig::Slots,
 };
 
+bool CarConfig::CarConfigFromId (int id_, ::CarConfig &config_) noexcept
+{
+	static ::CarConfig const *const configs[] = {
+	    &CAR_CONFIG_OCTANE,
+	    &CAR_CONFIG_DOMINUS,
+	    &CAR_CONFIG_PLANK,
+	    &CAR_CONFIG_BREAKOUT,
+	    &CAR_CONFIG_HYBRID,
+	    &CAR_CONFIG_MERC,
+	};
+
+	if (id_ < 0 || static_cast<std::size_t> (id_) >= std::extent_v<decltype (configs)>)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "Invalid car configuration");
+		return false;
+	}
+
+	config_ = *configs[id_];
+	return true;
+}
+
 PyRef<CarConfig> CarConfig::NewFromCarConfig (::CarConfig const &config_) noexcept
 {
 	auto const self = PyRef<CarConfig>::stealObject (CarConfig::New (CarConfig::Type, nullptr, nullptr));
@@ -90,7 +111,15 @@ PyObject *CarConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 
 int CarConfig::Init (CarConfig *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	if (!InitFromCarConfig (self_, ::CarConfig{}))
+	int id = 0;
+	if (!PyArg_ParseTuple (args_, "|i", &id))
+		return -1;
+
+	::CarConfig config;
+	if (!CarConfigFromId (id, config))
+		return -1;
+
+	if (!InitFromCarConfig (self_, config))
 		return -1;
 
 	return 0;

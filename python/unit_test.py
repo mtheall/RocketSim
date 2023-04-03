@@ -8,9 +8,27 @@ import random
 
 np.set_printoptions(formatter={"float": lambda x: f"{x: .6f}"}, linewidth=100)
 
+def compare_float(a: float, b: float, threshold: float = 1e-4) -> bool:
+	error = abs(b - a)
+	if error >= threshold:
+		print(a)
+		print(b)
+		print(error)
+		return False
+	return True
+	
+assert(compare_float(RocketSim.CarConfig().dodge_deadzone, 0.5))
+assert(compare_float(RocketSim.CarConfig().hitbox_size.x, 120.5070))
+assert(compare_float(RocketSim.CarConfig(RocketSim.OCTANE).hitbox_size.x, 120.5070))
+assert(compare_float(RocketSim.CarConfig(RocketSim.DOMINUS).hitbox_size.x, 130.4270))
+assert(compare_float(RocketSim.CarConfig(RocketSim.PLANK).hitbox_size.x, 131.3200))
+assert(compare_float(RocketSim.CarConfig(RocketSim.BREAKOUT).hitbox_size.x, 133.9920))
+assert(compare_float(RocketSim.CarConfig(RocketSim.HYBRID).hitbox_size.x, 129.5190))
+assert(compare_float(RocketSim.CarConfig(RocketSim.MERC).hitbox_size.x, 123.22))
+
 arena = RocketSim.Arena(RocketSim.SOCCAR)
-car1  = arena.add_car(RocketSim.BLUE)
-car2  = arena.add_car(RocketSim.ORANGE)
+car1  = arena.add_car(RocketSim.BLUE, RocketSim.DOMINUS)
+car2  = arena.add_car(RocketSim.ORANGE, RocketSim.CarConfig(RocketSim.DOMINUS))
 
 for i in range(100):
 	for j in range(10):

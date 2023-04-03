@@ -313,6 +313,7 @@ struct CarConfig
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
 
+	static bool CarConfigFromId (int id_, ::CarConfig &config_) noexcept;
 	static PyRef<CarConfig> NewFromCarConfig (::CarConfig const &config_ = {}) noexcept;
 	static bool InitFromCarConfig (CarConfig *self_, ::CarConfig const &config_ = {}) noexcept;
 

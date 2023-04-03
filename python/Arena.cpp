@@ -333,30 +333,30 @@ void Arena::Dealloc (Arena *self_) noexcept
 PyObject *Arena::AddCar (Arena *self_, PyObject *args_) noexcept
 {
 	int team;
-	int configId = 0;
-	if (!PyArg_ParseTuple (args_, "i|i", &team, &configId))
+	PyObject *config = nullptr; // borrowed reference
+	if (!PyArg_ParseTuple (args_, "i|O", &team, &config))
 		return nullptr;
 
-	if (team < 0 || team > 1)
+	if (team != static_cast<int> (Team::BLUE) && team != static_cast<int> (Team::ORANGE))
 	{
 		PyErr_SetString (PyExc_RuntimeError, "Invalid team");
 		return nullptr;
 	}
 
-	if (configId < 0 || configId > 5)
+	::CarConfig carConfig = CAR_CONFIG_OCTANE;
+	if (config && Py_IS_TYPE (config, CarConfig::Type))
 	{
-		PyErr_SetString (PyExc_RuntimeError, "Invalid car configuration");
-		return nullptr;
+		carConfig = reinterpret_cast<CarConfig const *> (config)->config;
 	}
+	else if (config)
+	{
+		auto const configId = PyLong_AsLong (config);
+		if (PyErr_Occurred ())
+			return nullptr;
 
-	static ::CarConfig const *const configs[] = {
-	    &CAR_CONFIG_OCTANE,
-	    &CAR_CONFIG_DOMINUS,
-	    &CAR_CONFIG_PLANK,
-	    &CAR_CONFIG_BREAKOUT,
-	    &CAR_CONFIG_HYBRID,
-	    &CAR_CONFIG_MERC,
-	};
+		if (!CarConfig::CarConfigFromId (configId, carConfig))
+			return nullptr;
+	}
 
 	auto car = PyRef<Car>::steal (Car::New ());
 	if (!car)
@@ -366,7 +366,7 @@ PyObject *Arena::AddCar (Arena *self_, PyObject *args_) noexcept
 
 	try
 	{
-		rsCar = self_->arena->AddCar (static_cast<Team> (team), *configs[configId]);
+		rsCar = self_->arena->AddCar (static_cast<Team> (team), carConfig);
 
 		auto &carRef = (*self_->cars)[rsCar->id];
 		if (carRef) // this probably shouldn't happen
