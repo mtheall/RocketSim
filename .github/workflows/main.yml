@@ -2,9 +2,9 @@ name: Build
 
 on: [push, pull_request]
 
-#concurrency:
-#  group: ${{ github.workflow }}-${{ github.ref }}
-#  cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build_wheels:
@@ -130,9 +130,13 @@ jobs:
           path: collision_meshes
           key: collision-cache
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
           python3 python/unit_test.py
+
+      - name: Run regression tests
+        run: |
+          python3 python/regression_test.py
 
       - uses: actions/upload-artifact@v3
         if: matrix.python-version == '3.9'
