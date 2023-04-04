@@ -2,18 +2,18 @@ name: Build
 
 on: [push, pull_request]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+#concurrency:
+#  group: ${{ github.workflow }}-${{ github.ref }}
+#  cancel-in-progress: true
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: ${{ matrix.os }} ${{ matrix.python-version }} ${{ matrix.wheel-path }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-2019, ubuntu-22.04, macos-12]
-        python-version: ["3.9"]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
         include:
         - os: windows-2019
           pip-path: ~\AppData\Local\pip\Cache
@@ -26,10 +26,29 @@ jobs:
           ccache-path: /usr/lib/ccache
           wheel-path: dist/RocketSim-1.0-cp34-abi3-linux_x86_64.whl
         - os: macos-12
+          python-version: '3.8'
+          pip-path: ~/Library/Caches/pip
+          ccache-variant: ccache
+          ccache-path: /usr/local/opt/ccache/libexec
+          wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_10_15_x86_64.whl
+        - os: macos-12
+          python-version: '3.9'
           pip-path: ~/Library/Caches/pip
           ccache-variant: ccache
           ccache-path: /usr/local/opt/ccache/libexec
           wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_11_0_x86_64.whl
+        - os: macos-12
+          python-version: '3.10'
+          pip-path: ~/Library/Caches/pip
+          ccache-variant: ccache
+          ccache-path: /usr/local/opt/ccache/libexec
+          wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_11_0_x86_64.whl
+        - os: macos-12
+          python-version: '3.11'
+          pip-path: ~/Library/Caches/pip
+          ccache-variant: ccache
+          ccache-path: /usr/local/opt/ccache/libexec
+          wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_10_15_universal2.whl
 
     steps:
       - uses: actions/checkout@v3
@@ -42,22 +61,20 @@ jobs:
         id: pip-cache-restore
         with:
           path: ${{ matrix.pip-path }}
-          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
 
       - name: Install dependencies
         run: |
           pip3 install wheel oldest-supported-numpy PyGLM
 
       - uses: actions/cache/save@v3
-        if: steps.pip-cache-restore.outputs.cache-hit != 'true'
-        id: pip-cache-save
         with:
           path: ${{ matrix.pip-path }}
           key: ${{ steps.pip-cache-restore.outputs.cache-primary-key }}
 
       - uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}
+          key: ${{ runner.os }}-${{ matrix.python-version }}
           append-timestamp: false
           variant: ${{ matrix.ccache-variant }}
 
@@ -86,6 +103,38 @@ jobs:
         run: |
           pip3 install ${{ matrix.wheel-path }}
 
+      - name: Load collision meshes
+        uses: actions/cache/restore@v3
+        id: collision-cache-restore
+        with:
+          path: collision_meshes
+          key: collision-cache
+
+      - name: Download collision meshes
+        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
+        uses: suisei-cn/actions-download-file@v1.3.0
+        with:
+          url: https://mtheall.com/~mtheall/collision_meshes.tar
+
+      - name: Extract collision meshes
+        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
+        uses: a7ul/tar-action@v1.1.3
+        with:
+          command: x
+          files: collision_meshes.tar
+
+      - name: Save collision meshes
+        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3
+        with:
+          path: collision_meshes
+          key: collision-cache
+
+      - name: Run tests
+        run: |
+          python3 python/unit_test.py
+
       - uses: actions/upload-artifact@v3
+        if: matrix.python-version == '3.9'
         with:
           path: ${{ matrix.wheel-path }}

@@ -57,6 +57,11 @@ bool Vec::InitFromVec (Vec *const self_, ::Vec const &vec_) noexcept
 	return true;
 }
 
+::Vec Vec::ToVec (Vec *self_) noexcept
+{
+	return self_->vec;
+}
+
 PyObject *Vec::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -92,67 +97,42 @@ void Vec::Dealloc (Vec *self_) noexcept
 
 PyObject *Vec::Repr (Vec *self_) noexcept
 {
-	auto const tp_repr = (reprfunc)PyType_GetSlot (&PyTuple_Type, Py_tp_repr);
-	if (!tp_repr)
-		return nullptr;
-
-	auto tuple = PyObjectRef::steal (AsTuple (self_));
+	auto const tuple = PyObjectRef::steal (AsTuple (self_));
 	if (!tuple)
 		return nullptr;
 
-	return tp_repr (tuple.borrow ());
+	return PyObject_Repr (tuple.borrow ());
 }
 
 PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 {
-	auto tp_methods = (PyMethodDef *)PyType_GetSlot (&PyFloat_Type, Py_tp_methods);
-	if (!tp_methods)
-		return nullptr;
-
-	PyCFunction format = nullptr;
-	while (tp_methods->ml_name)
-	{
-		if (std::strcmp (tp_methods->ml_name, "__format__") == 0)
-		{
-			format = tp_methods->ml_meth;
-			break;
-		}
-
-		++tp_methods;
-	}
-
-	if (!format)
+	auto format = PyObject_GetAttrString (reinterpret_cast<PyObject *> (&PyFloat_Type), "__format__");
+	if (!format || !PyCallable_Check (format))
 		return nullptr;
 
 	PyObject *spec; // borrowed reference
 	if (!PyArg_ParseTuple (args_, "O!", &PyUnicode_Type, &spec))
 		return nullptr;
 
-	auto const x = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.x));
-	if (!x)
+	auto const applyFormat = [&] (float x_) -> PyObjectRef {
+		auto const value = PyObjectRef::steal (PyFloat_FromDouble (x_));
+		if (!value)
+			return nullptr;
+
+		auto const formatArgs = PyObjectRef::steal (Py_BuildValue ("OO", value.borrow (), spec));
+		if (!formatArgs)
+			return nullptr;
+
+		return PyObjectRef::steal (PyObject_Call (format, formatArgs.borrow (), nullptr));
+	};
+
+	auto const x = applyFormat (self_->vec.x);
+	auto const y = applyFormat (self_->vec.y);
+	auto const z = applyFormat (self_->vec.z);
+	if (!x || !y || !z)
 		return nullptr;
 
-	auto const xString = PyObjectRef::steal (format (x.borrow (), spec));
-	if (!xString)
-		return nullptr;
-
-	auto const y = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.y));
-	if (!y)
-		return nullptr;
-
-	auto const yString = PyObjectRef::steal (format (y.borrow (), spec));
-	if (!yString)
-		return nullptr;
-
-	auto const z = PyObjectRef::steal (PyFloat_FromDouble (self_->vec.z));
-	if (!z)
-		return nullptr;
-
-	auto const zString = PyObjectRef::steal (format (z.borrow (), spec));
-	if (!zString)
-		return nullptr;
-
-	return PyUnicode_FromFormat ("(%S, %S, %S)", xString.borrow (), yString.borrow (), zString.borrow ());
+	return PyUnicode_FromFormat ("(%S, %S, %S)", x.borrow (), y.borrow (), z.borrow ());
 }
 
 PyObject *Vec::AsTuple (Vec *self_) noexcept

@@ -76,18 +76,9 @@ PyObject *Ball::GetRadius (Ball *self_) noexcept
 
 PyObject *Ball::GetState (Ball *self_) noexcept
 {
-	auto state = PyRef<BallState>::stealObject (BallState::New (BallState::Type, nullptr, nullptr));
+	auto state = BallState::NewFromBallState (self_->ball->GetState ());
 	if (!state)
 		return nullptr;
-
-	if (BallState::Init (state.borrow (), nullptr, nullptr) != 0)
-		return nullptr;
-
-	// copy values from state
-	state->state       = self_->ball->GetState ();
-	state->pos->vec    = state->state.pos;
-	state->vel->vec    = state->state.vel;
-	state->angVel->vec = state->state.angVel;
 
 	return state.giftObject ();
 }
@@ -98,13 +89,7 @@ PyObject *Ball::SetState (Ball *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O!", BallState::Type, &state))
 		return nullptr;
 
-	// copy values to state
-	::BallState newState = state->state;
-	newState.pos         = state->pos->vec;
-	newState.vel         = state->vel->vec;
-	newState.angVel      = state->angVel->vec;
-
-	self_->ball->SetState (newState);
+	self_->ball->SetState (BallState::ToBallState (state));
 
 	Py_RETURN_NONE;
 }

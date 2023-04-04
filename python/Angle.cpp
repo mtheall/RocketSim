@@ -67,6 +67,11 @@ bool Angle::InitFromAngle (Angle *const self_, ::Angle const &angle_) noexcept
 	return true;
 }
 
+::Angle Angle::ToAngle (Angle *self_) noexcept
+{
+	return self_->angle;
+}
+
 PyObject *Angle::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -102,73 +107,47 @@ void Angle::Dealloc (Angle *self_) noexcept
 
 PyObject *Angle::Repr (Angle *self_) noexcept
 {
-	auto const tp_repr = (reprfunc)PyType_GetSlot (&PyTuple_Type, Py_tp_repr);
-	if (!tp_repr)
-		return nullptr;
-
-	auto const tuple =
-	    PyObjectRef::steal (Py_BuildValue ("fff", self_->angle.yaw, self_->angle.pitch, self_->angle.roll));
+	auto const tuple = PyObjectRef::steal (AsTuple (self_));
 	if (!tuple)
 		return nullptr;
 
-	return tp_repr (tuple.borrow ());
+	return PyObject_Repr (tuple.borrow ());
 }
 
 PyObject *Angle::Format (Angle *self_, PyObject *args_) noexcept
 {
-	auto tp_methods = (PyMethodDef *)PyType_GetSlot (&PyFloat_Type, Py_tp_methods);
-	if (!tp_methods)
-		return nullptr;
-
-	PyCFunction format = nullptr;
-	while (tp_methods->ml_name)
-	{
-		if (std::strcmp (tp_methods->ml_name, "__format__") == 0)
-		{
-			format = tp_methods->ml_meth;
-			break;
-		}
-
-		++tp_methods;
-	}
-
-	if (!format)
+	auto format = PyObject_GetAttrString (reinterpret_cast<PyObject *> (&PyFloat_Type), "__format__");
+	if (!format || !PyCallable_Check (format))
 		return nullptr;
 
 	PyObject *spec; // borrowed reference
 	if (!PyArg_ParseTuple (args_, "O!", &PyUnicode_Type, &spec))
 		return nullptr;
 
-	auto const yaw = PyObjectRef::steal (PyFloat_FromDouble (self_->angle.yaw));
-	if (!yaw)
+	auto const applyFormat = [&] (float x_) -> PyObjectRef {
+		auto const value = PyObjectRef::steal (PyFloat_FromDouble (x_));
+		if (!value)
+			return nullptr;
+
+		auto const formatArgs = PyObjectRef::steal (Py_BuildValue ("OO", value.borrow (), spec));
+		if (!formatArgs)
+			return nullptr;
+
+		return PyObjectRef::steal (PyObject_Call (format, formatArgs.borrow (), nullptr));
+	};
+
+	auto const yaw   = applyFormat (self_->angle.yaw);
+	auto const pitch = applyFormat (self_->angle.pitch);
+	auto const roll  = applyFormat (self_->angle.roll);
+	if (!yaw || !pitch || !roll)
 		return nullptr;
 
-	auto const yawString = PyObjectRef::steal (format (yaw.borrow (), spec));
-	if (!yawString)
-		return nullptr;
-
-	auto const pitch = PyObjectRef::steal (PyFloat_FromDouble (self_->angle.pitch));
-	if (!pitch)
-		return nullptr;
-
-	auto const pitchString = PyObjectRef::steal (format (pitch.borrow (), spec));
-	if (!pitchString)
-		return nullptr;
-
-	auto const roll = PyObjectRef::steal (PyFloat_FromDouble (self_->angle.roll));
-	if (!roll)
-		return nullptr;
-
-	auto const rollString = PyObjectRef::steal (format (roll.borrow (), spec));
-	if (!rollString)
-		return nullptr;
-
-	return PyUnicode_FromFormat ("(%S, %S, %S)", yawString.borrow (), pitchString.borrow (), rollString.borrow ());
+	return PyUnicode_FromFormat ("(%S, %S, %S)", yaw.borrow (), pitch.borrow (), roll.borrow ());
 }
 
 PyObject *Angle::AsTuple (Angle *self_) noexcept
 {
-	return Py_BuildValue ("fff", self_->angle.yaw, self_->angle.pitch, self_->angle.yaw);
+	return Py_BuildValue ("fff", self_->angle.yaw, self_->angle.pitch, self_->angle.roll);
 }
 
 PyObject *Angle::AsNumpy (Angle *self_) noexcept

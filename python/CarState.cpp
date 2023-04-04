@@ -183,6 +183,22 @@ bool CarState::InitFromCarState (CarState *const self_, ::CarState const &state_
 	return true;
 }
 
+::CarState CarState::ToCarState (CarState *self_) noexcept
+{
+	auto state = self_->state;
+
+	state.pos                        = Vec::ToVec (self_->pos);
+	state.rotMat                     = RotMat::ToRotMat (self_->rotMat);
+	state.vel                        = Vec::ToVec (self_->vel);
+	state.angVel                     = Vec::ToVec (self_->angVel);
+	state.lastRelDodgeTorque         = Vec::ToVec (self_->lastRelDodgeTorque);
+	state.lastControls               = CarControls::ToCarControls (self_->lastControls);
+	state.worldContact.contactNormal = Vec::ToVec (self_->worldContactNormal);
+	state.ballHitInfo                = BallHitInfo::ToBallHitInfo (self_->ballHitInfo);
+
+	return state;
+}
+
 PyObject *CarState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -200,6 +216,7 @@ PyObject *CarState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds
 	self->lastRelDodgeTorque = nullptr;
 	self->lastControls       = nullptr;
 	self->worldContactNormal = nullptr;
+	self->ballHitInfo        = nullptr;
 
 	return self.giftObject ();
 }
@@ -220,6 +237,8 @@ void CarState::Dealloc (CarState *self_) noexcept
 	Py_XDECREF (self_->angVel);
 	Py_XDECREF (self_->lastRelDodgeTorque);
 	Py_XDECREF (self_->lastControls);
+	Py_XDECREF (self_->worldContactNormal);
+	Py_XDECREF (self_->ballHitInfo);
 
 	self_->state.~CarState ();
 

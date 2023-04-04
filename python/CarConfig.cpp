@@ -41,25 +41,37 @@ PyType_Spec CarConfig::Spec = {
     .slots     = CarConfig::Slots,
 };
 
-bool CarConfig::CarConfigFromId (int id_, ::CarConfig &config_) noexcept
+bool CarConfig::FromIndex (Index index_, ::CarConfig &config_) noexcept
 {
-	static ::CarConfig const *const configs[] = {
-	    &CAR_CONFIG_OCTANE,
-	    &CAR_CONFIG_DOMINUS,
-	    &CAR_CONFIG_PLANK,
-	    &CAR_CONFIG_BREAKOUT,
-	    &CAR_CONFIG_HYBRID,
-	    &CAR_CONFIG_MERC,
-	};
-
-	if (id_ < 0 || static_cast<std::size_t> (id_) >= std::extent_v<decltype (configs)>)
+	switch (index_)
 	{
-		PyErr_SetString (PyExc_RuntimeError, "Invalid car configuration");
-		return false;
+	case Index::OCTANE:
+		config_ = CAR_CONFIG_OCTANE;
+		return true;
+
+	case Index::DOMINUS:
+		config_ = CAR_CONFIG_DOMINUS;
+		return true;
+
+	case Index::PLANK:
+		config_ = CAR_CONFIG_PLANK;
+		return true;
+
+	case Index::BREAKOUT:
+		config_ = CAR_CONFIG_BREAKOUT;
+		return true;
+
+	case Index::HYBRID:
+		config_ = CAR_CONFIG_HYBRID;
+		return true;
+
+	case Index::MERC:
+		config_ = CAR_CONFIG_MERC;
+		return true;
 	}
 
-	config_ = *configs[id_];
-	return true;
+	PyErr_SetString (PyExc_RuntimeError, "Invalid car configuration");
+	return false;
 }
 
 PyRef<CarConfig> CarConfig::NewFromCarConfig (::CarConfig const &config_) noexcept
@@ -91,6 +103,18 @@ bool CarConfig::InitFromCarConfig (CarConfig *const self_, ::CarConfig const &co
 	return true;
 }
 
+::CarConfig CarConfig::ToCarConfig (CarConfig *self_) noexcept
+{
+	auto config = self_->config;
+
+	config.hitboxSize      = Vec::ToVec (self_->hitboxSize);
+	config.hitboxPosOffset = Vec::ToVec (self_->hitboxPosOffset);
+	config.frontWheels     = WheelPairConfig::ToWheelPairConfig (self_->frontWheels);
+	config.backWheels      = WheelPairConfig::ToWheelPairConfig (self_->backWheels);
+
+	return config;
+}
+
 PyObject *CarConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -116,7 +140,7 @@ int CarConfig::Init (CarConfig *self_, PyObject *args_, PyObject *kwds_) noexcep
 		return -1;
 
 	::CarConfig config;
-	if (!CarConfigFromId (id, config))
+	if (!FromIndex (static_cast<Index> (id), config))
 		return -1;
 
 	if (!InitFromCarConfig (self_, config))

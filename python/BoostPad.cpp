@@ -88,11 +88,9 @@ PyObject *BoostPad::GetPos (BoostPad *self_) noexcept
 
 PyObject *BoostPad::GetState (BoostPad *self_) noexcept
 {
-	auto state = PyRef<BoostPadState>::stealObject (BoostPadState::New (BoostPadState::Type, nullptr, nullptr));
+	auto state = BoostPadState::NewFromBoostPadState (self_->pad->GetState ());
 	if (!state)
 		return nullptr;
-
-	state->state = self_->pad->GetState ();
 
 	return state.giftObject ();
 }
@@ -103,7 +101,7 @@ PyObject *BoostPad::SetState (BoostPad *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O!", BoostPadState::Type, &state))
 		return nullptr;
 
-	self_->pad->SetState (state->state);
+	self_->pad->SetState (BoostPadState::ToBoostPadState (state));
 
 	Py_RETURN_NONE;
 }

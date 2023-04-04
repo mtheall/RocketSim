@@ -21,6 +21,6 @@ struct BoostPadGrid {
 
 	BoostPadGrid() = default;
 
-	bool CheckCollision(Car* car);
+	BoostPad* CheckCollision(Car* car);
 	void Add(BoostPad* pad);
 };

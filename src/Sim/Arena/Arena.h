@@ -23,9 +23,10 @@ enum class GameMode : byte {
 	// More coming soon!
 };
 
-using GoalScoreEventFn = std::function<void(class Arena* arena, Team scoringTeam, void* userInfo)>;
-using CarBumpEventFn   = std::function<void(class Arena* arena, Car* bumper, Car* victim, bool isDemo, void* userInfo)>;
-using BoostEventFn     = std::function<void(class Arena* arena, Car *car, void* userInfo)>;
+using BallTouchEventFn   = std::function<void(class Arena* arena, Car *car, void* userInfo)>;
+using BoostPickupEventFn = std::function<void(class Arena* arena, Car *car, bool isBig_, void* userInfo)>;
+using CarBumpEventFn     = std::function<void(class Arena* arena, Car* bumper, Car* victim, bool isDemo, void* userInfo)>;
+using GoalScoreEventFn   = std::function<void(class Arena* arena, Team scoringTeam, void* userInfo)>;
 
 // The container for all game simulation
 // Stores cars, the ball, all arena collisions, and manages the overall game state
@@ -83,22 +84,28 @@ public:
 	vector<class btCollisionShape*> _worldCollisionShapes;
 
 	struct {
-		GoalScoreEventFn func = NULL;
-		void* userInfo = NULL;
-	} _goalScoreCallback;
-	RSAPI void SetGoalScoreCallback(GoalScoreEventFn callbackFn, void* userInfo = NULL);
+		BallTouchEventFn func = nullptr;
+		void* userInfo = nullptr;
+	} _ballTouchCallback;
+	RSAPI void SetBallTouchCallback(BallTouchEventFn callbackFn, void* userInfo = nullptr);
 
 	struct {
-		CarBumpEventFn func = NULL;
-		void* userInfo = NULL;
+		BoostPickupEventFn func = nullptr;
+		void* userInfo = nullptr;
+	} _boostPickupCallback;
+	RSAPI void SetBoostPickupCallback(BoostPickupEventFn callbackFn, void* userInfo = nullptr);
+
+	struct {
+		CarBumpEventFn func = nullptr;
+		void* userInfo = nullptr;
 	} _carBumpCallback;
-	RSAPI void SetCarBumpCallback(CarBumpEventFn callbackFn, void* userInfo = NULL);
+	RSAPI void SetCarBumpCallback(CarBumpEventFn callbackFn, void* userInfo = nullptr);
 
 	struct {
-		BoostEventFn func = NULL;
-		void* userInfo = NULL;
-	} _boostCallback;
-	RSAPI void SetBoostCallback(BoostEventFn callbackFn, void* userInfo = NULL);
+		GoalScoreEventFn func = nullptr;
+		void* userInfo = nullptr;
+	} _goalScoreCallback;
+	RSAPI void SetGoalScoreCallback(GoalScoreEventFn callbackFn, void* userInfo = nullptr);
 
 	// NOTE: Arena should be destroyed after use
 	RSAPI static Arena* Create(GameMode gameMode, float tickRate = 120);

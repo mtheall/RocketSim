@@ -71,6 +71,15 @@ bool WheelPairConfig::InitFromWheelPairConfig (WheelPairConfig *const self_, ::W
 	return true;
 }
 
+::WheelPairConfig WheelPairConfig::ToWheelPairConfig (WheelPairConfig *self_) noexcept
+{
+	auto config = self_->config;
+
+	config.connectionPointOffset = Vec::ToVec (self_->connectionPointOffset);
+
+	return config;
+}
+
 PyObject *WheelPairConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);

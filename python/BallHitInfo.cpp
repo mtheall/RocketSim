@@ -82,6 +82,17 @@ bool BallHitInfo::InitFromBallHitInfo (BallHitInfo *const self_, ::BallHitInfo c
 	return true;
 }
 
+::BallHitInfo BallHitInfo::ToBallHitInfo (BallHitInfo *self_) noexcept
+{
+	auto info = self_->info;
+
+	info.relativePosOnBall = Vec::ToVec (self_->relativePosOnBall);
+	info.ballPos           = Vec::ToVec (self_->ballPos);
+	info.extraHitVel       = Vec::ToVec (self_->extraHitVel);
+
+	return info;
+}
+
 PyObject *BallHitInfo::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);

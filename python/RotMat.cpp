@@ -8,10 +8,6 @@ namespace RocketSim::Python
 {
 PyTypeObject *RotMat::Type = nullptr;
 
-PyMemberDef RotMat::Members[] = {
-    {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
-};
-
 PyMethodDef RotMat::Methods[] = {
     {.ml_name = "__format__", .ml_meth = (PyCFunction)&RotMat::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&RotMat::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
@@ -32,7 +28,6 @@ PyType_Slot RotMat::Slots[] = {
     {Py_tp_init, (void *)&RotMat::Init},
     {Py_tp_dealloc, (void *)&RotMat::Dealloc},
     {Py_tp_repr, (void *)&RotMat::Repr},
-    {Py_tp_members, &RotMat::Members},
     {Py_tp_methods, &RotMat::Methods},
     {Py_tp_getset, &RotMat::GetSet},
     {0, nullptr},
@@ -68,9 +63,20 @@ bool RotMat::InitFromRotMat (RotMat *const self_, ::RotMat const &mat_) noexcept
 	PyRef<Vec>::assign (self_->right, right.borrowObject ());
 	PyRef<Vec>::assign (self_->up, up.borrowObject ());
 
-	self_->mat = mat_;
 	return true;
 }
+
+::RotMat RotMat::ToRotMat (RotMat *self_) noexcept
+{
+	::RotMat mat{};
+
+	mat.forward = Vec::ToVec (self_->forward);
+	mat.right   = Vec::ToVec (self_->right);
+	mat.up      = Vec::ToVec (self_->up);
+
+	return mat;
+}
+
 PyObject *RotMat::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);
@@ -79,7 +85,6 @@ PyObject *RotMat::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_)
 	if (!self)
 		return nullptr;
 
-	new (&self->mat)::RotMat{};
 	self->forward = nullptr;
 	self->right   = nullptr;
 	self->up      = nullptr;
@@ -121,13 +126,14 @@ int RotMat::Init (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept
 	PyRef<Vec>::assign (self_->right, right);
 	PyRef<Vec>::assign (self_->up, up);
 
-	self_->mat = mat;
 	return 0;
 }
 
 void RotMat::Dealloc (RotMat *self_) noexcept
 {
-	self_->mat.~RotMat ();
+	Py_XDECREF (self_->forward);
+	Py_XDECREF (self_->right);
+	Py_XDECREF (self_->up);
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
@@ -135,15 +141,11 @@ void RotMat::Dealloc (RotMat *self_) noexcept
 
 PyObject *RotMat::Repr (RotMat *self_) noexcept
 {
-	auto const tp_repr = (reprfunc)PyType_GetSlot (&PyTuple_Type, Py_tp_repr);
-	if (!tp_repr)
-		return nullptr;
-
 	auto const tuple = PyObjectRef::steal (AsTuple (self_));
 	if (!tuple)
 		return nullptr;
 
-	return tp_repr (tuple.borrow ());
+	return PyObject_Repr (tuple.borrow ());
 }
 
 PyObject *RotMat::Format (RotMat *self_, PyObject *args_) noexcept
@@ -246,23 +248,25 @@ PyObject *RotMat::AsNumpy (RotMat *self_) noexcept
 	if (!array)
 		return nullptr;
 
-	array (0, 0) = self_->forward->vec.x;
-	array (0, 1) = self_->forward->vec.y;
-	array (0, 2) = self_->forward->vec.z;
+	auto const forward = Vec::ToVec (self_->forward);
+	auto const right   = Vec::ToVec (self_->right);
+	auto const up      = Vec::ToVec (self_->up);
 
-	array (1, 0) = self_->right->vec.x;
-	array (1, 1) = self_->right->vec.y;
-	array (1, 2) = self_->right->vec.z;
-
-	array (2, 0) = self_->up->vec.x;
-	array (2, 1) = self_->up->vec.y;
-	array (2, 2) = self_->up->vec.z;
+	array (0, 0) = forward.x;
+	array (0, 1) = forward.y;
+	array (0, 2) = forward.z;
+	array (1, 0) = right.x;
+	array (1, 1) = right.y;
+	array (1, 2) = right.z;
+	array (2, 0) = up.x;
+	array (2, 1) = up.y;
+	array (2, 2) = up.z;
 
 	return array.giftObject ();
 }
 
 PyObject *RotMat::AsAngle (RotMat *self_) noexcept
 {
-	return Angle::NewFromAngle (::Angle::FromRotMat (self_->mat)).giftObject ();
+	return Angle::NewFromAngle (::Angle::FromRotMat (ToRotMat (self_))).giftObject ();
 }
 }

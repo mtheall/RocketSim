@@ -36,19 +36,77 @@ PyMODINIT_FUNC PyInit_RocketSim () noexcept
 	MAKE_TYPE (CarConfig);
 	MAKE_TYPE (CarControls);
 	MAKE_TYPE (CarState);
+	MAKE_TYPE (DemoMode);
+	MAKE_TYPE (GameMode);
 	MAKE_TYPE (RotMat);
+	MAKE_TYPE (Team);
 	MAKE_TYPE (Vec);
 	MAKE_TYPE (WheelPairConfig);
 
-	if (PyModule_AddIntConstant (m.borrow (), "SOCCAR", static_cast<long> (GameMode::SOCCAR)) < 0 ||
-	    PyModule_AddIntConstant (m.borrow (), "BLUE", static_cast<long> (Team::BLUE)) < 0 ||
-	    PyModule_AddIntConstant (m.borrow (), "ORANGE", static_cast<long> (Team::ORANGE)) < 0 ||
-	    PyModule_AddIntConstant (m.borrow (), "OCTANE", 0) < 0 ||
-	    PyModule_AddIntConstant (m.borrow (), "DOMINUS", 1) < 0 ||
-	    PyModule_AddIntConstant (m.borrow (), "PLANK", 2) < 0 ||
-	    PyModule_AddIntConstant (m.borrow (), "BREAKOUT", 3) < 0 ||
-	    PyModule_AddIntConstant (m.borrow (), "HYBRID", 4) < 0 || PyModule_AddIntConstant (m.borrow (), "MERC", 5) < 0)
-		return nullptr;
+#define SET_TYPE_ATTR(type_, name_, value_)                                                                            \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (!value_)                                                                                                   \
+			return nullptr;                                                                                            \
+		if (PyObject_SetAttrString ((PyObject *)type_, name_, value_.borrow ()) < 0)                                   \
+			return nullptr;                                                                                            \
+	} while (0)
+
+	{
+		using RocketSim::Python::PyObjectRef;
+
+		// GameMode
+		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
+		    "SOCCAR",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::SOCCAR))));
+		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
+		    "THE_VOID",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::THE_VOID))));
+
+		// Team
+		SET_TYPE_ATTR (RocketSim::Python::Team::Type,
+		    "BLUE",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::Team::BLUE))));
+		SET_TYPE_ATTR (RocketSim::Python::Team::Type,
+		    "ORANGE",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::Team::ORANGE))));
+
+		// DemoMode
+		SET_TYPE_ATTR (RocketSim::Python::DemoMode::Type,
+		    "NORMAL",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::DemoMode::NORMAL))));
+		SET_TYPE_ATTR (RocketSim::Python::DemoMode::Type,
+		    "ON_CONTACT",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::DemoMode::ON_CONTACT))));
+		SET_TYPE_ATTR (RocketSim::Python::DemoMode::Type,
+		    "DISABLED",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::DemoMode::DISABLED))));
+
+		// CarConfig
+		SET_TYPE_ATTR (RocketSim::Python::CarConfig::Type,
+		    "OCTANE",
+		    PyObjectRef::stealObject (
+		        PyLong_FromLong (static_cast<long> (RocketSim::Python::CarConfig::Index::OCTANE))));
+		SET_TYPE_ATTR (RocketSim::Python::CarConfig::Type,
+		    "DOMINUS",
+		    PyObjectRef::stealObject (
+		        PyLong_FromLong (static_cast<long> (RocketSim::Python::CarConfig::Index::DOMINUS))));
+		SET_TYPE_ATTR (RocketSim::Python::CarConfig::Type,
+		    "PLANK",
+		    PyObjectRef::stealObject (
+		        PyLong_FromLong (static_cast<long> (RocketSim::Python::CarConfig::Index::PLANK))));
+		SET_TYPE_ATTR (RocketSim::Python::CarConfig::Type,
+		    "BREAKOUT",
+		    PyObjectRef::stealObject (
+		        PyLong_FromLong (static_cast<long> (RocketSim::Python::CarConfig::Index::BREAKOUT))));
+		SET_TYPE_ATTR (RocketSim::Python::CarConfig::Type,
+		    "HYBRID",
+		    PyObjectRef::stealObject (
+		        PyLong_FromLong (static_cast<long> (RocketSim::Python::CarConfig::Index::HYBRID))));
+		SET_TYPE_ATTR (RocketSim::Python::CarConfig::Type,
+		    "MERC",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::Python::CarConfig::Index::MERC))));
+	}
 
 	return m.gift ();
 }

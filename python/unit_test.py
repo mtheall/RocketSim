@@ -8,6 +8,65 @@ import random
 
 np.set_printoptions(formatter={"float": lambda x: f"{x: .6f}"}, linewidth=100)
 
+angle = RocketSim.Angle()
+assert(angle.yaw == 0)
+assert(angle.pitch == 0)
+assert(angle.roll == 0)
+assert(repr(angle) == "(0.0, 0.0, 0.0)")
+assert(str(angle) == "(0.0, 0.0, 0.0)")
+assert(f"{angle}" == "(0.0, 0.0, 0.0)")
+assert(f"{angle:.3f}" == "(0.000, 0.000, 0.000)")
+assert(angle.as_tuple() == (0, 0, 0))
+assert(np.array_equal(angle.as_numpy(), np.array([0, 0, 0])))
+
+angle = RocketSim.Angle(1, 2, 3)
+assert(angle.yaw == 1)
+assert(angle.pitch == 2)
+assert(angle.roll == 3)
+assert(repr(angle) == "(1.0, 2.0, 3.0)")
+assert(str(angle) == "(1.0, 2.0, 3.0)")
+assert(f"{angle}" == "(1.0, 2.0, 3.0)")
+assert(f"{angle:.3f}" == "(1.000, 2.000, 3.000)")
+assert(angle.as_tuple() == (1.0, 2.0, 3.0))
+assert(np.array_equal(angle.as_numpy(), np.array([1, 2, 3])))
+
+vec = RocketSim.Vec()
+assert(vec.x == 0)
+assert(vec.y == 0)
+assert(vec.z == 0)
+assert(repr(vec) == "(0.0, 0.0, 0.0)")
+assert(str(vec) == "(0.0, 0.0, 0.0)")
+assert(f"{vec}" == "(0.0, 0.0, 0.0)")
+assert(f"{vec:.3f}" == "(0.000, 0.000, 0.000)")
+assert(vec.as_tuple() == (0, 0, 0))
+assert(np.array_equal(vec.as_numpy(), np.array([0, 0, 0])))
+
+vec = RocketSim.Vec(1, 2, 3)
+assert(vec.x == 1)
+assert(vec.y == 2)
+assert(vec.z == 3)
+assert(repr(vec) == "(1.0, 2.0, 3.0)")
+assert(str(vec) == "(1.0, 2.0, 3.0)")
+assert(f"{vec}" == "(1.0, 2.0, 3.0)")
+assert(f"{vec:.3f}" == "(1.000, 2.000, 3.000)")
+assert(vec.as_tuple() == (1.0, 2.0, 3.0))
+assert(np.array_equal(vec.as_numpy(), np.array([1, 2, 3])))
+
+try:
+	ball = RocketSim.Ball()
+except TypeError as e:
+	assert(str(e) == "cannot create 'RocketSim.Ball' instances")
+
+try:
+	pad = RocketSim.BoostPad()
+except TypeError as e:
+	assert(str(e) == "cannot create 'RocketSim.BoostPad' instances")
+
+try:
+	car = RocketSim.Car()
+except TypeError as e:
+	assert(str(e) == "cannot create 'RocketSim.Car' instances")
+
 def compare_float(a: float, b: float, threshold: float = 1e-4) -> bool:
 	error = abs(b - a)
 	if error >= threshold:
@@ -16,19 +75,37 @@ def compare_float(a: float, b: float, threshold: float = 1e-4) -> bool:
 		print(error)
 		return False
 	return True
-	
+
+assert(RocketSim.GameMode.SOCCAR == 0)
+assert(RocketSim.GameMode.THE_VOID == 1)
+
+assert(RocketSim.Team.BLUE == 0)
+assert(RocketSim.Team.ORANGE == 1)
+
+assert(RocketSim.DemoMode.NORMAL == 0)
+assert(RocketSim.DemoMode.ON_CONTACT == 1)
+assert(RocketSim.DemoMode.DISABLED == 2)
+
+assert(RocketSim.CarConfig.OCTANE == 0)
+assert(RocketSim.CarConfig.DOMINUS == 1)
+assert(RocketSim.CarConfig.PLANK == 2)
+assert(RocketSim.CarConfig.BREAKOUT == 3)
+assert(RocketSim.CarConfig.HYBRID == 4)
+assert(RocketSim.CarConfig.MERC == 5)
+
 assert(compare_float(RocketSim.CarConfig().dodge_deadzone, 0.5))
 assert(compare_float(RocketSim.CarConfig().hitbox_size.x, 120.5070))
-assert(compare_float(RocketSim.CarConfig(RocketSim.OCTANE).hitbox_size.x, 120.5070))
-assert(compare_float(RocketSim.CarConfig(RocketSim.DOMINUS).hitbox_size.x, 130.4270))
-assert(compare_float(RocketSim.CarConfig(RocketSim.PLANK).hitbox_size.x, 131.3200))
-assert(compare_float(RocketSim.CarConfig(RocketSim.BREAKOUT).hitbox_size.x, 133.9920))
-assert(compare_float(RocketSim.CarConfig(RocketSim.HYBRID).hitbox_size.x, 129.5190))
-assert(compare_float(RocketSim.CarConfig(RocketSim.MERC).hitbox_size.x, 123.22))
 
-arena = RocketSim.Arena(RocketSim.SOCCAR)
-car1  = arena.add_car(RocketSim.BLUE, RocketSim.DOMINUS)
-car2  = arena.add_car(RocketSim.ORANGE, RocketSim.CarConfig(RocketSim.DOMINUS))
+assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.OCTANE).hitbox_size.x, 120.5070))
+assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.DOMINUS).hitbox_size.x, 130.4270))
+assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.PLANK).hitbox_size.x, 131.3200))
+assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.BREAKOUT).hitbox_size.x, 133.9920))
+assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.HYBRID).hitbox_size.x, 129.5190))
+assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.MERC).hitbox_size.x, 123.22))
+
+arena = RocketSim.Arena(RocketSim.GameMode.SOCCAR)
+car1  = arena.add_car(RocketSim.Team.BLUE, RocketSim.CarConfig.DOMINUS)
+car2  = arena.add_car(RocketSim.Team.ORANGE, RocketSim.CarConfig(RocketSim.CarConfig.DOMINUS))
 
 for i in range(100):
 	for j in range(10):
@@ -46,9 +123,9 @@ x = glm.vec3(1, 0, 0)
 y = glm.vec3(0, 1, 0)
 z = glm.vec3(0, 0, 1)
 
-arena = RocketSim.Arena(RocketSim.SOCCAR)
-car1  = arena.add_car(RocketSim.BLUE)
-car2  = arena.add_car(RocketSim.ORANGE)
+arena = RocketSim.Arena(RocketSim.GameMode.SOCCAR)
+car1  = arena.add_car(RocketSim.Team.BLUE)
+car2  = arena.add_car(RocketSim.Team.ORANGE)
 ball  = arena.ball
 
 arena.reset_kickoff()
@@ -61,8 +138,8 @@ car1.set_controls(controls)
 car2.set_controls(controls)
 
 assert(car1.id != car2.id)
-assert(car1.team == RocketSim.BLUE)
-assert(car2.team == RocketSim.ORANGE)
+assert(car1.team == RocketSim.Team.BLUE)
+assert(car2.team == RocketSim.Team.ORANGE)
 
 inv_mtx = glm.mat3(-1,  0,  0,
                     0, -1,  0,

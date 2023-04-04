@@ -88,6 +88,11 @@ bool CarControls::InitFromCarControls (CarControls *const self_, ::CarControls c
 	return true;
 }
 
+::CarControls CarControls::ToCarControls (CarControls *self_) noexcept
+{
+	return self_->controls;
+}
+
 PyObject *CarControls::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);

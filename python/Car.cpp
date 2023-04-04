@@ -260,8 +260,7 @@ PyObject *Car::SetControls (Car *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O!", CarControls::Type, &controls))
 		return nullptr;
 
-	// copy values to controls
-	self_->car->controls = controls->controls;
+	self_->car->controls = CarControls::ToCarControls (controls);
 
 	Py_RETURN_NONE;
 }
@@ -278,17 +277,7 @@ PyObject *Car::SetState (Car *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O!", CarState::Type, &state))
 		return nullptr;
 
-	// copy values to state
-	::CarState newState                 = state->state;
-	newState.pos                        = state->pos->vec;
-	newState.rotMat                     = state->rotMat->mat;
-	newState.vel                        = state->vel->vec;
-	newState.angVel                     = state->angVel->vec;
-	newState.lastRelDodgeTorque         = state->lastRelDodgeTorque->vec;
-	newState.lastControls               = state->lastControls->controls;
-	newState.worldContact.contactNormal = state->worldContactNormal->vec;
-
-	self_->car->SetState (newState);
+	self_->car->SetState (CarState::ToCarState (state));
 
 	Py_RETURN_NONE;
 }

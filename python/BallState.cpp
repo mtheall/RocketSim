@@ -67,6 +67,17 @@ bool BallState::InitFromBallState (BallState *const self_, ::BallState const &st
 	return true;
 }
 
+::BallState BallState::ToBallState (BallState *self_) noexcept
+{
+	auto state = self_->state;
+
+	state.pos    = Vec::ToVec (self_->pos);
+	state.vel    = Vec::ToVec (self_->vel);
+	state.angVel = Vec::ToVec (self_->angVel);
+
+	return state;
+}
+
 PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto const tp_alloc = (allocfunc)PyType_GetSlot (subtype_, Py_tp_alloc);

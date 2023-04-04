@@ -65,6 +65,33 @@ static_assert (sizeof (bool) == sizeof (char));
 
 namespace RocketSim::Python
 {
+struct GameMode
+{
+	PyObject_HEAD
+
+	static PyTypeObject *Type;
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+};
+
+struct Team
+{
+	PyObject_HEAD
+
+	static PyTypeObject *Type;
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+};
+
+struct DemoMode
+{
+	PyObject_HEAD
+
+	static PyTypeObject *Type;
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+};
+
 struct Vec
 {
 	PyObject_HEAD
@@ -79,6 +106,7 @@ struct Vec
 
 	static PyRef<Vec> NewFromVec (::Vec const &vec_ = {}) noexcept;
 	static bool InitFromVec (Vec *self_, ::Vec const &vec_ = {}) noexcept;
+	static ::Vec ToVec (Vec *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -95,13 +123,11 @@ struct RotMat
 {
 	PyObject_HEAD
 
-	::RotMat mat;
 	Vec *forward;
 	Vec *right;
 	Vec *up;
 
 	static PyTypeObject *Type;
-	static PyMemberDef Members[];
 	static PyMethodDef Methods[];
 	static PyGetSetDef GetSet[];
 	static PyType_Slot Slots[];
@@ -109,6 +135,7 @@ struct RotMat
 
 	static PyRef<RotMat> NewFromRotMat (::RotMat const &mat_ = {}) noexcept;
 	static bool InitFromRotMat (RotMat *self_, ::RotMat const &mat_ = {}) noexcept;
+	static ::RotMat ToRotMat (RotMat *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -139,6 +166,7 @@ struct Angle
 
 	static PyRef<Angle> NewFromAngle (::Angle const &angle_ = {}) noexcept;
 	static bool InitFromAngle (Angle *self_, ::Angle const &angle_ = {}) noexcept;
+	static ::Angle ToAngle (Angle *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (Angle *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -169,6 +197,7 @@ struct BallHitInfo
 
 	static PyRef<BallHitInfo> NewFromBallHitInfo (::BallHitInfo const &info_ = {}) noexcept;
 	static bool InitFromBallHitInfo (BallHitInfo *self_, ::BallHitInfo const &info_ = {}) noexcept;
+	static ::BallHitInfo ToBallHitInfo (BallHitInfo *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (BallHitInfo *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -198,6 +227,7 @@ struct BallState
 
 	static PyRef<BallState> NewFromBallState (::BallState const &state_ = {}) noexcept;
 	static bool InitFromBallState (BallState *self_, ::BallState const &state_ = {}) noexcept;
+	static ::BallState ToBallState (BallState *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -240,6 +270,10 @@ struct BoostPadState
 	static PyMemberDef Members[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
+
+	static PyRef<BoostPadState> NewFromBoostPadState (::BoostPadState const &state_ = {}) noexcept;
+	static bool InitFromBoostPadState (BoostPadState *self_, ::BoostPadState const &state_ = {}) noexcept;
+	static ::BoostPadState ToBoostPadState (BoostPadState *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (BoostPadState *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -288,6 +322,7 @@ struct WheelPairConfig
 
 	static PyRef<WheelPairConfig> NewFromWheelPairConfig (::WheelPairConfig const &config_ = {}) noexcept;
 	static bool InitFromWheelPairConfig (WheelPairConfig *self_, ::WheelPairConfig const &config_ = {}) noexcept;
+	static ::WheelPairConfig ToWheelPairConfig (WheelPairConfig *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (WheelPairConfig *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -298,6 +333,16 @@ struct WheelPairConfig
 
 struct CarConfig
 {
+	enum class Index
+	{
+		OCTANE,
+		DOMINUS,
+		PLANK,
+		BREAKOUT,
+		HYBRID,
+		MERC,
+	};
+
 	PyObject_HEAD
 
 	::CarConfig config;
@@ -313,9 +358,10 @@ struct CarConfig
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
 
-	static bool CarConfigFromId (int id_, ::CarConfig &config_) noexcept;
+	static bool FromIndex (Index index_, ::CarConfig &config_) noexcept;
 	static PyRef<CarConfig> NewFromCarConfig (::CarConfig const &config_ = {}) noexcept;
 	static bool InitFromCarConfig (CarConfig *self_, ::CarConfig const &config_ = {}) noexcept;
+	static ::CarConfig ToCarConfig (CarConfig *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (CarConfig *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -341,6 +387,7 @@ struct CarControls
 
 	static PyRef<CarControls> NewFromCarControls (::CarControls const &controls_ = {}) noexcept;
 	static bool InitFromCarControls (CarControls *self_, ::CarControls const &controls_ = {}) noexcept;
+	static ::CarControls ToCarControls (CarControls *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (CarControls *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -366,6 +413,7 @@ struct CarState
 
 	static PyRef<CarState> NewFromCarState (::CarState const &state_ = {}) noexcept;
 	static bool InitFromCarState (CarState *self_, ::CarState const &state_ = {}) noexcept;
+	static ::CarState ToCarState (CarState *self_) noexcept;
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
@@ -423,6 +471,30 @@ struct Car
 	static PyObject *SetState (Car *self_, PyObject *args_) noexcept;
 };
 
+struct MutatorConfig
+{
+	PyObject_HEAD
+
+	::MutatorConfig config;
+	Vec *gravity;
+
+	static PyTypeObject *Type;
+	static PyMemberDef Members[];
+	static PyGetSetDef GetSet[];
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+
+	static PyRef<MutatorConfig> NewFromMutatorConfig (::MutatorConfig const &config_ = {}) noexcept;
+	static bool InitFromMutatorConfig (MutatorConfig *self_, ::MutatorConfig const &config_ = {}) noexcept;
+	static ::MutatorConfig ToMutatorConfig (MutatorConfig *self_) noexcept;
+
+	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
+	static int Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static void Dealloc (MutatorConfig *self_) noexcept;
+
+	GETSET_DECLARE (MutatorConfig, gravity)
+};
+
 struct Arena
 {
 	PyObject_HEAD
@@ -431,6 +503,12 @@ struct Arena
 	std::unordered_map<std::uint32_t, PyRef<Car>> *cars;
 	std::vector<PyRef<BoostPad>> *boostPads;
 	Ball *ball;
+	PyObject *ballTouchCallback;
+	PyObject *ballTouchCallbackUserData;
+	PyObject *boostPickupCallback;
+	PyObject *boostPickupCallbackUserData;
+	PyObject *carBumpCallback;
+	PyObject *carBumpCallbackUserData;
 	PyObject *goalScoreCallback;
 	PyObject *goalScoreCallbackUserData;
 
@@ -438,6 +516,8 @@ struct Arena
 	unsigned orangeScore;
 
 	std::uint64_t lastGoalTick;
+
+	bool stepException;
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
@@ -451,19 +531,26 @@ struct Arena
 	static void Dealloc (Arena *self_) noexcept;
 
 	static PyObject *AddCar (Arena *self_, PyObject *args_) noexcept;
-	static PyObject *Clone (Arena *self_) noexcept;
+	static PyObject *Clone (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *GetBoostPads (Arena *self_) noexcept;
 	static PyObject *GetCarFromId (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *GetCars (Arena *self_) noexcept;
 	static PyObject *GetGymState (Arena *self_) noexcept;
+	static PyObject *GetMutatorConfig (Arena *self_) noexcept;
+	static PyObject *IsBallProbablyGoingIn (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *RemoveCar (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *ResetKickoff (Arena *self_, PyObject *args_) noexcept;
+	static PyObject *SetBallTouchCallback (Arena *self_, PyObject *args_) noexcept;
+	static PyObject *SetBoostPickupCallback (Arena *self_, PyObject *args_) noexcept;
+	static PyObject *SetCarBumpCallback (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *SetGoalScoreCallback (Arena *self_, PyObject *args_) noexcept;
+	static PyObject *SetMutatorConfig (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *Step (Arena *self_, PyObject *args_) noexcept;
 
-	static void HandleGoalScoreCallback (::Arena *arena_, Team scoringTeam_, void *userData_) noexcept;
+	static void HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept;
+	static void HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, bool isBig_, void *userData_) noexcept;
 	static void HandleCarBumpCallback (::Arena* arena_, ::Car* bumper_, ::Car* victim_, bool isDemo_, void* userData_) noexcept;
-	static void HandleBoostCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept;
+	static void HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void *userData_) noexcept;
 
 	GETONLY_DECLARE (Arena, game_mode);
 	GETONLY_DECLARE (Arena, tick_count);

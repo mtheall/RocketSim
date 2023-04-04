@@ -87,12 +87,17 @@ Car* Arena::GetCarFromID(uint32_t id) {
 	return NULL;
 }
 
-void Arena::SetGoalScoreCallback(GoalScoreEventFn callbackFunc, void* userInfo) {
-	if (gameMode == GameMode::THE_VOID)
-		RS_ERR_CLOSE("Cannot set a goal score callback when on THE_VOID gamemode!");
+void Arena::SetBallTouchCallback(BallTouchEventFn callbackFunc, void* userInfo) {
+	_ballTouchCallback.func = callbackFunc;
+	_ballTouchCallback.userInfo = userInfo;
+}
 
-	_goalScoreCallback.func = callbackFunc;
-	_goalScoreCallback.userInfo = userInfo;
+void Arena::SetBoostPickupCallback(BoostPickupEventFn callbackFunc, void* userInfo) {
+	if (gameMode == GameMode::THE_VOID)
+		RS_ERR_CLOSE("Cannot set a boost pickup callback when on THE_VOID gamemode!");
+
+	_boostPickupCallback.func = callbackFunc;
+	_boostPickupCallback.userInfo = userInfo;
 }
 
 void Arena::SetCarBumpCallback(CarBumpEventFn callbackFunc, void* userInfo) {
@@ -100,12 +105,12 @@ void Arena::SetCarBumpCallback(CarBumpEventFn callbackFunc, void* userInfo) {
 	_carBumpCallback.userInfo = userInfo;
 }
 
-void Arena::SetBoostCallback(BoostEventFn callbackFunc, void* userInfo) {
+void Arena::SetGoalScoreCallback(GoalScoreEventFn callbackFunc, void* userInfo) {
 	if (gameMode == GameMode::THE_VOID)
-		RS_ERR_CLOSE("Cannot set a boost callback when on THE_VOID gamemode!");
+		RS_ERR_CLOSE("Cannot set a goal score callback when on THE_VOID gamemode!");
 
-	_boostCallback.func = callbackFunc;
-	_boostCallback.userInfo = userInfo;
+	_goalScoreCallback.func = callbackFunc;
+	_goalScoreCallback.userInfo = userInfo;
 }
 
 void Arena::ResetToRandomKickoff(int seed) {
@@ -239,6 +244,9 @@ void Arena::_BtCallback_OnCarBallCollision(Car* car, Ball* ball, btManifoldPoint
 
 	ballHitInfo.ballPos = ballState.pos;
 	ballHitInfo.extraHitVel = Vec();
+
+	if (_ballTouchCallback.func)
+		_ballTouchCallback.func(this, car, _ballTouchCallback.userInfo);
 
 	// Once we do an extra car-ball impulse, we need to wait at least 1 tick to do it again
 	if ((tickCount > ballHitInfo.tickCountWhenExtraImpulseApplied + 1) || (ballHitInfo.tickCountWhenExtraImpulseApplied > tickCount)) {
@@ -542,9 +550,10 @@ Arena* Arena::Clone(bool copyCallbacks) {
 	
 	if (copyCallbacks)
 	{
-		newArena->_goalScoreCallback = this->_goalScoreCallback;
-		newArena->_carBumpCallback   = this->_carBumpCallback;
-		newArena->_boostCallback     = this->_boostCallback;
+		newArena->_ballTouchCallback   = this->_ballTouchCallback;
+		newArena->_boostPickupCallback = this->_boostPickupCallback;
+		newArena->_carBumpCallback     = this->_carBumpCallback;
+		newArena->_goalScoreCallback   = this->_goalScoreCallback;
 	}
 	
 	newArena->ball->SetState(this->ball->GetState());
@@ -665,8 +674,8 @@ void Arena::Step(int ticksToSimulate) {
 			car->_PostTickUpdate(tickTime, _mutatorConfig);
 			car->_FinishPhysicsTick(_mutatorConfig);
 			if (gameMode == GameMode::SOCCAR) {
-				if (_boostPadGrid.CheckCollision(car) && _boostCallback.func)
-					_boostCallback.func(this, car, _boostCallback.userInfo);
+				if (auto pad = _boostPadGrid.CheckCollision(car); pad && _boostPickupCallback.func)
+					_boostPickupCallback.func(this, car, pad->isBig, _boostPickupCallback.userInfo);
 			}
 		}
 
