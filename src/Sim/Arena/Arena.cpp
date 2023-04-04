@@ -54,11 +54,11 @@ RSAPI void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
 
 Car* Arena::AddCar(Team team, const CarConfig& config) {
 	Car* car = Car::_AllocateCar();
-	_cars.push_back(car);
-
+	
 	car->config = config;
 	car->team = team;
-	car->id = ++_lastCarID;
+	
+	_AddCarFromPtr(car);
 
 	car->_BulletSetup(_bulletWorld, _mutatorConfig);
 	car->Respawn(_mutatorConfig.carSpawnBoostAmount);
@@ -66,25 +66,39 @@ Car* Arena::AddCar(Team team, const CarConfig& config) {
 	return car;
 }
 
-bool Arena::RemoveCar(Car* car) {
-	for (int i = 0; i < _cars.size(); i++) {
-		if (_cars[i] == car) {
-			_bulletWorld->removeCollisionObject(car->_rigidBody);
-			_cars.erase(_cars.begin() + i);
-			delete car;
-			return true;
-		}
-	}
+bool Arena::_AddCarFromPtr(Car* car) {
 
-	return false;
+	car->id = ++_lastCarID;
+
+	if (_carIDMap.find(car->id) == _carIDMap.end()) {
+		assert(!_cars.count(car));
+		
+		_carIDMap[car->id] = car;
+		_cars.insert(car);
+		return true;
+
+	} else {
+		return false;
+	}
 }
 
-Car* Arena::GetCarFromID(uint32_t id) {
-	for (Car* car : _cars)
-		if (car->id == id)
-			return car;
+bool Arena::RemoveCar(uint32_t id) {
+	auto itr = _carIDMap.find(id);
 
-	return NULL;
+	if (itr != _carIDMap.end()) {
+		Car* car = itr->second;
+		_carIDMap.erase(itr);
+		_cars.erase(car);
+		_bulletWorld->removeCollisionObject(car->_rigidBody);
+		delete car;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+Car* Arena::GetCar(uint32_t id) {
+	return _carIDMap[id];
 }
 
 void Arena::SetBallTouchCallback(BallTouchEventFn callbackFunc, void* userInfo) {
@@ -282,6 +296,7 @@ void Arena::_BtCallback_OnCarCarCollision(Car* car1, Car* car2, btManifoldPoint&
 	manifoldPoint.m_combinedFriction = RLConst::CARCAR_COLLISION_FRICTION;
 	manifoldPoint.m_combinedRestitution = RLConst::CARCAR_COLLISION_RESTITUTION;
 
+	// Test collision both ways
 	for (int i = 0; i < 2; i++) {
 
 		bool isSwapped = (i == 1);
@@ -292,8 +307,11 @@ void Arena::_BtCallback_OnCarCarCollision(Car* car1, Car* car2, btManifoldPoint&
 			state = car1->GetState(),
 			otherState = car2->GetState();
 
+		if (state.isDemoed || otherState.isDemoed)
+			return;
+
 		if ((state.carContact.otherCarID == car2->id) && (state.carContact.cooldownTimer > 0))
-			return; // In cooldown
+			continue; // In cooldown
 
 		Vec deltaPos = (otherState.pos - state.pos);
 		if (state.vel.Dot(deltaPos) > 0) { // Going towards other car
@@ -325,9 +343,6 @@ void Arena::_BtCallback_OnCarCarCollision(Car* car1, Car* car2, btManifoldPoint&
 					if (isDemo && !_mutatorConfig.enableTeamDemos)
 						isDemo = car1->team != car2->team;
 
-					if (_carBumpCallback.func)
-						_carBumpCallback.func(this, car1, car2, isDemo, _carBumpCallback.userInfo);
-
 					if (isDemo) {
 						car2->Demolish(_mutatorConfig.respawnDelay);
 					} else {
@@ -345,9 +360,13 @@ void Arena::_BtCallback_OnCarCarCollision(Car* car1, Car* car2, btManifoldPoint&
 							* _mutatorConfig.bumpForceScale;
 
 						car2->_velocityImpulseCache += bumpImpulse * UU_TO_BT;
-						car1->_internalState.carContact.otherCarID = car2->id;
-						car1->_internalState.carContact.cooldownTimer = _mutatorConfig.bumpCooldownTime;
 					}
+
+					car1->_internalState.carContact.otherCarID = car2->id;
+					car1->_internalState.carContact.cooldownTimer = _mutatorConfig.bumpCooldownTime;
+
+					if (_carBumpCallback.func)
+						_carBumpCallback.func(this, car1, car2, isDemo, _carBumpCallback.userInfo);
 				}
 			}
 		}
@@ -503,11 +522,15 @@ Arena* Arena::LoadFromFile(std::filesystem::path path) {
 			in.ReadMultiple(team, id);
 
 #ifndef RS_MAX_SPEED
-			if (newArena->GetCarFromID(id) != NULL)
+			if (newArena->_carIDMap.count(id))
 				RS_ERR_CLOSE(ERROR_PREFIX << "Failed to load from " << path << ", got repeated car ID of " << id << ".");
 #endif
 
 			Car* newCar = newArena->DeserializeNewCar(in, team);
+
+			// Force ID
+			newArena->_carIDMap.erase(newCar->id);
+			newArena->_carIDMap[id] = newCar;
 			newCar->id = id;
 		}
 
@@ -589,10 +612,9 @@ void Arena::SerializeCar(DataStreamOut& out, Car* car) {
 Car* Arena::DeserializeNewCar(DataStreamIn& in, Team team) {
 	Car* car = Car::_AllocateCar();
 	car->_Deserialize(in);
-	_cars.push_back(car);
-
 	car->team = team;
-	car->id = ++_lastCarID;
+
+	_AddCarFromPtr(car);
 
 	car->_BulletSetup(_bulletWorld, _mutatorConfig);
 
