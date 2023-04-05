@@ -2,28 +2,17 @@
 
 #include "Array.h"
 
-#include "RocketSim.h"
-
 #include <algorithm>
 #include <bit>
 #include <cinttypes>
 #include <cmath>
 #include <cstdlib>
-#include <mutex>
 #include <new>
 #include <tuple>
 #include <unordered_map>
 
 namespace
 {
-std::once_flag initRocketSim;
-
-void rocketSimInit () noexcept
-{
-	auto const path = std::getenv ("RS_COLLISION_MESHES");
-	RocketSim::Init (path ? path : COLLISION_MESH_BASE_PATH);
-}
-
 std::uint64_t makeKey (float a_, float b_) noexcept
 {
 	return (static_cast<std::uint64_t> (std::bit_cast<std::uint32_t> (a_)) << 32) | std::bit_cast<std::uint32_t> (b_);
@@ -112,28 +101,10 @@ void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btQuaternion 
 
 btVector3 calcPYR (btMatrix3x3 const &mat_) noexcept
 {
-	// as from rlgym, but it's actually Yaw/Pitch/-Roll
-	btQuaternion q;
-	mat_.getRotation (q);
-
-	auto const &w = q.w ();
-	auto const &x = q.x ();
-	auto const &y = q.y ();
-	auto const &z = q.z ();
-
-	auto const sinr_cosp = 2.0f * (w * x + y * z);
-	auto const cosr_cosp = 1.0f - 2.0f * (x * x + y * y);
-	auto const sinp      = 2.0f * (w * y - z * x);
-	auto const siny_cosp = 2.0f * (w * z + x * y);
-	auto const cosy_cosp = 1.0f - 2.0f * (y * y + z * z);
-
-	auto const roll = -std::atan2 (sinr_cosp, cosr_cosp);
-	auto const yaw  = std::atan2 (siny_cosp, cosy_cosp);
-
-	if (std::abs (sinp) > 1.0f)
-		return btVector3 (std::copysign (M_PI_2, sinp), yaw, roll);
-
-	return btVector3 (std::asin (sinp), yaw, roll);
+	btVector3 result;
+	mat_.getEulerYPR (result.y (), result.x (), result.z ());
+	result.z () *= -1.0f;
+	return result;
 }
 
 void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btMatrix3x3 const &mat_) noexcept
@@ -268,7 +239,7 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 
 	new (&self->arena) std::shared_ptr<::Arena>{};
 	self->cars                        = new (std::nothrow) std::unordered_map<std::uint32_t, PyRef<Car>>{};
-	self->boostPads                   = new (std::nothrow) std::vector<PyRef<BoostPad>>{};
+	self->boostPads                   = new (std::nothrow) std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
 	self->ball                        = nullptr;
 	self->ballTouchCallback           = nullptr;
 	self->ballTouchCallbackUserData   = nullptr;
@@ -303,7 +274,20 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 	if (!PyArg_ParseTuple (args_, "i|f", &gameMode, &tickRate))
 		return -1;
 
-	std::call_once (initRocketSim, &rocketSimInit);
+	if (gameMode != static_cast<int> (::GameMode::SOCCAR) && gameMode != static_cast<int> (::GameMode::THE_VOID))
+	{
+		PyErr_SetString (PyExc_RuntimeError, "Invalid game mode");
+		return -1;
+	}
+
+	if (tickRate < 15.0f || tickRate > 120.0f)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "Invalid tick rate");
+		return -1;
+	}
+
+	// default initialization if it hasn't been done yet
+	InitInternal (nullptr);
 
 	try
 	{
@@ -312,23 +296,27 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 			throw -1;
 
 		arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, self_);
-		arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, self_);
 		arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, self_);
-		arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, self_);
+
+		if (arena->gameMode != ::GameMode::THE_VOID)
+		{
+			arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, self_);
+			arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, self_);
+		}
 
 		auto ball = PyRef<Ball>::steal (Ball::New ());
 		if (!ball)
 			throw -1;
 
-		auto boostPads = std::vector<PyRef<BoostPad>>{};
-		boostPads.reserve (arena->GetBoostPads ().size ());
+		auto boostPads = std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
 		for (auto const &pad : arena->GetBoostPads ())
 		{
-			auto &back = boostPads.emplace_back (PyRef<BoostPad>::steal (BoostPad::New ()));
-			if (!back)
+			auto ref = PyRef<BoostPad>::steal (BoostPad::New ());
+			if (!ref)
 				throw -1;
 
-			back->pad = pad;
+			ref->pad = pad;
+			boostPads.emplace (pad, std::move (ref));
 		}
 
 		// no exceptions thrown after this point
@@ -455,15 +443,15 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_) noexcept
 		if (!ball)
 			return PyErr_NoMemory ();
 
-		auto boostPads = std::vector<PyRef<BoostPad>>{};
-		boostPads.reserve (arena->GetBoostPads ().size ());
+		auto boostPads = std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
 		for (auto const &pad : arena->GetBoostPads ())
 		{
-			auto &back = boostPads.emplace_back (PyRef<BoostPad>::steal (BoostPad::New ()));
-			if (!back)
+			auto ref = PyRef<BoostPad>::steal (BoostPad::New ());
+			if (!ref)
 				return PyErr_NoMemory ();
 
-			back->pad = pad;
+			ref->pad = pad;
+			boostPads.emplace (pad, std::move (ref));
 		}
 
 		auto cars = std::unordered_map<std::uint32_t, PyRef<Car>>{};
@@ -531,8 +519,12 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_) noexcept
 
 		clone->arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, clone.borrow ());
 		clone->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, clone.borrow ());
-		clone->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, clone.borrow ());
-		clone->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, clone.borrow ());
+
+		if (clone->arena->gameMode != ::GameMode::THE_VOID)
+		{
+			clone->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, clone.borrow ());
+			clone->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, clone.borrow ());
+		}
 
 		return clone.giftObject ();
 	}
@@ -585,15 +577,15 @@ PyObject *Arena::GetBoostPads (Arena *self_) noexcept
 		return nullptr;
 
 	unsigned index = 0;
-	for (auto &pad : *self_->boostPads)
+	for (auto &[pad, ref] : *self_->boostPads)
 	{
-		auto ref = pad.newObjectRef ();
+		auto newRef = ref.newObjectRef ();
 
 		// steals ref on success
-		if (PyList_SetItem (list.borrow (), index++, ref) < 0)
+		if (PyList_SetItem (list.borrow (), index++, newRef) < 0)
 		{
 			// this should never happen
-			Py_XDECREF (ref);
+			Py_XDECREF (newRef);
 			return nullptr;
 		}
 	}
@@ -761,8 +753,8 @@ PyObject *Arena::ResetKickoff (Arena *self_, PyObject *args_) noexcept
 PyObject *Arena::SetBallTouchCallback (Arena *self_, PyObject *args_) noexcept
 {
 	PyObject *callback; // borrowed references
-	PyObject *userData;
-	if (!PyArg_ParseTuple (args_, "OO", &callback, &userData))
+	PyObject *userData = nullptr;
+	if (!PyArg_ParseTuple (args_, "O|O", &callback, &userData))
 		return nullptr;
 
 	if (!PyCallable_Check (callback))
@@ -772,16 +764,19 @@ PyObject *Arena::SetBallTouchCallback (Arena *self_, PyObject *args_) noexcept
 	}
 
 	PyObjectRef::assign (self_->ballTouchCallback, callback);
-	PyObjectRef::assign (self_->ballTouchCallbackUserData, userData);
+	PyObjectRef::assign (self_->ballTouchCallbackUserData, userData ? userData : Py_None);
 
 	Py_RETURN_NONE;
 }
 
 PyObject *Arena::SetBoostPickupCallback (Arena *self_, PyObject *args_) noexcept
 {
+	if (self_->arena->gameMode == ::GameMode::THE_VOID)
+		return PyErr_Format (PyExc_RuntimeError, "Cannot set a boost pickup callback when on THE_VOID gamemode!");
+
 	PyObject *callback; // borrowed references
-	PyObject *userData;
-	if (!PyArg_ParseTuple (args_, "OO", &callback, &userData))
+	PyObject *userData = nullptr;
+	if (!PyArg_ParseTuple (args_, "O|O", &callback, &userData))
 		return nullptr;
 
 	if (!PyCallable_Check (callback))
@@ -791,7 +786,7 @@ PyObject *Arena::SetBoostPickupCallback (Arena *self_, PyObject *args_) noexcept
 	}
 
 	PyObjectRef::assign (self_->boostPickupCallback, callback);
-	PyObjectRef::assign (self_->boostPickupCallbackUserData, userData);
+	PyObjectRef::assign (self_->boostPickupCallbackUserData, userData ? userData : Py_None);
 
 	Py_RETURN_NONE;
 }
@@ -799,8 +794,8 @@ PyObject *Arena::SetBoostPickupCallback (Arena *self_, PyObject *args_) noexcept
 PyObject *Arena::SetCarBumpCallback (Arena *self_, PyObject *args_) noexcept
 {
 	PyObject *callback; // borrowed references
-	PyObject *userData;
-	if (!PyArg_ParseTuple (args_, "OO", &callback, &userData))
+	PyObject *userData = nullptr;
+	if (!PyArg_ParseTuple (args_, "O|O", &callback, &userData))
 		return nullptr;
 
 	if (!PyCallable_Check (callback))
@@ -810,16 +805,19 @@ PyObject *Arena::SetCarBumpCallback (Arena *self_, PyObject *args_) noexcept
 	}
 
 	PyObjectRef::assign (self_->carBumpCallback, callback);
-	PyObjectRef::assign (self_->carBumpCallbackUserData, userData);
+	PyObjectRef::assign (self_->carBumpCallbackUserData, userData ? userData : Py_None);
 
 	Py_RETURN_NONE;
 }
 
 PyObject *Arena::SetGoalScoreCallback (Arena *self_, PyObject *args_) noexcept
 {
+	if (self_->arena->gameMode == ::GameMode::THE_VOID)
+		return PyErr_Format (PyExc_RuntimeError, "Cannot set a goal score callback when on THE_VOID gamemode!");
+
 	PyObject *callback; // borrowed references
-	PyObject *userData;
-	if (!PyArg_ParseTuple (args_, "OO", &callback, &userData))
+	PyObject *userData = nullptr;
+	if (!PyArg_ParseTuple (args_, "O|O", &callback, &userData))
 		return nullptr;
 
 	if (!PyCallable_Check (callback))
@@ -829,7 +827,7 @@ PyObject *Arena::SetGoalScoreCallback (Arena *self_, PyObject *args_) noexcept
 	}
 
 	PyObjectRef::assign (self_->goalScoreCallback, callback);
-	PyObjectRef::assign (self_->goalScoreCallbackUserData, userData);
+	PyObjectRef::assign (self_->goalScoreCallbackUserData, userData ? userData : Py_None);
 
 	Py_RETURN_NONE;
 }
@@ -894,7 +892,7 @@ void Arena::HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userDat
 		self->stepException = true;
 }
 
-void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, bool isBig_, void *userData_) noexcept
+void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad *boostPad_, void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
 	if (self->stepException)
@@ -903,7 +901,17 @@ void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, bool isBig_
 	auto it = self->cars->find (car_->id);
 	if (it == std::end (*self->cars) || !it->second)
 	{
+		// this should never happen
 		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", car_->id);
+		self->stepException = true;
+		return;
+	}
+
+	auto it2 = self->boostPads->find (boostPad_);
+	if (it2 == std::end (*self->boostPads) || !it->second)
+	{
+		// this should never happen
+		PyErr_Format (PyExc_KeyError, "Boost pad not found");
 		self->stepException = true;
 		return;
 	}
@@ -914,12 +922,14 @@ void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, bool isBig_
 	if (self->boostPickupCallback == Py_None)
 		return;
 
+	auto boostPad = it2->second;
+
 	auto const ref      = PyRef<Arena>::incRef (self);
 	auto const callback = PyObjectRef::incRef (self->boostPickupCallback);
 	auto const userData = PyObjectRef::incRef (self->boostPickupCallbackUserData);
 
 	auto const args = PyObjectRef::steal (
-	    Py_BuildValue ("OOOO", ref.borrow (), car.borrow (), PyBool_FromLong (isBig_), userData.borrow ()));
+	    Py_BuildValue ("OOOO", ref.borrowObject (), car.borrowObject (), boostPad.borrowObject (), userData.borrow ()));
 	if (!args)
 	{
 		self->stepException = true;

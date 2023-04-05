@@ -38,10 +38,10 @@ public:
 	static BoostPad* _AllocBoostPad();
 	void _Setup(bool isBig, Vec pos);
 
-	bool _CheckCollide(Car* car);
+	void _CheckCollide(Car* car);
 
 	void _PreTickUpdate(float tickTime);
-	void _PostTickUpdate(float tickTime, const MutatorConfig& mutatorConfig);
+	bool _PostTickUpdate(float tickTime, const MutatorConfig& mutatorConfig);
 private:
 	BoostPad() {}
 };

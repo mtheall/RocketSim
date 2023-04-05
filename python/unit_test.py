@@ -8,6 +8,15 @@ import random
 
 np.set_printoptions(formatter={"float": lambda x: f"{x: .6f}"}, linewidth=100)
 
+def compare_float(a: float, b: float, threshold: float = 1e-4) -> bool:
+	error = abs(b - a)
+	if error >= threshold:
+		print(a)
+		print(b)
+		print(error)
+		return False
+	return True
+
 angle = RocketSim.Angle()
 assert(angle.yaw == 0)
 assert(angle.pitch == 0)
@@ -30,27 +39,98 @@ assert(f"{angle:.3f}" == "(1.000, 2.000, 3.000)")
 assert(angle.as_tuple() == (1.0, 2.0, 3.0))
 assert(np.array_equal(angle.as_numpy(), np.array([1, 2, 3])))
 
-vec = RocketSim.Vec()
-assert(vec.x == 0)
-assert(vec.y == 0)
-assert(vec.z == 0)
-assert(repr(vec) == "(0.0, 0.0, 0.0)")
-assert(str(vec) == "(0.0, 0.0, 0.0)")
-assert(f"{vec}" == "(0.0, 0.0, 0.0)")
-assert(f"{vec:.3f}" == "(0.000, 0.000, 0.000)")
-assert(vec.as_tuple() == (0, 0, 0))
-assert(np.array_equal(vec.as_numpy(), np.array([0, 0, 0])))
+def compare_angle(angle, yaw, pitch, roll):
+	assert(angle.yaw == yaw)
+	assert(angle.pitch == pitch)
+	assert(angle.roll == roll)
+	assert(repr(angle) == repr((yaw, pitch, roll)))
+	assert(str(angle) == str((yaw, pitch, roll)))
+	assert(f"{angle}" == f"{(yaw, pitch, roll)}")
+	assert(f"{angle:.3f}" == f"({yaw:.3f}, {pitch:.3f}, {roll:.3f})")
+	assert(angle.as_tuple() == (yaw, pitch, roll))
+	assert(np.array_equal(angle.as_numpy(), np.array([yaw, pitch, roll])))
 
-vec = RocketSim.Vec(1, 2, 3)
-assert(vec.x == 1)
-assert(vec.y == 2)
-assert(vec.z == 3)
-assert(repr(vec) == "(1.0, 2.0, 3.0)")
-assert(str(vec) == "(1.0, 2.0, 3.0)")
-assert(f"{vec}" == "(1.0, 2.0, 3.0)")
-assert(f"{vec:.3f}" == "(1.000, 2.000, 3.000)")
-assert(vec.as_tuple() == (1.0, 2.0, 3.0))
-assert(np.array_equal(vec.as_numpy(), np.array([1, 2, 3])))
+compare_angle(RocketSim.Angle(), 0.0, 0.0, 0.0)
+compare_angle(RocketSim.Angle(1, 2, 3), 1.0, 2.0, 3.0)
+compare_angle(RocketSim.Angle(roll=1, yaw=2, pitch=3), 2.0, 3.0, 1.0)
+compare_angle(RocketSim.Angle(roll=2), 0.0, 0.0, 2.0)
+compare_angle(RocketSim.Angle(1, roll=2), 1.0, 0.0, 2.0)
+
+def compare_vec(vec, x, y, z):
+	assert(vec.x == x)
+	assert(vec.y == y)
+	assert(vec.z == z)
+	assert(vec == RocketSim.Vec(x, y, z))
+	assert(repr(vec) == repr((x, y, z)))
+	assert(str(vec) == str((x, y, z)))
+	assert(f"{vec}" == f"{(x, y, z)}")
+	assert(f"{vec:.3f}" == f"({x:.3f}, {y:.3f}, {z:.3f})")
+	assert(vec.as_tuple() == (x, y, z))
+	assert(np.array_equal(vec.as_numpy(), np.array([x, y, z])))
+
+compare_vec(RocketSim.Vec(), 0.0, 0.0, 0.0)
+compare_vec(RocketSim.Vec(1, 2, 3), 1.0, 2.0, 3.0)
+compare_vec(RocketSim.Vec(z=1, x=2, y=3), 2.0, 3.0, 1.0)
+compare_vec(RocketSim.Vec(z=2), 0.0, 0.0, 2.0)
+compare_vec(RocketSim.Vec(1, z=2), 1.0, 0.0, 2.0)
+
+def compare_rot_mat(mat, forward, right, up):
+	assert(mat.forward == forward)
+	assert(mat.right == right)
+	assert(mat.up == up)
+
+compare_rot_mat(RocketSim.RotMat(), RocketSim.Vec(), RocketSim.Vec(), RocketSim.Vec())
+compare_rot_mat(RocketSim.RotMat(0, 1, 2, 3, 4, 5, 6, 7, 8), RocketSim.Vec(0, 1, 2), RocketSim.Vec(3, 4, 5), RocketSim.Vec(6, 7, 8))
+compare_rot_mat(RocketSim.RotMat(RocketSim.Vec(0, 1, 2), RocketSim.Vec(3, 4, 5), RocketSim.Vec(6, 7, 8)),
+	RocketSim.Vec(0, 1, 2), RocketSim.Vec(3, 4, 5), RocketSim.Vec(6, 7, 8))
+compare_rot_mat(RocketSim.RotMat(forward=RocketSim.Vec(0, 1, 2), right=RocketSim.Vec(3, 4, 5), up=RocketSim.Vec(6, 7, 8)),
+	RocketSim.Vec(0, 1, 2), RocketSim.Vec(3, 4, 5), RocketSim.Vec(6, 7, 8))
+compare_rot_mat(RocketSim.RotMat(up=RocketSim.Vec(0, 1, 2), forward=RocketSim.Vec(3, 4, 5), right=RocketSim.Vec(6, 7, 8)),
+	RocketSim.Vec(3, 4, 5), RocketSim.Vec(6, 7, 8), RocketSim.Vec(0, 1, 2))
+
+def compare_controls(controls, attrs):
+	for attr in dir(controls):
+		if attr.startswith("__"):
+			continue
+
+		val = getattr(controls, attr)
+		if callable(val):
+			continue
+
+		if attr in attrs:
+			if type(val) is float:
+				compare_float(val, attrs[attr])
+			else:
+				assert(val == attrs[attr])
+		else:
+			assert(not val)
+
+compare_controls(RocketSim.CarControls(), {})
+compare_controls(RocketSim.CarControls(throttle=1.0), {"throttle": 1.0})
+compare_controls(RocketSim.CarControls(steer=2.0), {"steer": 2.0})
+compare_controls(RocketSim.CarControls(pitch=3.0), {"pitch": 3.0})
+compare_controls(RocketSim.CarControls(yaw=4.0), {"yaw": 4.0})
+compare_controls(RocketSim.CarControls(roll=5.0), {"roll": 5.0})
+compare_controls(RocketSim.CarControls(boost=True), {"boost": True})
+compare_controls(RocketSim.CarControls(jump=True), {"jump": True})
+compare_controls(RocketSim.CarControls(handbrake=True), {"handbrake": True})
+compare_controls(RocketSim.CarControls(jump=True, steer=2.0), {"steer": 2.0, "jump": True})
+compare_controls(RocketSim.CarControls(0.1, 0.2, 0.3, boost=True),
+	{
+		"throttle": 0.1,
+		"steer": 0.2,
+		"pitch": 0.3,
+		"boost": True,
+	})
+
+def compare_ball_state(state, pos, vel, ang_vel):
+	assert(state.pos == pos)
+	assert(state.vel == vel)
+	assert(state.ang_vel == ang_vel)
+
+compare_ball_state(RocketSim.BallState(), RocketSim.Vec(0, 0, 93.15), RocketSim.Vec(), RocketSim.Vec())
+compare_ball_state(RocketSim.BallState(RocketSim.Vec()), RocketSim.Vec(), RocketSim.Vec(), RocketSim.Vec())
+compare_ball_state(RocketSim.BallState(vel=RocketSim.Vec(1, 2, 3)), RocketSim.Vec(0, 0, 93.15), RocketSim.Vec(1, 2, 3), RocketSim.Vec())
 
 try:
 	ball = RocketSim.Ball()
@@ -66,15 +146,6 @@ try:
 	car = RocketSim.Car()
 except TypeError as e:
 	assert(str(e) == "cannot create 'RocketSim.Car' instances")
-
-def compare_float(a: float, b: float, threshold: float = 1e-4) -> bool:
-	error = abs(b - a)
-	if error >= threshold:
-		print(a)
-		print(b)
-		print(error)
-		return False
-	return True
 
 assert(RocketSim.GameMode.SOCCAR == 0)
 assert(RocketSim.GameMode.THE_VOID == 1)
@@ -102,6 +173,9 @@ assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.PLANK).hitbox_size.
 assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.BREAKOUT).hitbox_size.x, 133.9920))
 assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.HYBRID).hitbox_size.x, 129.5190))
 assert(compare_float(RocketSim.CarConfig(RocketSim.CarConfig.MERC).hitbox_size.x, 123.22))
+
+arena = RocketSim.Arena(RocketSim.GameMode.SOCCAR)
+arena.get_mutator_config()
 
 arena = RocketSim.Arena(RocketSim.GameMode.SOCCAR)
 car1  = arena.add_car(RocketSim.Team.BLUE, RocketSim.CarConfig.DOMINUS)
@@ -273,7 +347,7 @@ for i in range(10000):
 		q   = glm.quat_cast(m)
 		pyr = gym_state[33:36]
 		assert(compare_quat(gym_state[14:18], np.array(q)))
-		assert(compare_array(np.array(m), pyr_to_mat3(pyr), 1e-4))
+		assert(compare_array(np.array(m), pyr_to_mat3(pyr), 1e-5))
 		assert(check_pyr(pyr))
 
 		assert(compare_array(np.array(car_dir_x), np.array(m * x)))
@@ -295,7 +369,7 @@ for i in range(10000):
 		q = glm.quat_cast(m)
 		pyr = gym_state[33:36]
 		assert(compare_quat(gym_state[14:18], np.array(q)))
-		assert(compare_array(np.array(m), pyr_to_mat3(pyr), 1e-4))
+		assert(compare_array(np.array(m), pyr_to_mat3(pyr), 1e-5))
 		assert(check_pyr(pyr))
 
 		assert(compare_array(invert_vector(np.array(car_dir_x)), np.array(m * x)))

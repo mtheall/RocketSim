@@ -34,7 +34,7 @@ void BoostPad::_PreTickUpdate(float tickTime) {
 	_internalState.curLockedCar = NULL;
 }
 
-bool BoostPad::_CheckCollide(Car* car) {
+void BoostPad::_CheckCollide(Car* car) {
 	using namespace RLConst::BoostPads;
 
 	Vec carPosBT = car->_rigidBody->m_worldTransform.m_origin;
@@ -58,13 +58,12 @@ bool BoostPad::_CheckCollide(Car* car) {
 
 	if (colliding)
 		_internalState.curLockedCar = car;
-
-	return colliding;
 }
 
-void BoostPad::_PostTickUpdate(float tickTime, const MutatorConfig& mutatorConfig) {
+bool BoostPad::_PostTickUpdate(float tickTime, const MutatorConfig& mutatorConfig) {
 	using namespace RLConst::BoostPads;
 
+	bool pickedUp = false;
 	uint32_t lockedCarID = 0;
 	if (_internalState.curLockedCar) {
 		lockedCarID = _internalState.curLockedCar->id;
@@ -75,10 +74,14 @@ void BoostPad::_PostTickUpdate(float tickTime, const MutatorConfig& mutatorConfi
 
 			_internalState.isActive = false;
 			_internalState.cooldown = isBig ? mutatorConfig.boostPadCooldown_Big : mutatorConfig.boostPadCooldown_Small;
+
+			pickedUp = true;
 		}
 	}
 
 	_internalState.prevLockedCarID = lockedCarID;
+
+	return pickedUp;
 }
 
 void BoostPadState::Serialize(DataStreamOut& out) {

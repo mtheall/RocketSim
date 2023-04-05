@@ -1,11 +1,55 @@
 #include "Module.h"
 
-#include <memory>
-#include <vector>
+#include "RocketSim.h"
+
+namespace
+{
+// No data races due to GIL
+bool inited = false;
+}
 
 namespace RocketSim::Python
 {
-struct PyModuleDef Module = {PyModuleDef_HEAD_INIT, "RocketSim", nullptr, -1, nullptr};
+void InitInternal (char const *path_) noexcept
+{
+	if (inited)
+		return;
+
+	if (!path_)
+		path_ = std::getenv ("RS_COLLISION_MESHES");
+
+	RocketSim::Init (path_ ? path_ : COLLISION_MESH_BASE_PATH);
+}
+
+PyObject *Init (PyObject *self_, PyObject *args_) noexcept
+{
+	if (inited)
+		return PyErr_Format (PyExc_RuntimeError, "Already inited");
+
+	char const *path = nullptr;
+	if (!PyArg_ParseTuple (args_, "|s", &path))
+		return nullptr;
+
+	InitInternal (path);
+
+	inited = true;
+
+	Py_RETURN_NONE;
+}
+
+struct PyMethodDef Methods[] = {
+    {.ml_name = "init", .ml_meth = (PyCFunction)&Init, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
+};
+
+struct PyModuleDef Module = {
+    // clang-format off
+    .m_base    = PyModuleDef_HEAD_INIT,
+    .m_name    = "RocketSim",
+    .m_size    = -1,
+    .m_methods = Methods,
+    // clang-format on
+};
 }
 
 PyMODINIT_FUNC PyInit_RocketSim () noexcept
@@ -38,6 +82,7 @@ PyMODINIT_FUNC PyInit_RocketSim () noexcept
 	MAKE_TYPE (CarState);
 	MAKE_TYPE (DemoMode);
 	MAKE_TYPE (GameMode);
+	MAKE_TYPE (MutatorConfig);
 	MAKE_TYPE (RotMat);
 	MAKE_TYPE (Team);
 	MAKE_TYPE (Vec);

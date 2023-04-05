@@ -108,7 +108,44 @@ PyObject *CarControls::New (PyTypeObject *subtype_, PyObject *args_, PyObject *k
 
 int CarControls::Init (CarControls *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	if (!InitFromCarControls (self_, ::CarControls{}))
+	static char throttleKwd[]  = "throttle";
+	static char steerKwd[]     = "steer";
+	static char pitchKwd[]     = "pitch";
+	static char yawKwd[]       = "yaw";
+	static char rollKwd[]      = "roll";
+	static char boostKwd[]     = "boost";
+	static char jumpKwd[]      = "jump";
+	static char handbrakeKwd[] = "handbrake";
+	static char useItemKwd[]   = "use_item";
+
+	static char *dict[] = {
+	    throttleKwd, steerKwd, pitchKwd, yawKwd, rollKwd, boostKwd, jumpKwd, handbrakeKwd, useItemKwd, nullptr};
+
+	::CarControls controls{};
+	int boost     = false;
+	int jump      = false;
+	int handbrake = false;
+	int useItem   = false;
+	if (!PyArg_ParseTupleAndKeywords (args_,
+	        kwds_,
+	        "|fffffpppp",
+	        dict,
+	        &controls.throttle,
+	        &controls.steer,
+	        &controls.pitch,
+	        &controls.yaw,
+	        &controls.roll,
+	        &boost,
+	        &jump,
+	        &handbrake,
+	        &useItem))
+		return -1;
+
+	controls.boost     = boost;
+	controls.jump      = jump;
+	controls.handbrake = handbrake;
+
+	if (!InitFromCarControls (self_, controls))
 		return -1;
 
 	return 0;

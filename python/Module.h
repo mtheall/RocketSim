@@ -11,7 +11,6 @@
 
 #include <memory>
 #include <unordered_map>
-#include <vector>
 
 // clang-format off
 template <typename T>
@@ -65,6 +64,8 @@ static_assert (sizeof (bool) == sizeof (char));
 
 namespace RocketSim::Python
 {
+void InitInternal (char const *path_) noexcept;
+
 struct GameMode
 {
 	PyObject_HEAD
@@ -111,6 +112,7 @@ struct Vec
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (Vec *self_) noexcept;
+	static PyObject *RichCompare (Vec *self_, PyObject *other_, int op_) noexcept;
 	static PyObject *Repr (Vec *self_) noexcept;
 	static PyObject *Format (Vec *self_, PyObject *args_) noexcept;
 
@@ -219,8 +221,6 @@ struct BallState
 	Vec *angVel;
 
 	static PyTypeObject *Type;
-	static PyMemberDef Members[];
-	static PyMethodDef Methods[];
 	static PyGetSetDef GetSet[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
@@ -501,7 +501,7 @@ struct Arena
 
 	std::shared_ptr<::Arena> arena;
 	std::unordered_map<std::uint32_t, PyRef<Car>> *cars;
-	std::vector<PyRef<BoostPad>> *boostPads;
+	std::unordered_map<::BoostPad*, PyRef<BoostPad>> *boostPads;
 	Ball *ball;
 	PyObject *ballTouchCallback;
 	PyObject *ballTouchCallbackUserData;
@@ -548,7 +548,7 @@ struct Arena
 	static PyObject *Step (Arena *self_, PyObject *args_) noexcept;
 
 	static void HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept;
-	static void HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, bool isBig_, void *userData_) noexcept;
+	static void HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad *boostPad_, void *userData_) noexcept;
 	static void HandleCarBumpCallback (::Arena* arena_, ::Car* bumper_, ::Car* victim_, bool isDemo_, void* userData_) noexcept;
 	static void HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void *userData_) noexcept;
 

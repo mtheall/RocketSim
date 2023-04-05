@@ -2,8 +2,10 @@
 
 #include "Array.h"
 
+#include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <tuple>
 
 namespace RocketSim::Python
 {
@@ -28,6 +30,7 @@ PyType_Slot Vec::Slots[] = {
     {Py_tp_new, (void *)&Vec::New},
     {Py_tp_init, (void *)&Vec::Init},
     {Py_tp_dealloc, (void *)&Vec::Dealloc},
+    {Py_tp_richcompare, (void *)&Vec::RichCompare},
     {Py_tp_repr, (void *)&Vec::Repr},
     {Py_tp_members, &Vec::Members},
     {Py_tp_methods, &Vec::Methods},
@@ -77,8 +80,13 @@ PyObject *Vec::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) no
 
 int Vec::Init (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	auto vec = ::Vec{};
-	if (!PyArg_ParseTuple (args_, "|fff", &vec.x, &vec.y, &vec.z))
+	static char xKwd[]  = "x";
+	static char yKwd[]  = "y";
+	static char zKwd[]  = "z";
+	static char *dict[] = {xKwd, yKwd, zKwd, nullptr};
+
+	::Vec vec{};
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|fff", dict, &vec.x, &vec.y, &vec.z))
 		return -1;
 
 	if (!InitFromVec (self_, vec))
@@ -93,6 +101,23 @@ void Vec::Dealloc (Vec *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *Vec::RichCompare (Vec *self_, PyObject *other_, int op_) noexcept
+{
+	if (!Py_IS_TYPE (other_, Vec::Type))
+		return Py_NotImplemented;
+
+	auto const vec = PyRef<Vec>::incObjectRef (other_);
+
+	if (std::isnan (self_->vec.x) || std::isnan (self_->vec.y) || std::isnan (self_->vec.z) ||
+	    std::isnan (vec->vec.x) || std::isnan (vec->vec.y) || std::isnan (vec->vec.z))
+		return PyBool_FromLong (op_ == Py_NE);
+
+	auto const a = std::make_tuple (self_->vec.x, self_->vec.y, self_->vec.z);
+	auto const b = std::make_tuple (vec->vec.x, vec->vec.y, vec->vec.z);
+
+	Py_RETURN_RICHCOMPARE (a, b, op_);
 }
 
 PyObject *Vec::Repr (Vec *self_) noexcept

@@ -274,7 +274,7 @@ public:
 
 	void applyCentralForce(const btVector3& force)
 	{
-		btAssert(!force.isNan())
+		btAssert(!force.isNan());
 		m_totalForce += force * m_linearFactor;
 	}
 
@@ -306,7 +306,7 @@ public:
 
 	void applyTorque(const btVector3& torque)
 	{
-		btAssert(!torque.isNan())
+		btAssert(!torque.isNan());
 		m_totalTorque += torque * m_angularFactor;
 		#if defined(BT_CLAMP_VELOCITY_TO) && BT_CLAMP_VELOCITY_TO > 0
 		clampVelocity(m_totalTorque);

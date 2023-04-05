@@ -95,6 +95,13 @@ PyObject *RotMat::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_)
 int RotMat::Init (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	::RotMat mat{};
+	if (PyTuple_Size (args_) == 0 && !kwds_)
+	{
+		if (!InitFromRotMat (self_, mat))
+			return -1;
+
+		return 0;
+	}
 
 	if (PyArg_ParseTuple (args_,
 	        "fffffffff",
@@ -116,10 +123,16 @@ int RotMat::Init (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	PyErr_Clear ();
 
-	PyObject *forward; // borrowed references
-	PyObject *right;
-	PyObject *up;
-	if (!PyArg_ParseTuple (args_, "O!O!O!", Vec::Type, &forward, Vec::Type, &right, Vec::Type, &up))
+	static char forwardKwd[] = "forward";
+	static char rightKwd[]   = "right";
+	static char upKwd[]      = "up";
+	static char *dict[]      = {forwardKwd, rightKwd, upKwd, nullptr};
+
+	PyObject *forward = nullptr; // borrowed references
+	PyObject *right   = nullptr;
+	PyObject *up      = nullptr;
+	if (!PyArg_ParseTupleAndKeywords (
+	        args_, kwds_, "O!O!O!", dict, Vec::Type, &forward, Vec::Type, &right, Vec::Type, &up))
 		return -1;
 
 	PyRef<Vec>::assign (self_->forward, forward);

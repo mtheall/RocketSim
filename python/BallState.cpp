@@ -7,14 +7,6 @@ namespace RocketSim::Python
 {
 PyTypeObject *BallState::Type = nullptr;
 
-PyMemberDef BallState::Members[] = {
-    {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
-};
-
-PyMethodDef BallState::Methods[] = {
-    {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
-};
-
 PyGetSetDef BallState::GetSet[] = {
     GETSET_ENTRY (BallState, pos),
     GETSET_ENTRY (BallState, vel),
@@ -26,8 +18,6 @@ PyType_Slot BallState::Slots[] = {
     {Py_tp_new, (void *)(&BallState::New)},
     {Py_tp_init, (void *)(&BallState::Init)},
     {Py_tp_dealloc, (void *)(&BallState::Dealloc)},
-    {Py_tp_members, &BallState::Members},
-    {Py_tp_methods, &BallState::Methods},
     {Py_tp_getset, &BallState::GetSet},
     {0, nullptr},
 };
@@ -97,7 +87,27 @@ PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 
 int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	if (!InitFromBallState (self_, ::BallState{}))
+	static char posKwd[]    = "pos";
+	static char velKwd[]    = "vel";
+	static char angVelKwd[] = "ang_vel";
+	static char *dict[]     = {posKwd, velKwd, angVelKwd, nullptr};
+
+	PyObject *pos    = nullptr; // borrowed references
+	PyObject *vel    = nullptr;
+	PyObject *angVel = nullptr;
+	if (!PyArg_ParseTupleAndKeywords (
+	        args_, kwds_, "|O!O!O!", dict, Vec::Type, &pos, Vec::Type, &vel, Vec::Type, &angVel))
+		return -1;
+
+	::BallState state{};
+	if (pos)
+		state.pos = Vec::ToVec (reinterpret_cast<Vec *> (pos));
+	if (vel)
+		state.vel = Vec::ToVec (reinterpret_cast<Vec *> (vel));
+	if (angVel)
+		state.angVel = Vec::ToVec (reinterpret_cast<Vec *> (angVel));
+
+	if (!InitFromBallState (self_, state))
 		return -1;
 
 	return 0;

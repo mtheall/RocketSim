@@ -2,7 +2,8 @@
 
 #define RS_VERSION "pre-1.2.0"
 
-#include <stdint.h>
+#include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -31,7 +32,6 @@
 
 #define _USE_MATH_DEFINES // for M_PI and similar
 #include <cmath>
-#include <math.h>
 
 // Remove need for std namespace scope for very common datatypes
 using std::vector;
@@ -70,7 +70,7 @@ typedef uint8_t byte;
 
 #define RS_WARN(s) RS_LOG("WARNING: " << s)
 
-#define RS_ERR_CLOSE(s) { RS_LOG("FATAL ERROR: " << s); exit(EXIT_FAILURE); }
+#define RS_ERR_CLOSE(s) { std::cout << std::dec << "FATAL ERROR: " << s << std::endl; std::exit(EXIT_FAILURE); }
 
 #if 0 // FOR FUTURE USE: Exports/imports setup
 #ifdef ROCKETSIM_EXPORTS

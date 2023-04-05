@@ -87,8 +87,13 @@ PyObject *Angle::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 
 int Angle::Init (Angle *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
+	static char yawKwd[]   = "yaw";
+	static char pitchKwd[] = "pitch";
+	static char rollKwd[]  = "roll";
+	static char *dict[]    = {yawKwd, pitchKwd, rollKwd, nullptr};
+
 	::Angle angle{};
-	if (!PyArg_ParseTuple (args_, "|fff", &angle.yaw, &angle.pitch, &angle.roll))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|fff", dict, &angle.yaw, &angle.pitch, &angle.roll))
 		return -1;
 
 	if (!InitFromAngle (self_, angle))

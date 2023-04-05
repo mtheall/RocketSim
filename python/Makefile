@@ -1,9 +1,11 @@
-.PHONY: all wheel install clean
+.PHONY: all build wheel install clean
 
-all:
-	python3 ../setup.py build
+all: build
 
-wheel:
+build:
+	python3 ../setup.py build --debug
+
+wheel: build
 	python3 ../setup.py bdist_wheel --py-limited-api=cp34
 
 install: wheel

@@ -7,101 +7,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build_wheels:
-    name: ${{ matrix.os }} ${{ matrix.python-version }} ${{ matrix.wheel-path }}
+  quick_build:
+    name: Quick build
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2019, ubuntu-22.04, macos-12]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-        include:
-        - os: windows-2019
-          pip-path: ~\AppData\Local\pip\Cache
-          ccache-variant: sccache
-          ccache-path: NUL
-          wheel-path: dist/RocketSim-1.0-cp34-abi3-win_amd64.whl
-        - os: ubuntu-22.04
-          pip-path: ~/.cache/pip
-          ccache-variant: ccache
-          ccache-path: /usr/lib/ccache
-          wheel-path: dist/RocketSim-1.0-cp34-abi3-linux_x86_64.whl
-        - os: macos-12
-          python-version: '3.8'
-          pip-path: ~/Library/Caches/pip
-          ccache-variant: ccache
-          ccache-path: /usr/local/opt/ccache/libexec
-          wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_10_15_x86_64.whl
-        - os: macos-12
-          python-version: '3.9'
-          pip-path: ~/Library/Caches/pip
-          ccache-variant: ccache
-          ccache-path: /usr/local/opt/ccache/libexec
-          wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_11_0_x86_64.whl
-        - os: macos-12
-          python-version: '3.10'
-          pip-path: ~/Library/Caches/pip
-          ccache-variant: ccache
-          ccache-path: /usr/local/opt/ccache/libexec
-          wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_11_0_x86_64.whl
-        - os: macos-12
-          python-version: '3.11'
-          pip-path: ~/Library/Caches/pip
-          ccache-variant: ccache
-          ccache-path: /usr/local/opt/ccache/libexec
-          wheel-path: dist/RocketSim-1.0-cp34-abi3-macosx_10_15_universal2.whl
+        os:       [ubuntu-22.04]
+        pip-path: [~/.cache/pip]
 
     steps:
       - uses: actions/checkout@v3
 
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.9'
 
-      - uses: actions/cache/restore@v3
-        id: pip-cache-restore
+      - uses: actions/cache@v3
+        id: pip-cache
         with:
           path: ${{ matrix.pip-path }}
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('setup.py') }}
+          key: ${{ matrix.os }}-pip-${{ hashFiles('setup.py') }}
 
       - name: Install dependencies
         run: |
           pip3 install wheel oldest-supported-numpy PyGLM
 
-      - uses: actions/cache/save@v3
+      - uses: hendrikmuhs/ccache-action@v1.2.8
         with:
-          path: ${{ matrix.pip-path }}
-          key: ${{ steps.pip-cache-restore.outputs.cache-primary-key }}
+          key: ${{ matrix.os }}
+          variant: ccache
 
-      - uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: ${{ runner.os }}-${{ matrix.python-version }}
-          append-timestamp: false
-          variant: ${{ matrix.ccache-variant }}
-
-      - name: Copy sccache to cl
-        if: matrix.os == 'windows-2019'
+      - name: Build/install extension
         run: |
-          copy ~/.cargo/bin/sccache.exe ~/.cargo/bin/cl.exe
-
-      - name: Build extension
-        run: |
-          python3 setup.py build
-        env:
-          CC: ${{ matrix.ccache-path }}/gcc-12
-          CXX: ${{ matrix.ccache-path }}/g++-12
-          MACOSX_DEPLOYMENT_TARGET: 10.15
-
-      - name: Build wheel
-        run: |
+          python3 setup.py build --debug
           python3 setup.py bdist_wheel --py-limited-api=cp34
+          pip3 install dist/RocketSim-1.2.0a1-cp34-abi3-linux_x86_64.whl
         env:
-          CC: ${{ matrix.ccache-path }}/gcc-12
-          CXX: ${{ matrix.ccache-path }}/g++-12
-          MACOSX_DEPLOYMENT_TARGET: 10.15
-
-      - name: Install wheel
-        run: |
-          pip3 install ${{ matrix.wheel-path }}
+          CC: /usr/lib/ccache/gcc-12
+          CXX: /usr/lib/ccache/g++-12
 
       - name: Load collision meshes
         uses: actions/cache/restore@v3
@@ -109,6 +52,7 @@ jobs:
         with:
           path: collision_meshes
           key: collision-cache
+          enableCrossOsArchive: true
 
       - name: Download collision meshes
         if: steps.collision-cache-restore.outputs.cache-hit != 'true'
@@ -129,6 +73,88 @@ jobs:
         with:
           path: collision_meshes
           key: collision-cache
+          enableCrossOsArchive: true
+
+      - name: Run unit tests
+        run: |
+          python3 python/unit_test.py
+
+      - name: Run regression tests
+        run: |
+          python3 python/regression_test.py
+
+  build_wheels:
+    needs: quick_build
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-2019, ubuntu-22.04, macos-12]
+        include:
+        - os: windows-2019
+          pip-path: ~\AppData\Local\pip\Cache
+          wheel-path: dist/RocketSim-1.2.0a1-cp34-abi3-win_amd64.whl
+        - os: ubuntu-22.04
+          pip-path: ~/.cache/pip
+          wheel-path: dist/RocketSim-1.2.0a1-cp34-abi3-linux_x86_64.whl
+        - os: macos-12
+          pip-path: ~/Library/Caches/pip
+          wheel-path: dist/RocketSim-1.2.0a1-cp34-abi3-macosx_11_0_x86_64.whl
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - uses: actions/cache@v3
+        id: pip-cache
+        with:
+          path: ${{ matrix.pip-path }}
+          key: ${{ matrix.os }}-pip-${{ hashFiles('setup.py') }}
+
+      - name: Install dependencies
+        run: |
+          pip3 install wheel oldest-supported-numpy PyGLM
+
+      - name: Build extension
+        run: |
+          python3 setup.py build
+          python3 setup.py bdist_wheel --py-limited-api=cp34
+          pip3 install ${{ matrix.wheel-path }}
+        env:
+          CC: gcc-12
+          CXX: g++-12
+
+      - name: Load collision meshes
+        uses: actions/cache/restore@v3
+        id: collision-cache-restore
+        with:
+          path: collision_meshes
+          key: collision-cache
+          enableCrossOsArchive: true
+
+      - name: Download collision meshes
+        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
+        uses: suisei-cn/actions-download-file@v1.3.0
+        with:
+          url: https://mtheall.com/~mtheall/collision_meshes.tar
+
+      - name: Extract collision meshes
+        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
+        uses: a7ul/tar-action@v1.1.3
+        with:
+          command: x
+          files: collision_meshes.tar
+
+      - name: Save collision meshes
+        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3
+        with:
+          path: collision_meshes
+          key: collision-cache
+          enableCrossOsArchive: true
 
       - name: Run unit tests
         run: |
@@ -139,6 +165,5 @@ jobs:
           python3 python/regression_test.py
 
       - uses: actions/upload-artifact@v3
-        if: matrix.python-version == '3.9'
         with:
           path: ${{ matrix.wheel-path }}

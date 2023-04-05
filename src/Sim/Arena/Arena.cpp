@@ -696,14 +696,16 @@ void Arena::Step(int ticksToSimulate) {
 			car->_PostTickUpdate(tickTime, _mutatorConfig);
 			car->_FinishPhysicsTick(_mutatorConfig);
 			if (gameMode == GameMode::SOCCAR) {
-				if (auto pad = _boostPadGrid.CheckCollision(car); pad && _boostPickupCallback.func)
-					_boostPickupCallback.func(this, car, pad->isBig, _boostPickupCallback.userInfo);
+				_boostPadGrid.CheckCollision(car);
 			}
 		}
 
 		if (gameMode == GameMode::SOCCAR) {
 			for (BoostPad* pad : _boostPads)
-				pad->_PostTickUpdate(tickTime, _mutatorConfig);
+			{
+				if (pad->_PostTickUpdate(tickTime, _mutatorConfig) && _boostPickupCallback.func)
+					_boostPickupCallback.func(this, pad->_internalState.curLockedCar, pad, _boostPickupCallback.userInfo);
+			}
 		}
 
 		ball->_FinishPhysicsTick(_mutatorConfig);

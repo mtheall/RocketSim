@@ -23,10 +23,10 @@ enum class GameMode : byte {
 	// More coming soon!
 };
 
-using BallTouchEventFn   = std::function<void(class Arena* arena, Car *car, void* userInfo)>;
-using BoostPickupEventFn = std::function<void(class Arena* arena, Car *car, bool isBig_, void* userInfo)>;
-using CarBumpEventFn     = std::function<void(class Arena* arena, Car* bumper, Car* victim, bool isDemo, void* userInfo)>;
-using GoalScoreEventFn   = std::function<void(class Arena* arena, Team scoringTeam, void* userInfo)>;
+using BallTouchEventFn   = void(*)(class Arena* arena, Car *car, void* userInfo);
+using BoostPickupEventFn = void(*)(class Arena* arena, Car *car, BoostPad *boostPad, void* userInfo);
+using CarBumpEventFn     = void(*)(class Arena* arena, Car* bumper, Car* victim, bool isDemo, void* userInfo);
+using GoalScoreEventFn   = void(*)(class Arena* arena, Team scoringTeam, void* userInfo);
 
 // The container for all game simulation
 // Stores cars, the ball, all arena collisions, and manages the overall game state
