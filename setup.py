@@ -37,11 +37,11 @@ for root, dirs, files in os.walk(os.path.join(base, "src")):
 class build_ext_ex(build_ext):
   extra_compile_args = {
     "debug": {
-      "unix": ["-std=c++20", "-Og"],
+      "unix": ["-std=c++2a", "-Og", "-fvisibility=hidden"],
       "msvc": ["/std:c++20"]
     },
     "release": {
-      "unix": ["-std=c++20", "-flto", "-g0"],
+      "unix": ["-std=c++2a", "-flto", "-g0", "-fvisibility=hidden"],
       "msvc": ["/std:c++20", "/GL"]
     }
   }
@@ -69,8 +69,6 @@ RocketSim = Extension(
   language = "c++",
   py_limited_api = True,
   define_macros = [
-    ("MAJOR_VERSION", "1"),
-    ("MINOR_VERSION", "0"),
     ("PY_SSIZE_T_CLEAN", "1"),
     ("Py_LIMITED_API", "0x03040000"),
     ("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION"),
@@ -82,7 +80,7 @@ RocketSim = Extension(
 
 setup(
   name = "RocketSim",
-  version = "1.2.0a1",
+  version = "1.2.0a2",
   description = "This is Rocket League!",
   cmdclass = {"build_ext": build_ext_ex},
   ext_modules = [RocketSim]

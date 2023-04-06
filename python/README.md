@@ -24,27 +24,29 @@ Bots that work well in RocketSim will work well in the actual game, and visa-ver
 
 ## Example Usage
 ```python
-import RocketSim
+#!/usr/bin/env python3
+
+import RocketSim as rs
 
 # Make an arena instance (this is where our simulation takes place, has its own btDynamicsWorld instance)
-arena = RocketSim.Arena(RocketSim.SOCCAR)
+arena = rs.Arena(rs.GameMode.SOCCAR)
 
 # Make a new car
-car = arena.add_car(RocketSim.BLUE)
+car = arena.add_car(rs.Team.BLUE)
 
 # Set up an initial state for our car
-car_state = RocketSim.CarState()
-car_state.pos = RocketSim.Vec(0, 0, 17)
-car_state.vel = RocketSim.Vec(50, 0, 0)
+car_state = rs.CarState()
+car_state.pos = rs.Vec(0, 0, 17)
+car_state.vel = rs.Vec(50, 0, 0)
 car.set_state(car_state)
 
 # Setup a ball state
-ball_state = RocketSim.BallState()
-ball_state.pos = RocketSim.Vec (0, 400, 100)
+ball_state = rs.BallState()
+ball_state.pos = rs.Vec (0, 400, 100)
 arena.ball.set_state(ball_state);
 
 # Make our car drive forward and turn
-car_controls = RocketSim.CarControls()
+car_controls = rs.CarControls()
 car_controls.throttle = 1
 car_controls.steer = 1
 car.set_controls(car_controls)

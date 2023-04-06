@@ -52,7 +52,17 @@ struct PyModuleDef Module = {
 };
 }
 
-PyMODINIT_FUNC PyInit_RocketSim () noexcept
+#ifndef Py_EXPORTED_SYMBOL
+#if defined(_WIN32) || defined(__CYGWIN__)
+#define Py_EXPORTED_SYMBOL __declspec (dllexport)
+#elif defined(__GNUC__)
+#define Py_EXPORTED_SYMBOL __attribute__ ((visibility ("default")))
+#else
+#define Py_EXPORTED_SYMBOL
+#endif
+#endif
+
+extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 {
 	auto m = RocketSim::Python::PyObjectRef::steal (PyModule_Create (&RocketSim::Python::Module));
 	if (!m)

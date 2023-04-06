@@ -15,7 +15,16 @@ namespace
 {
 std::uint64_t makeKey (float a_, float b_) noexcept
 {
-	return (static_cast<std::uint64_t> (std::bit_cast<std::uint32_t> (a_)) << 32) | std::bit_cast<std::uint32_t> (b_);
+#if __cpp_lib_bit_cast
+	auto const a = std::bit_cast<std::uint32_t> (a_);
+	auto const b = std::bit_cast<std::uint32_t> (b_);
+#else
+	static_assert (sizeof (float) == sizeof (std::uint32_t));
+	std::uint32_t a, b;
+	std::memcpy (&a, &a_, sizeof (a));
+	std::memcpy (&b, &b_, sizeof (b));
+#endif
+	return (static_cast<std::uint64_t> (a) << 32) | b;
 }
 
 std::unordered_map<std::uint64_t, unsigned> const boostMapping = {
@@ -295,7 +304,6 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		if (!arena)
 			throw -1;
 
-		arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, self_);
 		arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, self_);
 
 		if (arena->gameMode != ::GameMode::THE_VOID)
@@ -517,7 +525,8 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_) noexcept
 		clone->orangeScore  = self_->orangeScore;
 		clone->lastGoalTick = self_->lastGoalTick;
 
-		clone->arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, clone.borrow ());
+		if (clone->ballTouchCallback != Py_None)
+			clone->arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, clone.borrow ());
 		clone->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, clone.borrow ());
 
 		if (clone->arena->gameMode != ::GameMode::THE_VOID)
@@ -537,12 +546,18 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_) noexcept
 PyObject *Arena::GetCarFromId (Arena *self_, PyObject *args_) noexcept
 {
 	unsigned id;
-	if (!PyArg_ParseTuple (args_, "I", &id))
+	PyObject *defaultResult = nullptr; // borrowed reference
+	if (!PyArg_ParseTuple (args_, "I|O", &id, &defaultResult))
 		return nullptr;
 
 	auto it = self_->cars->find (id);
 	if (it == std::end (*self_->cars) || !it->second)
-		return PyErr_Format (PyExc_KeyError, "%u", id);
+	{
+		if (!defaultResult)
+			return PyErr_Format (PyExc_KeyError, "%u", id);
+
+		return PyObjectRef::incRef (defaultResult).giftObject ();
+	}
 
 	return it->second.newObjectRef ();
 }
@@ -757,16 +772,24 @@ PyObject *Arena::SetBallTouchCallback (Arena *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O|O", &callback, &userData))
 		return nullptr;
 
-	if (!PyCallable_Check (callback))
+	if (callback == Py_None)
+		self_->arena->SetBallTouchCallback (nullptr, nullptr);
+	else if (PyCallable_Check (callback))
+		self_->arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, self_);
+	else
 	{
-		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object");
+		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object or None");
 		return nullptr;
 	}
 
-	PyObjectRef::assign (self_->ballTouchCallback, callback);
-	PyObjectRef::assign (self_->ballTouchCallbackUserData, userData ? userData : Py_None);
+	auto prev = PyObjectRef::steal (Py_BuildValue ("OO", callback, userData ? userData : Py_None));
+	if (!prev)
+		return nullptr;
 
-	Py_RETURN_NONE;
+	PyObjectRef::assign (self_->ballTouchCallback, PyTuple_GetItem (prev.borrow (), 0));
+	PyObjectRef::assign (self_->ballTouchCallbackUserData, PyTuple_GetItem (prev.borrow (), 1));
+
+	return prev.giftObject ();
 }
 
 PyObject *Arena::SetBoostPickupCallback (Arena *self_, PyObject *args_) noexcept
@@ -779,16 +802,20 @@ PyObject *Arena::SetBoostPickupCallback (Arena *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O|O", &callback, &userData))
 		return nullptr;
 
-	if (!PyCallable_Check (callback))
+	if (callback != Py_None && !PyCallable_Check (callback))
 	{
-		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object");
+		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object or None");
 		return nullptr;
 	}
 
-	PyObjectRef::assign (self_->boostPickupCallback, callback);
-	PyObjectRef::assign (self_->boostPickupCallbackUserData, userData ? userData : Py_None);
+	auto prev = PyObjectRef::steal (Py_BuildValue ("OO", callback, userData ? userData : Py_None));
+	if (!prev)
+		return nullptr;
 
-	Py_RETURN_NONE;
+	PyObjectRef::assign (self_->boostPickupCallback, PyTuple_GetItem (prev.borrow (), 0));
+	PyObjectRef::assign (self_->boostPickupCallbackUserData, PyTuple_GetItem (prev.borrow (), 1));
+
+	return prev.giftObject ();
 }
 
 PyObject *Arena::SetCarBumpCallback (Arena *self_, PyObject *args_) noexcept
@@ -798,16 +825,20 @@ PyObject *Arena::SetCarBumpCallback (Arena *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O|O", &callback, &userData))
 		return nullptr;
 
-	if (!PyCallable_Check (callback))
+	if (callback != Py_None && !PyCallable_Check (callback))
 	{
-		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object");
+		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object or None");
 		return nullptr;
 	}
 
-	PyObjectRef::assign (self_->carBumpCallback, callback);
-	PyObjectRef::assign (self_->carBumpCallbackUserData, userData ? userData : Py_None);
+	auto prev = PyObjectRef::steal (Py_BuildValue ("OO", callback, userData ? userData : Py_None));
+	if (!prev)
+		return nullptr;
 
-	Py_RETURN_NONE;
+	PyObjectRef::assign (self_->carBumpCallback, PyTuple_GetItem (prev.borrow (), 0));
+	PyObjectRef::assign (self_->carBumpCallbackUserData, PyTuple_GetItem (prev.borrow (), 1));
+
+	return prev.giftObject ();
 }
 
 PyObject *Arena::SetGoalScoreCallback (Arena *self_, PyObject *args_) noexcept
@@ -820,16 +851,20 @@ PyObject *Arena::SetGoalScoreCallback (Arena *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "O|O", &callback, &userData))
 		return nullptr;
 
-	if (!PyCallable_Check (callback))
+	if (callback != Py_None && !PyCallable_Check (callback))
 	{
-		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object");
+		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object or None");
 		return nullptr;
 	}
 
-	PyObjectRef::assign (self_->goalScoreCallback, callback);
-	PyObjectRef::assign (self_->goalScoreCallbackUserData, userData ? userData : Py_None);
+	auto prev = PyObjectRef::steal (Py_BuildValue ("OO", callback, userData ? userData : Py_None));
+	if (!prev)
+		return nullptr;
 
-	Py_RETURN_NONE;
+	PyObjectRef::assign (self_->goalScoreCallback, PyTuple_GetItem (prev.borrow (), 0));
+	PyObjectRef::assign (self_->goalScoreCallbackUserData, PyTuple_GetItem (prev.borrow (), 1));
+
+	return prev.giftObject ();
 }
 
 PyObject *Arena::SetMutatorConfig (Arena *self_, PyObject *args_) noexcept
