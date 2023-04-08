@@ -9,7 +9,7 @@ wheel: build
 	python3 ../setup.py bdist_wheel --py-limited-api=cp34
 
 install: wheel
-	pip3 install --force-reinstall --user ./dist/RocketSim-1.2.0a2-cp34-abi3-linux_x86_64.whl
+	pip3 install --force-reinstall --user ./dist/RocketSim-1.2.0a3-cp34-abi3-linux_x86_64.whl
 
 clean:
 	$(RM) -r build/ dist/ RocketSim.egg-info/

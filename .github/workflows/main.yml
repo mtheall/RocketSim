@@ -13,13 +13,6 @@ jobs:
     strategy:
       matrix:
         os: [windows-2019, ubuntu-22.04, macos-12]
-        include:
-        - os: windows-2019
-          wheel-path: dist/RocketSim-1.2.0a2-cp34-abi3-win_amd64.whl
-        - os: ubuntu-22.04
-          wheel-path: dist/RocketSim-1.2.0a2-cp34-abi3-linux_x86_64.whl
-        - os: macos-12
-          wheel-path: dist/RocketSim-1.2.0a2-cp34-abi3-macosx_11_0_x86_64.whl
 
     steps:
       - uses: actions/checkout@v3
@@ -36,10 +29,14 @@ jobs:
         run: |
           python3 setup.py build
           python3 setup.py bdist_wheel --py-limited-api=cp34
-          pip3 install ${{ matrix.wheel-path }}
         env:
           CC: gcc-12
           CXX: g++-12
+
+      - name: Install extension
+        shell: bash
+        run: |
+          pip3 install dist/*.whl
 
       - name: Load collision meshes
         uses: actions/cache/restore@v3
@@ -80,4 +77,4 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          path: ${{ matrix.wheel-path }}
+          path: dist/*.whl

@@ -261,6 +261,7 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	self->blueScore                   = 0;
 	self->orangeScore                 = 0;
 	self->lastGoalTick                = 0;
+	self->lastGymStateTick            = 0;
 	self->stepException               = 0;
 
 	if (!self->cars || !self->boostPads)
@@ -687,9 +688,8 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 
 		auto const &state = car->car->_internalState;
 
-		auto const hitLastStep = state.ballHitInfo.isValid &&
-		                         state.ballHitInfo.tickCountWhenHit > self_->lastGoalTick &&
-		                         state.ballHitInfo.tickCountWhenHit + 8 >= self_->arena->tickCount;
+		auto const hitLastStep =
+		    state.ballHitInfo.isValid && state.ballHitInfo.tickCountWhenHit >= self_->lastGymStateTick;
 
 		for (unsigned i = 0; i < 2; ++i)
 		{
@@ -711,6 +711,8 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 		PyTuple_SetItem (tuple.borrow (), 3 + carIndex, carState.giftObject ());
 		++carIndex;
 	}
+
+	self_->lastGymStateTick = self_->arena->tickCount;
 
 	return tuple.giftObject ();
 }

@@ -18,7 +18,7 @@ struct TypeHelper{};
 // clang-format on
 
 #if PY_VERSION_HEX < 0x03090000
-#define Py_IS_TYPE(ob_, type_) ((PyObject const*)(ob_)->ob_type == (PyObject const*)(type_))
+#define Py_IS_TYPE(ob_, type_) ((PyObject const *)(ob_)->ob_type == (PyObject const *)(type_))
 #endif
 
 // clang-format off
@@ -501,7 +501,7 @@ struct Arena
 
 	std::shared_ptr<::Arena> arena;
 	std::unordered_map<std::uint32_t, PyRef<Car>> *cars;
-	std::unordered_map<::BoostPad*, PyRef<BoostPad>> *boostPads;
+	std::unordered_map<::BoostPad *, PyRef<BoostPad>> *boostPads;
 	Ball *ball;
 	PyObject *ballTouchCallback;
 	PyObject *ballTouchCallbackUserData;
@@ -516,6 +516,7 @@ struct Arena
 	unsigned orangeScore;
 
 	std::uint64_t lastGoalTick;
+	std::uint64_t lastGymStateTick;
 
 	bool stepException;
 
@@ -548,8 +549,10 @@ struct Arena
 	static PyObject *Step (Arena *self_, PyObject *args_) noexcept;
 
 	static void HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept;
-	static void HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad *boostPad_, void *userData_) noexcept;
-	static void HandleCarBumpCallback (::Arena* arena_, ::Car* bumper_, ::Car* victim_, bool isDemo_, void* userData_) noexcept;
+	static void
+	    HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad *boostPad_, void *userData_) noexcept;
+	static void
+	    HandleCarBumpCallback (::Arena *arena_, ::Car *bumper_, ::Car *victim_, bool isDemo_, void *userData_) noexcept;
 	static void HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void *userData_) noexcept;
 
 	GETONLY_DECLARE (Arena, game_mode);

@@ -5,8 +5,13 @@ from setuptools.command.build_ext import build_ext
 
 from sys import argv
 
-import os
 import numpy
+import os
+import platform
+
+# fix 64-bit detection on windows
+if os.name == "nt":
+  os.environ["VSCMD_ARG_TGT_ARCH"] = "x64" if platform.architecture()[0] == "64bit" else "Win32"
 
 sources = []
 headers = []
@@ -80,7 +85,7 @@ RocketSim = Extension(
 
 setup(
   name = "RocketSim",
-  version = "1.2.0a2",
+  version = "1.2.0a3",
   description = "This is Rocket League!",
   cmdclass = {"build_ext": build_ext_ex},
   ext_modules = [RocketSim]
