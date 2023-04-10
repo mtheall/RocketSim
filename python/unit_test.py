@@ -7,8 +7,12 @@ import math
 import numpy as np
 import random
 import unittest
+import multiprocessing
 
 np.set_printoptions(formatter={"float": lambda x: f"{x: .6f}"}, linewidth=100)
+
+def return_self(args):
+  return args
 
 class FuzzyTestCase(unittest.TestCase):
   def assertEqual(self, a, b, threshold = 1e-4):
@@ -58,6 +62,19 @@ class TestVec(FuzzyTestCase):
     self.compare(rs.Vec(z=2), 0.0, 0.0, 2.0)
     self.compare(rs.Vec(1, z=2), 1.0, 0.0, 2.0)
 
+  def test_pickle(self):
+    vec = rs.Vec(
+      x = random.uniform(-1.0, 1.0),
+      y = random.uniform(-1.0, 1.0),
+      z = random.uniform(-1.0, 1.0)
+    )
+
+    with multiprocessing.Pool(1) as p:
+      result = p.map(return_self, [vec])
+      self.assertEqual(vec.x, result[0].x)
+      self.assertEqual(vec.y, result[0].y)
+      self.assertEqual(vec.z, result[0].z)
+
 class TestRotMat(FuzzyTestCase):
   def compare(self, mat, forward, right, up):
     self.assertEqual(mat.forward, forward)
@@ -86,6 +103,43 @@ class TestRotMat(FuzzyTestCase):
       rs.Vec(6, 7, 8),
       rs.Vec(0, 1, 2))
 
+  def test_as_angle(self):
+    forward = glm.normalize(glm.vec3(random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0)))
+    right   = glm.normalize(glm.vec3(random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0)))
+    up      = glm.normalize(glm.cross(forward, right))
+    right   = glm.normalize(glm.cross(up, forward))
+
+    src = rs.RotMat(
+      forward = rs.Vec(forward.x, forward.y, forward.z),
+      right   = rs.Vec(right.x,   right.y,   right.z),
+      up      = rs.Vec(up.x,      up.y,      up.z)
+    )
+
+    dst = src.as_angle().as_rot_mat()
+
+    self.assertEqual(src.forward.x, dst.forward.x)
+    self.assertEqual(src.forward.y, dst.forward.y)
+    self.assertEqual(src.forward.z, dst.forward.z)
+    self.assertEqual(src.right.x,   dst.right.x)
+    self.assertEqual(src.right.y,   dst.right.y)
+    self.assertEqual(src.right.z,   dst.right.z)
+    self.assertEqual(src.up.x,      dst.up.x)
+    self.assertEqual(src.up.y,      dst.up.y)
+    self.assertEqual(src.up.z,      dst.up.z)
+ 
+  def test_pickle(self):
+    mat = rs.RotMat(
+      forward = rs.Vec(random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0)),
+      right   = rs.Vec(random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0)),
+      up      = rs.Vec(random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0))
+    )
+
+    with multiprocessing.Pool(1) as p:
+      result = p.map(return_self, [mat])
+      self.assertEqual(mat.forward, result[0].forward)
+      self.assertEqual(mat.right,   result[0].right)
+      self.assertEqual(mat.up,      result[0].up)
+
 class TestAngle(FuzzyTestCase):
   def compare(self, angle: rs.Angle, yaw: float, pitch: float, roll: float):
     self.assertEqual(angle.yaw, yaw)
@@ -105,20 +159,47 @@ class TestAngle(FuzzyTestCase):
     self.compare(rs.Angle(roll=2), 0.0, 0.0, 2.0)
     self.compare(rs.Angle(1, roll=2), 1.0, 0.0, 2.0)
 
+  def test_as_rot_mat(self):
+    src = rs.Angle(
+      yaw   = random.uniform(-1.0, 1.0),
+      pitch = random.uniform(-1.0, 1.0),
+      roll  = random.uniform(-1.0, 1.0)
+    )
+
+    dst = src.as_rot_mat().as_angle()
+
+    self.assertEqual(src.yaw,   dst.yaw)
+    self.assertEqual(src.pitch, dst.pitch)
+    self.assertEqual(src.roll,  dst.roll)
+
+  def test_pickle(self):
+    angle = rs.Angle(
+      yaw   = random.uniform(-1.0, 1.0),
+      pitch = random.uniform(-1.0, 1.0),
+      roll  = random.uniform(-1.0, 1.0)
+    )
+
+    with multiprocessing.Pool(1) as p:
+      result = p.map(return_self, [angle])
+      self.assertEqual(angle.yaw,   result[0].yaw)
+      self.assertEqual(angle.pitch, result[0].pitch)
+      self.assertEqual(angle.roll,  result[0].roll)
+
 class TestBallHitInfo(FuzzyTestCase):
   def test_basic(self):
     pass
 
 class TestBallState(FuzzyTestCase):
-  def compare(self, state, pos, vel, ang_vel):
+  def compare(self, state, pos, vel, ang_vel, car_id):
     self.assertEqual(state.pos, pos)
     self.assertEqual(state.vel, vel)
     self.assertEqual(state.ang_vel, ang_vel)
+    self.assertEqual(state.last_hit_car_id, car_id)
 
   def test_basic(self):
-    self.compare(rs.BallState(), rs.Vec(0, 0, 93.15), rs.Vec(), rs.Vec())
-    self.compare(rs.BallState(rs.Vec()), rs.Vec(), rs.Vec(), rs.Vec())
-    self.compare(rs.BallState(vel=rs.Vec(1, 2, 3)), rs.Vec(0, 0, 93.15), rs.Vec(1, 2, 3), rs.Vec())
+    self.compare(rs.BallState(), rs.Vec(0, 0, 93.15), rs.Vec(), rs.Vec(), 0)
+    self.compare(rs.BallState(rs.Vec()), rs.Vec(), rs.Vec(), rs.Vec(), 0)
+    self.compare(rs.BallState(vel=rs.Vec(1, 2, 3), last_hit_car_id=10), rs.Vec(0, 0, 93.15), rs.Vec(1, 2, 3), rs.Vec(), 10)
 
 class TestBall(FuzzyTestCase):
   def test_create(self):
@@ -191,6 +272,29 @@ class TestCarControls(FuzzyTestCase):
         "pitch": 0.5,
         "boost": True,
       })
+
+  def test_pickle(self):
+    controls = rs.CarControls(
+      throttle  = random.uniform(-1.0, 1.0),
+      steer     = random.uniform(-1.0, 1.0),
+      yaw       = random.uniform(-1.0, 1.0),
+      pitch     = random.uniform(-1.0, 1.0),
+      roll      = random.uniform(-1.0, 1.0),
+      boost     = random.randrange(0, 1) == 1,
+      jump      = random.randrange(0, 1) == 1,
+      handbrake = random.randrange(0, 1) == 1
+    )
+
+    with multiprocessing.Pool(1) as p:
+      result = p.map(return_self, [controls])
+      self.assertEqual(controls.throttle,  result[0].throttle)
+      self.assertEqual(controls.steer,     result[0].steer)
+      self.assertEqual(controls.yaw,       result[0].yaw)
+      self.assertEqual(controls.pitch,     result[0].pitch)
+      self.assertEqual(controls.roll,      result[0].roll)
+      self.assertEqual(controls.boost,     result[0].boost)
+      self.assertEqual(controls.jump,      result[0].jump)
+      self.assertEqual(controls.handbrake, result[0].handbrake)
 
 class TestCarState(FuzzyTestCase):
   def test_basic(self):

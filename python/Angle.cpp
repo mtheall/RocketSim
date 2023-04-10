@@ -28,9 +28,12 @@ PyMemberDef Angle::Members[] = {
 };
 
 PyMethodDef Angle::Methods[] = {
-    {.ml_name = "__format__", .ml_meth = (PyCFunction)&Angle::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&Angle::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "as_rot_mat", .ml_meth = (PyCFunction)&Angle::AsRotMat, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&Angle::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__format__", .ml_meth = (PyCFunction)&Angle::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Vec::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Vec::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -150,9 +153,46 @@ PyObject *Angle::Format (Angle *self_, PyObject *args_) noexcept
 	return PyUnicode_FromFormat ("(%S, %S, %S)", yaw.borrow (), pitch.borrow (), roll.borrow ());
 }
 
+PyObject *Angle::Pickle (Angle *self_) noexcept
+{
+	return Py_BuildValue ("{sfsfsf}", "yaw", self_->angle.yaw, "pitch", self_->angle.pitch, "roll", self_->angle.roll);
+}
+
+PyObject *Angle::Unpickle (Angle *self_, PyObject *dict_) noexcept
+{
+	if (!Py_IS_TYPE (dict_, &PyDict_Type))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict.");
+		return nullptr;
+	}
+
+	auto const yaw   = GetItem (dict_, "yaw");
+	auto const pitch = GetItem (dict_, "pitch");
+	auto const roll  = GetItem (dict_, "roll");
+
+	if ((yaw && !Py_IS_TYPE (yaw.borrow (), &PyFloat_Type)) ||
+	    (pitch && !Py_IS_TYPE (pitch.borrow (), &PyFloat_Type)) ||
+	    (roll && !Py_IS_TYPE (roll.borrow (), &PyFloat_Type)))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is invalid.");
+		return nullptr;
+	}
+
+	self_->angle.yaw   = static_cast<float> (PyFloat_AsDouble (yaw.borrow ()));
+	self_->angle.pitch = static_cast<float> (PyFloat_AsDouble (pitch.borrow ()));
+	self_->angle.roll  = static_cast<float> (PyFloat_AsDouble (roll.borrow ()));
+
+	Py_RETURN_NONE;
+}
+
 PyObject *Angle::AsTuple (Angle *self_) noexcept
 {
 	return Py_BuildValue ("fff", self_->angle.yaw, self_->angle.pitch, self_->angle.roll);
+}
+
+PyObject *Angle::AsRotMat (Angle *self_) noexcept
+{
+	return RotMat::NewFromRotMat (self_->angle.ToRotMat ()).giftObject ();
 }
 
 PyObject *Angle::AsNumpy (Angle *self_) noexcept

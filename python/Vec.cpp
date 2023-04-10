@@ -23,6 +23,8 @@ PyMethodDef Vec::Methods[] = {
     {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&Vec::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&Vec::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__format__", .ml_meth = (PyCFunction)&Vec::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Vec::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Vec::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -158,6 +160,37 @@ PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 		return nullptr;
 
 	return PyUnicode_FromFormat ("(%S, %S, %S)", x.borrow (), y.borrow (), z.borrow ());
+}
+
+PyObject *Vec::Pickle (Vec *self_) noexcept
+{
+	return Py_BuildValue ("{sfsfsf}", "x", self_->vec.x, "y", self_->vec.y, "z", self_->vec.z);
+}
+
+PyObject *Vec::Unpickle (Vec *self_, PyObject *dict_) noexcept
+{
+	if (!Py_IS_TYPE (dict_, &PyDict_Type))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict.");
+		return nullptr;
+	}
+
+	auto const x = GetItem (dict_, "x");
+	auto const y = GetItem (dict_, "y");
+	auto const z = GetItem (dict_, "z");
+
+	if ((x && !Py_IS_TYPE (x.borrow (), &PyFloat_Type)) || (y && !Py_IS_TYPE (y.borrow (), &PyFloat_Type)) ||
+	    (z && !Py_IS_TYPE (z.borrow (), &PyFloat_Type)))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is invalid.");
+		return nullptr;
+	}
+
+	self_->vec.x = static_cast<float> (PyFloat_AsDouble (x.borrow ()));
+	self_->vec.y = static_cast<float> (PyFloat_AsDouble (y.borrow ()));
+	self_->vec.z = static_cast<float> (PyFloat_AsDouble (z.borrow ()));
+
+	Py_RETURN_NONE;
 }
 
 PyObject *Vec::AsTuple (Vec *self_) noexcept

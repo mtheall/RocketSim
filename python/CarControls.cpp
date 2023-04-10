@@ -53,6 +53,11 @@ PyMethodDef CarControls::Methods[] = {
         .ml_meth  = (PyCFunction)&CarControls::ClampFix,
         .ml_flags = METH_NOARGS,
         .ml_doc   = nullptr},
+    {.ml_name     = "__getstate__",
+        .ml_meth  = (PyCFunction)&CarControls::Pickle,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)CarControls::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -157,6 +162,72 @@ void CarControls::Dealloc (CarControls *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *CarControls::Pickle (CarControls *self_) noexcept
+{
+	return Py_BuildValue ("{sfsfsfsfsfsOsOsOsO}",
+	    "throttle",
+	    self_->controls.throttle,
+	    "steer",
+	    self_->controls.steer,
+	    "pitch",
+	    self_->controls.pitch,
+	    "yaw",
+	    self_->controls.yaw,
+	    "roll",
+	    self_->controls.roll,
+	    "boost",
+	    PyBool_FromLong (self_->controls.boost),
+	    "jump",
+	    PyBool_FromLong (self_->controls.jump),
+	    "handbrake",
+	    PyBool_FromLong (self_->controls.handbrake),
+	    "use_item",
+	    Py_False);
+}
+
+PyObject *CarControls::Unpickle (CarControls *self_, PyObject *dict_) noexcept
+{
+	if (!Py_IS_TYPE (dict_, &PyDict_Type))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict.");
+		return nullptr;
+	}
+
+	auto const throttle  = GetItem (dict_, "throttle");
+	auto const steer     = GetItem (dict_, "steer");
+	auto const pitch     = GetItem (dict_, "pitch");
+	auto const yaw       = GetItem (dict_, "yaw");
+	auto const roll      = GetItem (dict_, "roll");
+	auto const boost     = GetItem (dict_, "boost");
+	auto const jump      = GetItem (dict_, "jump");
+	auto const handbrake = GetItem (dict_, "handbrake");
+	auto const useItem   = GetItem (dict_, "use_item");
+
+	if ((throttle && !Py_IS_TYPE (throttle.borrow (), &PyFloat_Type)) ||
+	    (steer && !Py_IS_TYPE (steer.borrow (), &PyFloat_Type)) ||
+	    (pitch && !Py_IS_TYPE (pitch.borrow (), &PyFloat_Type)) ||
+	    (yaw && !Py_IS_TYPE (yaw.borrow (), &PyFloat_Type)) || (roll && !Py_IS_TYPE (roll.borrow (), &PyFloat_Type)) ||
+	    (boost && !Py_IS_TYPE (boost.borrow (), &PyBool_Type)) ||
+	    (jump && !Py_IS_TYPE (jump.borrow (), &PyBool_Type)) ||
+	    (handbrake && !Py_IS_TYPE (handbrake.borrow (), &PyBool_Type)) ||
+	    (useItem && !Py_IS_TYPE (useItem.borrow (), &PyBool_Type)))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is invalid.");
+		return nullptr;
+	}
+
+	self_->controls.throttle  = static_cast<float> (PyFloat_AsDouble (throttle.borrow ()));
+	self_->controls.steer     = static_cast<float> (PyFloat_AsDouble (steer.borrow ()));
+	self_->controls.pitch     = static_cast<float> (PyFloat_AsDouble (pitch.borrow ()));
+	self_->controls.yaw       = static_cast<float> (PyFloat_AsDouble (yaw.borrow ()));
+	self_->controls.roll      = static_cast<float> (PyFloat_AsDouble (roll.borrow ()));
+	self_->controls.boost     = (boost.borrow () == Py_True);
+	self_->controls.jump      = (jump.borrow () == Py_True);
+	self_->controls.handbrake = (handbrake.borrow () == Py_True);
+
+	Py_RETURN_NONE;
 }
 
 PyObject *CarControls::ClampFix (CarControls *self_, PyObject *args_) noexcept

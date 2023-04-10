@@ -7,6 +7,15 @@ namespace RocketSim::Python
 {
 PyTypeObject *BallState::Type = nullptr;
 
+PyMemberDef BallState::Members[] = {
+    {.name      = "last_hit_car_id",
+        .type   = TypeHelper<decltype (::BallState::lastHitCarID)>::type,
+        .offset = offsetof (BallState, state) + offsetof (::BallState, lastHitCarID),
+        .flags  = 0,
+        .doc    = "Last hit car id"},
+    {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
+};
+
 PyGetSetDef BallState::GetSet[] = {
     GETSET_ENTRY (BallState, pos),
     GETSET_ENTRY (BallState, vel),
@@ -18,6 +27,7 @@ PyType_Slot BallState::Slots[] = {
     {Py_tp_new, (void *)(&BallState::New)},
     {Py_tp_init, (void *)(&BallState::Init)},
     {Py_tp_dealloc, (void *)(&BallState::Dealloc)},
+    {Py_tp_members, &BallState::Members},
     {Py_tp_getset, &BallState::GetSet},
     {0, nullptr},
 };
@@ -87,16 +97,18 @@ PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 
 int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	static char posKwd[]    = "pos";
-	static char velKwd[]    = "vel";
-	static char angVelKwd[] = "ang_vel";
-	static char *dict[]     = {posKwd, velKwd, angVelKwd, nullptr};
+	static char posKwd[]          = "pos";
+	static char velKwd[]          = "vel";
+	static char angVelKwd[]       = "ang_vel";
+	static char lastHitCarIDKwd[] = "last_hit_car_id";
+	static char *dict[]           = {posKwd, velKwd, angVelKwd, lastHitCarIDKwd, nullptr};
 
 	PyObject *pos    = nullptr; // borrowed references
 	PyObject *vel    = nullptr;
 	PyObject *angVel = nullptr;
+	unsigned carId   = 0;
 	if (!PyArg_ParseTupleAndKeywords (
-	        args_, kwds_, "|O!O!O!", dict, Vec::Type, &pos, Vec::Type, &vel, Vec::Type, &angVel))
+	        args_, kwds_, "|O!O!O!I", dict, Vec::Type, &pos, Vec::Type, &vel, Vec::Type, &angVel, &carId))
 		return -1;
 
 	::BallState state{};
@@ -106,6 +118,8 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 		state.vel = Vec::ToVec (reinterpret_cast<Vec *> (vel));
 	if (angVel)
 		state.angVel = Vec::ToVec (reinterpret_cast<Vec *> (angVel));
+
+	state.lastHitCarID = carId;
 
 	if (!InitFromBallState (self_, state))
 		return -1;

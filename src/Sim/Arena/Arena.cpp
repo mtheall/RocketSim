@@ -259,6 +259,8 @@ void Arena::_BtCallback_OnCarBallCollision(Car* car, Ball* ball, btManifoldPoint
 	ballHitInfo.ballPos = ballState.pos;
 	ballHitInfo.extraHitVel = Vec();
 
+	ball->_internalState.lastHitCarID = car->id;
+
 	if (_ballTouchCallback.func)
 		_ballTouchCallback.func(this, car, _ballTouchCallback.userInfo);
 

@@ -37,6 +37,15 @@ PyObject *Init (PyObject *self_, PyObject *args_) noexcept
 	Py_RETURN_NONE;
 }
 
+PyObjectRef GetItem (PyObject *dict_, char const *key_) noexcept
+{
+	auto const key = PyObjectRef::steal (PyUnicode_FromString (key_));
+	if (!key)
+		return nullptr;
+
+	return PyObjectRef::incRef (PyDict_GetItemWithError (dict_, key.borrow ()));
+}
+
 struct PyMethodDef Methods[] = {
     {.ml_name = "init", .ml_meth = (PyCFunction)&Init, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},

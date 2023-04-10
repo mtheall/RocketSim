@@ -6,21 +6,16 @@
 // Stores all control inputs to a car
 struct CarControls {
 	// Driving control
-	float throttle, steer;
+	float throttle = 0.0f, steer = 0.0f;
 
 	// Air orientation control
-	float pitch, yaw, roll;
+	float pitch = 0.0f, yaw = 0.0f, roll = 0.0f;
 
 	// Boolean action inputs
-	bool boost, jump, handbrake;
+	bool boost = false, jump = false, handbrake = false;
 
 	// Maybe someday...
 	// bool useItem;
-
-	CarControls() {
-		// Initialize everything as zero
-		memset(this, 0, sizeof(CarControls));
-	}
 
 	// Makes all values range-valid (clamps from -1 to 1)
 	void ClampFix() {

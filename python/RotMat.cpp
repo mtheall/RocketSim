@@ -9,10 +9,12 @@ namespace RocketSim::Python
 PyTypeObject *RotMat::Type = nullptr;
 
 PyMethodDef RotMat::Methods[] = {
-    {.ml_name = "__format__", .ml_meth = (PyCFunction)&RotMat::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
     {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&RotMat::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&RotMat::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "as_angle", .ml_meth = (PyCFunction)&RotMat::AsAngle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&RotMat::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__format__", .ml_meth = (PyCFunction)&RotMat::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&RotMat::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&RotMat::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -178,6 +180,37 @@ PyObject *RotMat::Format (RotMat *self_, PyObject *args_) noexcept
 	return PyUnicode_FromFormat ("(%S, %S, %S)", forwardString.borrow (), rightString.borrow (), upString.borrow ());
 }
 
+PyObject *RotMat::Pickle (RotMat *self_) noexcept
+{
+	return Py_BuildValue ("{sOsOsO}", "forward", self_->forward, "right", self_->right, "up", self_->up);
+}
+
+PyObject *RotMat::Unpickle (RotMat *self_, PyObject *dict_) noexcept
+{
+	if (!Py_IS_TYPE (dict_, &PyDict_Type))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict.");
+		return nullptr;
+	}
+
+	auto const forward = GetItem (dict_, "forward");
+	auto const right   = GetItem (dict_, "right");
+	auto const up      = GetItem (dict_, "up");
+
+	if ((forward && !Py_IS_TYPE (forward.borrow (), Vec::Type)) ||
+	    (right && !Py_IS_TYPE (right.borrow (), Vec::Type)) || (up && !Py_IS_TYPE (up.borrow (), Vec::Type)))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is invalid.");
+		return nullptr;
+	}
+
+	PyRef<Vec>::assign (self_->forward, forward.borrow ());
+	PyRef<Vec>::assign (self_->right, right.borrow ());
+	PyRef<Vec>::assign (self_->up, up.borrow ());
+
+	Py_RETURN_NONE;
+}
+
 PyObject *RotMat::Getforward (RotMat *self_, void *) noexcept
 {
 	return PyRef<Vec>::incRef (self_->forward).giftObject ();
@@ -255,6 +288,11 @@ PyObject *RotMat::AsTuple (RotMat *self_) noexcept
 	return Py_BuildValue ("OOO", self_->forward, self_->right, self_->up);
 }
 
+PyObject *RotMat::AsAngle (RotMat *self_) noexcept
+{
+	return Angle::NewFromAngle (::Angle::FromRotMat (ToRotMat (self_))).giftObject ();
+}
+
 PyObject *RotMat::AsNumpy (RotMat *self_) noexcept
 {
 	auto array = PyArrayRef (3, 3);
@@ -276,10 +314,5 @@ PyObject *RotMat::AsNumpy (RotMat *self_) noexcept
 	array (2, 2) = up.z;
 
 	return array.giftObject ();
-}
-
-PyObject *RotMat::AsAngle (RotMat *self_) noexcept
-{
-	return Angle::NewFromAngle (::Angle::FromRotMat (ToRotMat (self_))).giftObject ();
 }
 }

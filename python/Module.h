@@ -66,6 +66,8 @@ namespace RocketSim::Python
 {
 void InitInternal (char const *path_) noexcept;
 
+PyObjectRef GetItem(PyObject *dict_, char const *key_) noexcept;
+
 struct GameMode
 {
 	PyObject_HEAD
@@ -115,6 +117,8 @@ struct Vec
 	static PyObject *RichCompare (Vec *self_, PyObject *other_, int op_) noexcept;
 	static PyObject *Repr (Vec *self_) noexcept;
 	static PyObject *Format (Vec *self_, PyObject *args_) noexcept;
+	static PyObject *Pickle (Vec *self_) noexcept;
+	static PyObject *Unpickle (Vec *self_, PyObject *dict_) noexcept;
 
 	static PyObject *AsTuple (Vec *self_) noexcept;
 	static PyObject *AsNumpy (Vec *self_) noexcept;
@@ -144,6 +148,8 @@ struct RotMat
 	static void Dealloc (RotMat *self_) noexcept;
 	static PyObject *Repr (RotMat *self_) noexcept;
 	static PyObject *Format (RotMat *self_, PyObject *args_) noexcept;
+	static PyObject *Pickle (RotMat *self_) noexcept;
+	static PyObject *Unpickle (RotMat *self_, PyObject *dict_) noexcept;
 
 	static PyObject *AsTuple (RotMat *self_) noexcept;
 	static PyObject *AsAngle (RotMat *self_) noexcept;
@@ -175,8 +181,11 @@ struct Angle
 	static void Dealloc (Angle *self_) noexcept;
 	static PyObject *Repr (Angle *self_) noexcept;
 	static PyObject *Format (Angle *self_, PyObject *args_) noexcept;
+	static PyObject *Pickle (Angle *self_) noexcept;
+	static PyObject *Unpickle (Angle *self_, PyObject *dict_) noexcept;
 
 	static PyObject *AsTuple (Angle *self_) noexcept;
+	static PyObject *AsRotMat (Angle *self_) noexcept;
 	static PyObject *AsNumpy (Angle *self_) noexcept;
 };
 
@@ -221,6 +230,7 @@ struct BallState
 	Vec *angVel;
 
 	static PyTypeObject *Type;
+	static PyMemberDef Members[];
 	static PyGetSetDef GetSet[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
@@ -392,6 +402,8 @@ struct CarControls
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (CarControls *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (CarControls *self_) noexcept;
+	static PyObject *Pickle (CarControls *self_) noexcept;
+	static PyObject *Unpickle (CarControls *self_, PyObject *dict_) noexcept;
 
 	static PyObject *ClampFix (CarControls *self_, PyObject *args_) noexcept;
 };
