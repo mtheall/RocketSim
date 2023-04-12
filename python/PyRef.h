@@ -2,7 +2,12 @@
 
 #include <Python.h>
 
+#include <cassert>
 #include <cstddef>
+
+#if PY_VERSION_HEX < 0x03090000
+#define Py_IS_TYPE(ob_, type_) ((PyObject const *)(ob_)->ob_type == (PyObject const *)(type_))
+#endif
 
 namespace RocketSim::Python
 {
@@ -169,4 +174,17 @@ private:
 
 using PyObjectRef = PyRef<PyObject>;
 using PyTypeRef   = PyRef<PyTypeObject>;
+
+template <typename T>
+T *PyCast (PyObject *obj_) noexcept
+{
+	assert (Py_IS_TYPE (obj_, T::Type));
+	return reinterpret_cast<T *> (obj_);
+}
+
+inline PyObject *PyNewRef (void *obj_) noexcept
+{
+	Py_XINCREF (obj_);
+	return static_cast<PyObject *> (obj_);
+}
 }

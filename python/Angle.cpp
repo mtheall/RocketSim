@@ -10,17 +10,17 @@ PyTypeObject *Angle::Type = nullptr;
 
 PyMemberDef Angle::Members[] = {
     {.name      = "yaw",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::Angle::yaw)>::type,
         .offset = offsetof (Angle, angle) + offsetof (::Angle, yaw),
         .flags  = 0,
         .doc    = "yaw"},
     {.name      = "pitch",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::Angle::pitch)>::type,
         .offset = offsetof (Angle, angle) + offsetof (::Angle, pitch),
         .flags  = 0,
         .doc    = "pitch"},
     {.name      = "roll",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::Angle::roll)>::type,
         .offset = offsetof (Angle, angle) + offsetof (::Angle, roll),
         .flags  = 0,
         .doc    = "roll"},
@@ -32,8 +32,8 @@ PyMethodDef Angle::Methods[] = {
     {.ml_name = "as_rot_mat", .ml_meth = (PyCFunction)&Angle::AsRotMat, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&Angle::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__format__", .ml_meth = (PyCFunction)&Angle::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
-    {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Vec::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Vec::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Angle::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Angle::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -155,32 +155,33 @@ PyObject *Angle::Format (Angle *self_, PyObject *args_) noexcept
 
 PyObject *Angle::Pickle (Angle *self_) noexcept
 {
-	return Py_BuildValue ("{sfsfsf}", "yaw", self_->angle.yaw, "pitch", self_->angle.pitch, "roll", self_->angle.roll);
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	::Angle const model{};
+	auto const angle = ToAngle (self_);
+
+	if (angle.yaw != model.yaw && !DictSetValue (dict.borrow (), "yaw", PyFloat_FromDouble (angle.yaw)))
+		return nullptr;
+
+	if (angle.pitch != model.pitch && !DictSetValue (dict.borrow (), "pitch", PyFloat_FromDouble (angle.pitch)))
+		return nullptr;
+
+	if (angle.roll != model.roll && !DictSetValue (dict.borrow (), "roll", PyFloat_FromDouble (angle.roll)))
+		return nullptr;
+
+	return dict.gift ();
 }
 
 PyObject *Angle::Unpickle (Angle *self_, PyObject *dict_) noexcept
 {
-	if (!Py_IS_TYPE (dict_, &PyDict_Type))
-	{
-		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict.");
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
 		return nullptr;
-	}
 
-	auto const yaw   = GetItem (dict_, "yaw");
-	auto const pitch = GetItem (dict_, "pitch");
-	auto const roll  = GetItem (dict_, "roll");
-
-	if ((yaw && !Py_IS_TYPE (yaw.borrow (), &PyFloat_Type)) ||
-	    (pitch && !Py_IS_TYPE (pitch.borrow (), &PyFloat_Type)) ||
-	    (roll && !Py_IS_TYPE (roll.borrow (), &PyFloat_Type)))
-	{
-		PyErr_SetString (PyExc_ValueError, "Pickled object is invalid.");
+	if (Init (self_, args.borrow (), dict_) != 0)
 		return nullptr;
-	}
-
-	self_->angle.yaw   = static_cast<float> (PyFloat_AsDouble (yaw.borrow ()));
-	self_->angle.pitch = static_cast<float> (PyFloat_AsDouble (pitch.borrow ()));
-	self_->angle.roll  = static_cast<float> (PyFloat_AsDouble (roll.borrow ()));
 
 	Py_RETURN_NONE;
 }

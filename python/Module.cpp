@@ -21,6 +21,20 @@ void InitInternal (char const *path_) noexcept
 	RocketSim::Init (path_ ? path_ : COLLISION_MESH_BASE_PATH);
 }
 
+bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept
+{
+	if (!value_)
+		return false;
+
+	auto const success = (PyDict_SetItemString (dict_, key_, value_) == 0);
+	Py_DECREF (value_);
+
+	return success;
+}
+}
+
+namespace
+{
 PyObject *Init (PyObject *self_, PyObject *args_) noexcept
 {
 	if (inited)
@@ -30,20 +44,11 @@ PyObject *Init (PyObject *self_, PyObject *args_) noexcept
 	if (!PyArg_ParseTuple (args_, "|s", &path))
 		return nullptr;
 
-	InitInternal (path);
+	RocketSim::Python::InitInternal (path);
 
 	inited = true;
 
 	Py_RETURN_NONE;
-}
-
-PyObjectRef GetItem (PyObject *dict_, char const *key_) noexcept
-{
-	auto const key = PyObjectRef::steal (PyUnicode_FromString (key_));
-	if (!key)
-		return nullptr;
-
-	return PyObjectRef::incRef (PyDict_GetItemWithError (dict_, key.borrow ()));
 }
 
 struct PyMethodDef Methods[] = {
@@ -73,7 +78,7 @@ struct PyModuleDef Module = {
 
 extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 {
-	auto m = RocketSim::Python::PyObjectRef::steal (PyModule_Create (&RocketSim::Python::Module));
+	auto m = RocketSim::Python::PyObjectRef::steal (PyModule_Create (&Module));
 	if (!m)
 		return nullptr;
 

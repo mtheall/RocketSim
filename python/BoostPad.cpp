@@ -79,7 +79,7 @@ PyObject *BoostPad::Getis_big (BoostPad *self_, void *) noexcept
 
 PyObject *BoostPad::GetPos (BoostPad *self_) noexcept
 {
-	auto pos = Vec::NewFromVec (self_->pad->_posBT * BT_TO_UU);
+	auto pos = Vec::NewFromVec (self_->pad->pos);
 	if (!pos)
 		return nullptr;
 

@@ -17,10 +17,6 @@ template <typename T>
 struct TypeHelper{};
 // clang-format on
 
-#if PY_VERSION_HEX < 0x03090000
-#define Py_IS_TYPE(ob_, type_) ((PyObject const *)(ob_)->ob_type == (PyObject const *)(type_))
-#endif
-
 // clang-format off
 #define TYPE_HELPER(a_, b_) \
 	template<> struct TypeHelper<a_> { constexpr static auto type = b_; }
@@ -66,7 +62,7 @@ namespace RocketSim::Python
 {
 void InitInternal (char const *path_) noexcept;
 
-PyObjectRef GetItem(PyObject *dict_, char const *key_) noexcept;
+bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept;
 
 struct GameMode
 {
@@ -213,6 +209,8 @@ struct BallHitInfo
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (BallHitInfo *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (BallHitInfo *self_) noexcept;
+	static PyObject *Pickle (BallHitInfo *self_) noexcept;
+	static PyObject *Unpickle (BallHitInfo *self_, PyObject *dict_) noexcept;
 
 	GETSET_DECLARE (BallHitInfo, relative_pos_on_ball)
 	GETSET_DECLARE (BallHitInfo, ball_pos)
@@ -231,6 +229,7 @@ struct BallState
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
+	static PyMethodDef Methods[];
 	static PyGetSetDef GetSet[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
@@ -242,6 +241,8 @@ struct BallState
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (BallState *self_) noexcept;
+	static PyObject *Pickle (BallState *self_) noexcept;
+	static PyObject *Unpickle (BallState *self_, PyObject *dict_) noexcept;
 
 	GETSET_DECLARE (BallState, pos)
 	GETSET_DECLARE (BallState, vel)
@@ -278,6 +279,7 @@ struct BoostPadState
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
+	static PyMethodDef Methods[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
 
@@ -288,6 +290,8 @@ struct BoostPadState
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (BoostPadState *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (BoostPadState *self_) noexcept;
+	static PyObject *Pickle (BoostPadState *self_) noexcept;
+	static PyObject *Unpickle (BoostPadState *self_, PyObject *dict_) noexcept;
 };
 
 struct BoostPad
@@ -337,6 +341,8 @@ struct WheelPairConfig
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (WheelPairConfig *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (WheelPairConfig *self_) noexcept;
+	static PyObject *Pickle (WheelPairConfig *self_) noexcept;
+	static PyObject *Unpickle (WheelPairConfig *self_, PyObject *dict_) noexcept;
 
 	GETSET_DECLARE (WheelPairConfig, connection_point_offset)
 };
@@ -364,6 +370,7 @@ struct CarConfig
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
+	static PyMethodDef Methods[];
 	static PyGetSetDef GetSet[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
@@ -376,6 +383,8 @@ struct CarConfig
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (CarConfig *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (CarConfig *self_) noexcept;
+	static PyObject *Pickle (CarConfig *self_) noexcept;
+	static PyObject *Unpickle (CarConfig *self_, PyObject *dict_) noexcept;
 
 	GETSET_DECLARE (CarConfig, hitbox_size)
 	GETSET_DECLARE (CarConfig, hitbox_pos_offset)
@@ -429,6 +438,7 @@ struct CarState
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
+	static PyMethodDef Methods[];
 	static PyGetSetDef GetSet[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
@@ -436,6 +446,8 @@ struct CarState
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (CarState *self_) noexcept;
+	static PyObject *Pickle (CarState *self_) noexcept;
+	static PyObject *Unpickle (CarState *self_, PyObject *dict_) noexcept;
 
 	GETSET_DECLARE (CarState, pos)
 	GETSET_DECLARE (CarState, rot_mat)
@@ -467,6 +479,8 @@ struct Car
 	static Car *New () noexcept; // internal-use only
 	static PyObject *NewStub (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (Car *self_) noexcept;
+	static PyObject *InternalPickle (Car *self_) noexcept;
+	static PyObject *InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, PyObject *dict_) noexcept;
 
 	GETONLY_DECLARE (Car, id)
 	GETONLY_DECLARE (Car, team)
@@ -492,6 +506,7 @@ struct MutatorConfig
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
+	static PyMethodDef Methods[];
 	static PyGetSetDef GetSet[];
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
@@ -503,6 +518,8 @@ struct MutatorConfig
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (MutatorConfig *self_) noexcept;
+	static PyObject *Pickle (MutatorConfig *self_) noexcept;
+	static PyObject *Unpickle (MutatorConfig *self_, PyObject *dict_) noexcept;
 
 	GETSET_DECLARE (MutatorConfig, gravity)
 };
@@ -542,6 +559,8 @@ struct Arena
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static int Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (Arena *self_) noexcept;
+	static PyObject *Pickle (Arena *self_) noexcept;
+	static PyObject *Unpickle (Arena *self_, PyObject *dict_) noexcept;
 
 	static PyObject *AddCar (Arena *self_, PyObject *args_) noexcept;
 	static PyObject *Clone (Arena *self_, PyObject *args_) noexcept;

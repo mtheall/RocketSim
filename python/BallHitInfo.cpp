@@ -27,6 +27,11 @@ PyMemberDef BallHitInfo::Members[] = {
 };
 
 PyMethodDef BallHitInfo::Methods[] = {
+    {.ml_name     = "__getstate__",
+        .ml_meth  = (PyCFunction)&BallHitInfo::Pickle,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&BallHitInfo::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -112,7 +117,56 @@ PyObject *BallHitInfo::New (PyTypeObject *subtype_, PyObject *args_, PyObject *k
 
 int BallHitInfo::Init (BallHitInfo *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	if (!InitFromBallHitInfo (self_, ::BallHitInfo{}))
+	static char isValidKwd[]                          = "is_valid";
+	static char relativePosOnBallKwd[]                = "relative_pos_on_ball";
+	static char ballPosKwd[]                          = "ball_pos";
+	static char extraHitVelKwd[]                      = "extra_hit_vel";
+	static char tickCountWhenHitKwd[]                 = "tick_count_when_hit";
+	static char tickCountWhenExtraImpulseAppliedKwd[] = "tick_count_when_extra_impulse_applied";
+
+	static char *dict[] = {isValidKwd,
+	    relativePosOnBallKwd,
+	    ballPosKwd,
+	    extraHitVelKwd,
+	    tickCountWhenHitKwd,
+	    tickCountWhenExtraImpulseAppliedKwd,
+	    nullptr};
+
+	::BallHitInfo info{};
+
+	PyObject *relativePosOnBall                         = nullptr;
+	PyObject *ballPos                                   = nullptr;
+	PyObject *extraHitVel                               = nullptr;
+	unsigned long long tickCountWhenHit                 = info.tickCountWhenHit;
+	unsigned long long tickCountWhenExtraImpulseApplied = info.tickCountWhenExtraImpulseApplied;
+
+	if (!PyArg_ParseTupleAndKeywords (args_,
+	        kwds_,
+	        "|pO!O!O!KK",
+	        dict,
+	        &info.isValid,
+	        Vec::Type,
+	        &relativePosOnBall,
+	        Vec::Type,
+	        &ballPos,
+	        Vec::Type,
+	        &extraHitVel,
+	        &tickCountWhenHit,
+	        &tickCountWhenExtraImpulseApplied))
+		return -1;
+
+	if (relativePosOnBall)
+		info.relativePosOnBall = Vec::ToVec (PyCast<Vec> (relativePosOnBall));
+	if (ballPos)
+		info.ballPos = Vec::ToVec (PyCast<Vec> (ballPos));
+	;
+	if (extraHitVel)
+		info.extraHitVel = Vec::ToVec (PyCast<Vec> (extraHitVel));
+
+	info.tickCountWhenHit                 = tickCountWhenHit;
+	info.tickCountWhenExtraImpulseApplied = tickCountWhenExtraImpulseApplied;
+
+	if (!InitFromBallHitInfo (self_, info))
 		return -1;
 
 	return 0;
@@ -128,6 +182,55 @@ void BallHitInfo::Dealloc (BallHitInfo *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *BallHitInfo::Pickle (BallHitInfo *self_) noexcept
+{
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	::BallHitInfo const model{};
+	auto const info = ToBallHitInfo (self_);
+
+	if (info.isValid != model.isValid && !DictSetValue (dict.borrow (), "is_valid", PyBool_FromLong (info.isValid)))
+		return nullptr;
+
+	if (Vec::ToVec (self_->relativePosOnBall) != model.relativePosOnBall &&
+	    !DictSetValue (dict.borrow (), "relative_pos_on_ball", PyNewRef (self_->relativePosOnBall)))
+		return nullptr;
+
+	if (Vec::ToVec (self_->ballPos) != model.ballPos &&
+	    !DictSetValue (dict.borrow (), "ball_pos", PyNewRef (self_->ballPos)))
+		return nullptr;
+
+	if (Vec::ToVec (self_->extraHitVel) != model.extraHitVel &&
+	    !DictSetValue (dict.borrow (), "extra_hit_vel", PyNewRef (self_->extraHitVel)))
+		return nullptr;
+
+	if (info.tickCountWhenHit != model.tickCountWhenHit &&
+	    !DictSetValue (dict.borrow (), "tick_count_when_hit", PyLong_FromUnsignedLongLong (info.tickCountWhenHit)))
+		return nullptr;
+
+	if (info.tickCountWhenExtraImpulseApplied != model.tickCountWhenExtraImpulseApplied &&
+	    !DictSetValue (dict.borrow (),
+	        "tick_count_when_extra_impulse_applied",
+	        PyLong_FromUnsignedLongLong (info.tickCountWhenExtraImpulseApplied)))
+		return nullptr;
+
+	return dict.gift ();
+}
+
+PyObject *BallHitInfo::Unpickle (BallHitInfo *self_, PyObject *dict_) noexcept
+{
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+		return nullptr;
+
+	if (Init (self_, args.borrow (), dict_) != 0)
+		return nullptr;
+
+	Py_RETURN_NONE;
 }
 
 PyObject *BallHitInfo::Getrelative_pos_on_ball (BallHitInfo *self_, void *) noexcept

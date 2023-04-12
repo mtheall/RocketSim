@@ -123,6 +123,18 @@ PyMemberDef MutatorConfig::Members[] = {
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
+PyMethodDef MutatorConfig::Methods[] = {
+    {.ml_name     = "__getstate__",
+        .ml_meth  = (PyCFunction)&MutatorConfig::Pickle,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
+    {.ml_name     = "__setstate__",
+        .ml_meth  = (PyCFunction)&MutatorConfig::Unpickle,
+        .ml_flags = METH_O,
+        .ml_doc   = nullptr},
+    {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
+};
+
 PyGetSetDef MutatorConfig::GetSet[] = {
     GETSET_ENTRY (MutatorConfig, gravity),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
@@ -133,6 +145,7 @@ PyType_Slot MutatorConfig::Slots[] = {
     {Py_tp_init, (void *)&MutatorConfig::Init},
     {Py_tp_dealloc, (void *)&MutatorConfig::Dealloc},
     {Py_tp_members, &MutatorConfig::Members},
+    {Py_tp_methods, &MutatorConfig::Methods},
     {Py_tp_getset, &MutatorConfig::GetSet},
     {0, nullptr},
 };
@@ -192,7 +205,101 @@ PyObject *MutatorConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject 
 
 int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
+	static char gravityKwd[]                = "gravity";
+	static char carMassKwd[]                = "car_mass";
+	static char carWorldFrictionKwd[]       = "car_world_friction";
+	static char carWorldRestitutionKwd[]    = "car_world_restitution";
+	static char ballMassKwd[]               = "ball_mass";
+	static char ballMaxSpeedKwd[]           = "ball_max_speed";
+	static char ballDragKwd[]               = "ball_drag";
+	static char ballWorldFrictionKwd[]      = "ball_world_friction";
+	static char ballWorldRestitutionKwd[]   = "ball_world_restitution";
+	static char jumpAccelKwd[]              = "jump_accel";
+	static char jumpImmediateForceKwd[]     = "jump_immediate_force";
+	static char boostAccelKwd[]             = "boost_accel";
+	static char boostUsedPerSecondKwd[]     = "boost_used_per_second";
+	static char respawnDelayKwd[]           = "respawn_delay";
+	static char bumpCooldownTimeKwd[]       = "bump_cooldown_time";
+	static char boostPadCooldownBigKwd[]    = "boost_pad_cooldown_big";
+	static char boostPadCooldownSmallKwd[]  = "boost_pad_cooldown_small";
+	static char carSpawnBoostAmountKwd[]    = "car_spawn_boost_amount";
+	static char ballHitExtraForceScaleKwd[] = "ball_hit_extra_force_scale";
+	static char bumpForceScaleKwd[]         = "bump_force_scale";
+	static char ballRadiusKwd[]             = "ball_radius";
+	static char demoModeKwd[]               = "demo_mode";
+	static char enableTeamDemosKwd[]        = "enable_team_demos";
+
+	static char *dict[] = {gravityKwd,
+	    carMassKwd,
+	    carWorldFrictionKwd,
+	    carWorldRestitutionKwd,
+	    ballMassKwd,
+	    ballMaxSpeedKwd,
+	    ballDragKwd,
+	    ballWorldFrictionKwd,
+	    ballWorldRestitutionKwd,
+	    jumpAccelKwd,
+	    jumpImmediateForceKwd,
+	    boostAccelKwd,
+	    boostUsedPerSecondKwd,
+	    respawnDelayKwd,
+	    bumpCooldownTimeKwd,
+	    boostPadCooldownBigKwd,
+	    boostPadCooldownSmallKwd,
+	    carSpawnBoostAmountKwd,
+	    ballHitExtraForceScaleKwd,
+	    bumpForceScaleKwd,
+	    ballRadiusKwd,
+	    demoModeKwd,
+	    enableTeamDemosKwd,
+	    nullptr};
+
 	::MutatorConfig config{};
+
+	PyObject *gravity = nullptr; // borrowed reference
+	int demoMode      = static_cast<int> (config.demoMode);
+	if (!PyArg_ParseTupleAndKeywords (args_,
+	        kwds_,
+	        "|O!ffffffffffffffffffffip",
+	        dict,
+	        Vec::Type,
+	        &gravity,
+	        &config.carMass,
+	        &config.carWorldFriction,
+	        &config.carWorldRestitution,
+	        &config.ballMass,
+	        &config.ballMaxSpeed,
+	        &config.ballDrag,
+	        &config.ballWorldFriction,
+	        &config.ballWorldRestitution,
+	        &config.jumpAccel,
+	        &config.jumpImmediateForce,
+	        &config.boostAccel,
+	        &config.boostUsedPerSecond,
+	        &config.respawnDelay,
+	        &config.bumpCooldownTime,
+	        &config.boostPadCooldown_Big,
+	        &config.boostPadCooldown_Small,
+	        &config.carSpawnBoostAmount,
+	        &config.ballHitExtraForceScale,
+	        &config.bumpForceScale,
+	        &config.ballRadius,
+	        &demoMode,
+	        &config.enableTeamDemos))
+		return -1;
+
+	config.demoMode = static_cast<::DemoMode> (demoMode);
+
+	if (config.demoMode != ::DemoMode::NORMAL && config.demoMode != ::DemoMode::ON_CONTACT &&
+	    config.demoMode != ::DemoMode::DISABLED)
+	{
+		PyErr_Format (PyExc_ValueError, "Invalid demo mode '%d'", demoMode);
+		return -1;
+	}
+
+	if (gravity)
+		config.gravity = Vec::ToVec (PyCast<Vec> (gravity));
+
 	if (!InitFromMutatorConfig (self_, config))
 		return -1;
 
@@ -207,6 +314,122 @@ void MutatorConfig::Dealloc (MutatorConfig *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *MutatorConfig::Pickle (MutatorConfig *self_) noexcept
+{
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	::MutatorConfig const model{};
+	auto const config = ToMutatorConfig (self_);
+
+	if (config.gravity != model.gravity && !DictSetValue (dict.borrow (), "gravity", PyNewRef (self_->gravity)))
+		return nullptr;
+
+	if (config.carMass != model.carMass &&
+	    !DictSetValue (dict.borrow (), "car_mass", PyFloat_FromDouble (config.carMass)))
+		return nullptr;
+
+	if (config.carWorldFriction != model.carWorldFriction &&
+	    !DictSetValue (dict.borrow (), "car_world_friction", PyFloat_FromDouble (config.carWorldFriction)))
+		return nullptr;
+
+	if (config.carWorldRestitution != model.carWorldRestitution &&
+	    !DictSetValue (dict.borrow (), "car_world_restitution", PyFloat_FromDouble (config.carWorldRestitution)))
+		return nullptr;
+
+	if (config.ballMass != model.ballMass &&
+	    !DictSetValue (dict.borrow (), "ball_mass", PyFloat_FromDouble (config.ballMass)))
+		return nullptr;
+
+	if (config.ballMaxSpeed != model.ballMaxSpeed &&
+	    !DictSetValue (dict.borrow (), "ball_max_speed", PyFloat_FromDouble (config.ballMaxSpeed)))
+		return nullptr;
+
+	if (config.ballDrag != model.ballDrag &&
+	    !DictSetValue (dict.borrow (), "ball_drag", PyFloat_FromDouble (config.ballDrag)))
+		return nullptr;
+
+	if (config.ballWorldFriction != model.ballWorldFriction &&
+	    !DictSetValue (dict.borrow (), "ball_world_friction", PyFloat_FromDouble (config.ballWorldFriction)))
+		return nullptr;
+
+	if (config.ballWorldRestitution != model.ballWorldRestitution &&
+	    !DictSetValue (dict.borrow (), "ball_world_restitution", PyFloat_FromDouble (config.ballWorldRestitution)))
+		return nullptr;
+
+	if (config.jumpAccel != model.jumpAccel &&
+	    !DictSetValue (dict.borrow (), "jump_accel", PyFloat_FromDouble (config.jumpAccel)))
+		return nullptr;
+
+	if (config.jumpImmediateForce != model.jumpImmediateForce &&
+	    !DictSetValue (dict.borrow (), "jump_immediate_force", PyFloat_FromDouble (config.jumpImmediateForce)))
+		return nullptr;
+
+	if (config.boostAccel != model.boostAccel &&
+	    !DictSetValue (dict.borrow (), "boost_accel", PyFloat_FromDouble (config.boostAccel)))
+		return nullptr;
+
+	if (config.boostUsedPerSecond != model.boostUsedPerSecond &&
+	    !DictSetValue (dict.borrow (), "boost_used_per_second", PyFloat_FromDouble (config.boostUsedPerSecond)))
+		return nullptr;
+
+	if (config.respawnDelay != model.respawnDelay &&
+	    !DictSetValue (dict.borrow (), "respawn_delay", PyFloat_FromDouble (config.respawnDelay)))
+		return nullptr;
+
+	if (config.bumpCooldownTime != model.bumpCooldownTime &&
+	    !DictSetValue (dict.borrow (), "bump_cooldown_time", PyFloat_FromDouble (config.bumpCooldownTime)))
+		return nullptr;
+
+	if (config.boostPadCooldown_Big != model.boostPadCooldown_Big &&
+	    !DictSetValue (dict.borrow (), "boost_pad_cooldown_big", PyFloat_FromDouble (config.boostPadCooldown_Big)))
+		return nullptr;
+
+	if (config.boostPadCooldown_Small != model.boostPadCooldown_Small &&
+	    !DictSetValue (dict.borrow (), "boost_pad_cooldown_small", PyFloat_FromDouble (config.boostPadCooldown_Small)))
+		return nullptr;
+
+	if (config.carSpawnBoostAmount != model.carSpawnBoostAmount &&
+	    !DictSetValue (dict.borrow (), "car_spawn_boost_amount", PyFloat_FromDouble (config.carSpawnBoostAmount)))
+		return nullptr;
+
+	if (config.ballHitExtraForceScale != model.ballHitExtraForceScale &&
+	    !DictSetValue (
+	        dict.borrow (), "ball_hit_extra_force_scale", PyFloat_FromDouble (config.ballHitExtraForceScale)))
+		return nullptr;
+
+	if (config.bumpForceScale != model.bumpForceScale &&
+	    !DictSetValue (dict.borrow (), "bump_force_scale", PyFloat_FromDouble (config.bumpForceScale)))
+		return nullptr;
+
+	if (config.ballRadius != model.ballRadius &&
+	    !DictSetValue (dict.borrow (), "ball_radius", PyFloat_FromDouble (config.ballRadius)))
+		return nullptr;
+
+	if (config.demoMode != model.demoMode &&
+	    !DictSetValue (dict.borrow (), "demo_mode", PyLong_FromLong (static_cast<long> (config.demoMode))))
+		return nullptr;
+
+	if (config.enableTeamDemos != model.enableTeamDemos &&
+	    !DictSetValue (dict.borrow (), "enable_team_demos", PyBool_FromLong (config.enableTeamDemos)))
+		return nullptr;
+
+	return dict.gift ();
+}
+
+PyObject *MutatorConfig::Unpickle (MutatorConfig *self_, PyObject *dict_) noexcept
+{
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+		return nullptr;
+
+	if (Init (self_, args.borrow (), dict_) != 0)
+		return nullptr;
+
+	Py_RETURN_NONE;
 }
 
 PyObject *MutatorConfig::Getgravity (MutatorConfig *self_, void *) noexcept

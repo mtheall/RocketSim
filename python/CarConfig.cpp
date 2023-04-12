@@ -2,6 +2,76 @@
 
 #include <cstddef>
 #include <cstring>
+#include <limits>
+
+namespace
+{
+unsigned templateDiff (::CarConfig const &config_, ::CarConfig const &model_) noexcept
+{
+	unsigned diff = 0;
+
+	if (config_.hitboxSize != model_.hitboxSize)
+		diff += 3;
+
+	if (config_.hitboxPosOffset != model_.hitboxPosOffset)
+		diff += 3;
+
+	if (config_.frontWheels.wheelRadius != model_.frontWheels.wheelRadius)
+		diff += 1;
+
+	if (config_.frontWheels.suspensionRestLength != model_.frontWheels.suspensionRestLength)
+		diff += 1;
+
+	if (config_.frontWheels.connectionPointOffset != model_.frontWheels.connectionPointOffset)
+		diff += 3;
+
+	if (config_.backWheels.wheelRadius != model_.backWheels.wheelRadius)
+		diff += 1;
+
+	if (config_.backWheels.suspensionRestLength != model_.backWheels.suspensionRestLength)
+		diff += 1;
+
+	if (config_.backWheels.connectionPointOffset != model_.backWheels.connectionPointOffset)
+		diff += 3;
+
+	if (config_.dodgeDeadzone != model_.dodgeDeadzone)
+		diff += 1;
+
+	return diff;
+}
+
+RocketSim::Python::CarConfig::Index bestTemplateConfig (::CarConfig const &config_) noexcept
+{
+	using RocketSim::Python::CarConfig;
+
+	CarConfig::Index best = CarConfig::Index::OCTANE;
+	unsigned bestDiff     = std::numeric_limits<unsigned>::max ();
+
+	for (auto const &[index, model] : {
+	         // clang-format off
+	         std::make_pair (CarConfig::Index::OCTANE, &CAR_CONFIG_OCTANE),
+	         std::make_pair (CarConfig::Index::DOMINUS, &CAR_CONFIG_DOMINUS),
+	         std::make_pair (CarConfig::Index::PLANK, &CAR_CONFIG_PLANK),
+	         std::make_pair (CarConfig::Index::BREAKOUT, &CAR_CONFIG_BREAKOUT),
+	         std::make_pair (CarConfig::Index::HYBRID, &CAR_CONFIG_HYBRID),
+	         std::make_pair (CarConfig::Index::MERC, &CAR_CONFIG_MERC)
+	         // clang-format on
+	     })
+	{
+		auto const diff = templateDiff (config_, *model);
+		if (diff == 0)
+			return index;
+
+		if (diff < bestDiff)
+		{
+			best     = index;
+			bestDiff = diff;
+		}
+	}
+
+	return best;
+}
+}
 
 namespace RocketSim::Python
 {
@@ -9,11 +79,17 @@ PyTypeObject *CarConfig::Type = nullptr;
 
 PyMemberDef CarConfig::Members[] = {
     {.name      = "dodge_deadzone",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::CarConfig::dodgeDeadzone)>::type,
         .offset = offsetof (CarConfig, config) + offsetof (::CarConfig, dodgeDeadzone),
         .flags  = 0,
         .doc    = "Dodge deadzone"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
+};
+
+PyMethodDef CarConfig::Methods[] = {
+    {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&CarConfig::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&CarConfig::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
 PyGetSetDef CarConfig::GetSet[] = {
@@ -29,6 +105,7 @@ PyType_Slot CarConfig::Slots[] = {
     {Py_tp_init, (void *)&CarConfig::Init},
     {Py_tp_dealloc, (void *)&CarConfig::Dealloc},
     {Py_tp_members, &CarConfig::Members},
+    {Py_tp_methods, &CarConfig::Methods},
     {Py_tp_getset, &CarConfig::GetSet},
     {0, nullptr},
 };
@@ -135,13 +212,56 @@ PyObject *CarConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 
 int CarConfig::Init (CarConfig *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	int id = 0;
-	if (!PyArg_ParseTuple (args_, "|i", &id))
+	static char templateKwd[]        = "template";
+	static char hitboxSizeKwd[]      = "hitbox_size";
+	static char hitboxPosOffsetKwd[] = "hitbox_pos_offset";
+	static char frontWheelsKwd[]     = "front_wheels";
+	static char backWheelsKwd[]      = "back_wheels";
+	static char dodgeDeadzoneKwd[]   = "dodge_deadzone";
+
+	static char *dict[] = {
+	    templateKwd, hitboxSizeKwd, hitboxPosOffsetKwd, frontWheelsKwd, backWheelsKwd, dodgeDeadzoneKwd, nullptr};
+
+	PyObject *hitboxSize      = nullptr; // borrowed references
+	PyObject *hitboxPosOffset = nullptr;
+	PyObject *frontWheels     = nullptr;
+	PyObject *backWheels      = nullptr;
+	float dodgeDeadzone       = 0.5f;
+	int templateId            = 0;
+	if (!PyArg_ParseTupleAndKeywords (args_,
+	        kwds_,
+	        "|iO!O!O!O!f",
+	        dict,
+	        &templateId,
+	        Vec::Type,
+	        &hitboxSize,
+	        Vec::Type,
+	        &hitboxPosOffset,
+	        WheelPairConfig::Type,
+	        &frontWheels,
+	        WheelPairConfig::Type,
+	        &backWheels,
+	        &dodgeDeadzone))
 		return -1;
 
-	::CarConfig config;
-	if (!FromIndex (static_cast<Index> (id), config))
+	// initialize with template
+	::CarConfig config{};
+	if (!FromIndex (static_cast<Index> (templateId), config))
 		return -1;
+
+	if (hitboxSize)
+		config.hitboxSize = Vec::ToVec (PyCast<Vec> (hitboxSize));
+
+	if (hitboxPosOffset)
+		config.hitboxPosOffset = Vec::ToVec (PyCast<Vec> (hitboxPosOffset));
+
+	if (frontWheels)
+		config.frontWheels = WheelPairConfig::ToWheelPairConfig (PyCast<WheelPairConfig> (frontWheels));
+
+	if (backWheels)
+		config.backWheels = WheelPairConfig::ToWheelPairConfig (PyCast<WheelPairConfig> (backWheels));
+
+	config.dodgeDeadzone = dodgeDeadzone;
 
 	if (!InitFromCarConfig (self_, config))
 		return -1;
@@ -160,6 +280,60 @@ void CarConfig::Dealloc (CarConfig *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *CarConfig::Pickle (CarConfig *self_) noexcept
+{
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	auto const index = bestTemplateConfig (self_->config);
+	if (!DictSetValue (dict.borrow (), "template", PyLong_FromLong (static_cast<long> (index))))
+		return nullptr;
+
+	::CarConfig model{};
+	if (!FromIndex (index, model))
+		return nullptr;
+
+	auto const config = ToCarConfig (self_);
+	if (config.hitboxSize != model.hitboxSize &&
+	    !DictSetValue (dict.borrow (), "hitbox_size", PyNewRef (self_->hitboxSize)))
+		return nullptr;
+
+	if (config.hitboxPosOffset != model.hitboxPosOffset &&
+	    !DictSetValue (dict.borrow (), "hitbox_pos_offset", PyNewRef (self_->hitboxPosOffset)))
+		return nullptr;
+
+	if ((config.frontWheels.wheelRadius != model.frontWheels.wheelRadius ||
+	        config.frontWheels.suspensionRestLength != model.frontWheels.suspensionRestLength ||
+	        config.frontWheels.connectionPointOffset != model.frontWheels.connectionPointOffset) &&
+	    !DictSetValue (dict.borrow (), "front_wheels", PyNewRef (self_->frontWheels)))
+		return nullptr;
+
+	if ((config.backWheels.wheelRadius != model.backWheels.wheelRadius ||
+	        config.backWheels.suspensionRestLength != model.backWheels.suspensionRestLength ||
+	        config.backWheels.connectionPointOffset != model.backWheels.connectionPointOffset) &&
+	    !DictSetValue (dict.borrow (), "back_wheels", PyNewRef (self_->backWheels)))
+		return nullptr;
+
+	if (config.dodgeDeadzone != model.dodgeDeadzone &&
+	    !DictSetValue (dict.borrow (), "dodge_deadzone", PyFloat_FromDouble (config.dodgeDeadzone)))
+		return nullptr;
+
+	return dict.gift ();
+}
+
+PyObject *CarConfig::Unpickle (CarConfig *self_, PyObject *dict_) noexcept
+{
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+		return nullptr;
+
+	if (Init (self_, args.borrow (), dict_) != 0)
+		return nullptr;
+
+	Py_RETURN_NONE;
 }
 
 PyObject *CarConfig::Gethitbox_size (CarConfig *self_, void *) noexcept

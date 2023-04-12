@@ -9,12 +9,12 @@ PyTypeObject *WheelPairConfig::Type = nullptr;
 
 PyMemberDef WheelPairConfig::Members[] = {
     {.name      = "wheel_radius",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::WheelPairConfig::wheelRadius)>::type,
         .offset = offsetof (WheelPairConfig, config) + offsetof (::WheelPairConfig, wheelRadius),
         .flags  = 0,
         .doc    = "Wheel radius"},
     {.name      = "suspension_rest_length",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::WheelPairConfig::suspensionRestLength)>::type,
         .offset = offsetof (WheelPairConfig, config) + offsetof (::WheelPairConfig, suspensionRestLength),
         .flags  = 0,
         .doc    = "Suspension rest length"},
@@ -22,6 +22,14 @@ PyMemberDef WheelPairConfig::Members[] = {
 };
 
 PyMethodDef WheelPairConfig::Methods[] = {
+    {.ml_name     = "__getstate__",
+        .ml_meth  = (PyCFunction)&WheelPairConfig::Pickle,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
+    {.ml_name     = "__setstate__",
+        .ml_meth  = (PyCFunction)&WheelPairConfig::Unpickle,
+        .ml_flags = METH_O,
+        .ml_doc   = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -97,7 +105,29 @@ PyObject *WheelPairConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObjec
 
 int WheelPairConfig::Init (WheelPairConfig *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	if (!InitFromWheelPairConfig (self_, ::WheelPairConfig{}))
+	static char wheelRadiusKwd[]           = "wheel_radius";
+	static char suspensionRestLengthKwd[]  = "suspension_rest_length";
+	static char connectionPointOffsetKwd[] = "connection_point_offset";
+
+	static char *dict[] = {wheelRadiusKwd, suspensionRestLengthKwd, connectionPointOffsetKwd, nullptr};
+
+	::WheelPairConfig config{};
+
+	PyObject *connectionPointOffset = nullptr; // borrowed
+	if (!PyArg_ParseTupleAndKeywords (args_,
+	        kwds_,
+	        "|ffO!",
+	        dict,
+	        &config.wheelRadius,
+	        &config.suspensionRestLength,
+	        Vec::Type,
+	        &connectionPointOffset))
+		return -1;
+
+	if (connectionPointOffset)
+		config.connectionPointOffset = Vec::ToVec (PyCast<Vec> (connectionPointOffset));
+
+	if (!InitFromWheelPairConfig (self_, config))
 		return -1;
 
 	return 0;
@@ -111,6 +141,29 @@ void WheelPairConfig::Dealloc (WheelPairConfig *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *WheelPairConfig::Pickle (WheelPairConfig *self_) noexcept
+{
+	return Py_BuildValue ("{sfsfsO}",
+	    "wheel_radius",
+	    self_->config.wheelRadius,
+	    "suspension_rest_length",
+	    self_->config.suspensionRestLength,
+	    "connection_point_offset",
+	    self_->connectionPointOffset);
+}
+
+PyObject *WheelPairConfig::Unpickle (WheelPairConfig *self_, PyObject *dict_) noexcept
+{
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+		return nullptr;
+
+	if (Init (self_, args.borrow (), dict_) != 0)
+		return nullptr;
+
+	Py_RETURN_NONE;
 }
 
 PyObject *WheelPairConfig::Getconnection_point_offset (WheelPairConfig *self_, void *) noexcept

@@ -16,6 +16,12 @@ PyMemberDef BallState::Members[] = {
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
+PyMethodDef BallState::Methods[] = {
+    {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&BallState::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&BallState::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
+};
+
 PyGetSetDef BallState::GetSet[] = {
     GETSET_ENTRY (BallState, pos),
     GETSET_ENTRY (BallState, vel),
@@ -28,6 +34,7 @@ PyType_Slot BallState::Slots[] = {
     {Py_tp_init, (void *)(&BallState::Init)},
     {Py_tp_dealloc, (void *)(&BallState::Dealloc)},
     {Py_tp_members, &BallState::Members},
+    {Py_tp_methods, &BallState::Methods},
     {Py_tp_getset, &BallState::GetSet},
     {0, nullptr},
 };
@@ -103,12 +110,12 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	static char lastHitCarIDKwd[] = "last_hit_car_id";
 	static char *dict[]           = {posKwd, velKwd, angVelKwd, lastHitCarIDKwd, nullptr};
 
-	PyObject *pos    = nullptr; // borrowed references
-	PyObject *vel    = nullptr;
-	PyObject *angVel = nullptr;
-	unsigned carId   = 0;
+	PyObject *pos       = nullptr; // borrowed references
+	PyObject *vel       = nullptr;
+	PyObject *angVel    = nullptr;
+	unsigned long carId = 0;
 	if (!PyArg_ParseTupleAndKeywords (
-	        args_, kwds_, "|O!O!O!I", dict, Vec::Type, &pos, Vec::Type, &vel, Vec::Type, &angVel, &carId))
+	        args_, kwds_, "|O!O!O!k", dict, Vec::Type, &pos, Vec::Type, &vel, Vec::Type, &angVel, &carId))
 		return -1;
 
 	::BallState state{};
@@ -137,6 +144,44 @@ void BallState::Dealloc (BallState *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *BallState::Pickle (BallState *self_) noexcept
+{
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	::BallState const model{};
+	auto const state = ToBallState (self_);
+
+	if (Vec::ToVec (self_->pos) != model.pos && !DictSetValue (dict.borrow (), "pos", PyNewRef (self_->pos)))
+		return nullptr;
+
+	if (Vec::ToVec (self_->vel) != model.vel && !DictSetValue (dict.borrow (), "vel", PyNewRef (self_->vel)))
+		return nullptr;
+
+	if (Vec::ToVec (self_->angVel) != model.angVel &&
+	    !DictSetValue (dict.borrow (), "ang_vel", PyNewRef (self_->angVel)))
+		return nullptr;
+
+	if (state.lastHitCarID != model.lastHitCarID &&
+	    !DictSetValue (dict.borrow (), "last_hit_car_id", PyLong_FromUnsignedLong (state.lastHitCarID)))
+		return nullptr;
+
+	return dict.gift ();
+}
+
+PyObject *BallState::Unpickle (BallState *self_, PyObject *dict_) noexcept
+{
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+		return nullptr;
+
+	if (Init (self_, args.borrow (), dict_) != 0)
+		return nullptr;
+
+	Py_RETURN_NONE;
 }
 
 PyObject *BallState::Getpos (BallState *self_, void *) noexcept

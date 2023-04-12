@@ -12,9 +12,21 @@ namespace RocketSim::Python
 PyTypeObject *Vec::Type = nullptr;
 
 PyMemberDef Vec::Members[] = {
-    {.name = "x", .type = T_FLOAT, .offset = offsetof (Vec, vec) + offsetof (::Vec, x), .flags = 0, .doc = "x"},
-    {.name = "y", .type = T_FLOAT, .offset = offsetof (Vec, vec) + offsetof (::Vec, y), .flags = 0, .doc = "y"},
-    {.name = "z", .type = T_FLOAT, .offset = offsetof (Vec, vec) + offsetof (::Vec, z), .flags = 0, .doc = "z"},
+    {.name      = "x",
+        .type   = TypeHelper<decltype (::Vec::x)>::type,
+        .offset = offsetof (Vec, vec) + offsetof (::Vec, x),
+        .flags  = 0,
+        .doc    = "x"},
+    {.name      = "y",
+        .type   = TypeHelper<decltype (::Vec::y)>::type,
+        .offset = offsetof (Vec, vec) + offsetof (::Vec, y),
+        .flags  = 0,
+        .doc    = "y"},
+    {.name      = "z",
+        .type   = TypeHelper<decltype (::Vec::z)>::type,
+        .offset = offsetof (Vec, vec) + offsetof (::Vec, z),
+        .flags  = 0,
+        .doc    = "z"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -110,7 +122,7 @@ PyObject *Vec::RichCompare (Vec *self_, PyObject *other_, int op_) noexcept
 	if (!Py_IS_TYPE (other_, Vec::Type))
 		return Py_NotImplemented;
 
-	auto const vec = PyRef<Vec>::incObjectRef (other_);
+	auto const vec = PyCast<Vec> (other_);
 
 	if (std::isnan (self_->vec.x) || std::isnan (self_->vec.y) || std::isnan (self_->vec.z) ||
 	    std::isnan (vec->vec.x) || std::isnan (vec->vec.y) || std::isnan (vec->vec.z))
@@ -164,31 +176,33 @@ PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 
 PyObject *Vec::Pickle (Vec *self_) noexcept
 {
-	return Py_BuildValue ("{sfsfsf}", "x", self_->vec.x, "y", self_->vec.y, "z", self_->vec.z);
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	::Vec const model{};
+	auto const vec = ToVec (self_);
+
+	if (vec.x != model.x && !DictSetValue (dict.borrow (), "x", PyFloat_FromDouble (vec.x)))
+		return nullptr;
+
+	if (vec.y != model.y && !DictSetValue (dict.borrow (), "y", PyFloat_FromDouble (vec.y)))
+		return nullptr;
+
+	if (vec.z != model.z && !DictSetValue (dict.borrow (), "z", PyFloat_FromDouble (vec.z)))
+		return nullptr;
+
+	return dict.gift ();
 }
 
 PyObject *Vec::Unpickle (Vec *self_, PyObject *dict_) noexcept
 {
-	if (!Py_IS_TYPE (dict_, &PyDict_Type))
-	{
-		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict.");
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
 		return nullptr;
-	}
 
-	auto const x = GetItem (dict_, "x");
-	auto const y = GetItem (dict_, "y");
-	auto const z = GetItem (dict_, "z");
-
-	if ((x && !Py_IS_TYPE (x.borrow (), &PyFloat_Type)) || (y && !Py_IS_TYPE (y.borrow (), &PyFloat_Type)) ||
-	    (z && !Py_IS_TYPE (z.borrow (), &PyFloat_Type)))
-	{
-		PyErr_SetString (PyExc_ValueError, "Pickled object is invalid.");
+	if (Init (self_, args.borrow (), dict_) != 0)
 		return nullptr;
-	}
-
-	self_->vec.x = static_cast<float> (PyFloat_AsDouble (x.borrow ()));
-	self_->vec.y = static_cast<float> (PyFloat_AsDouble (y.borrow ()));
-	self_->vec.z = static_cast<float> (PyFloat_AsDouble (z.borrow ()));
 
 	Py_RETURN_NONE;
 }

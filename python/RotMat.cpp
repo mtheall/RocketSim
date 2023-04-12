@@ -96,7 +96,7 @@ PyObject *RotMat::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_)
 
 int RotMat::Init (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	::RotMat mat{};
+	::RotMat mat = ::RotMat::GetIdentity ();
 	if (PyTuple_Size (args_) == 0 && !kwds_)
 	{
 		if (!InitFromRotMat (self_, mat))
@@ -187,26 +187,12 @@ PyObject *RotMat::Pickle (RotMat *self_) noexcept
 
 PyObject *RotMat::Unpickle (RotMat *self_, PyObject *dict_) noexcept
 {
-	if (!Py_IS_TYPE (dict_, &PyDict_Type))
-	{
-		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict.");
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
 		return nullptr;
-	}
 
-	auto const forward = GetItem (dict_, "forward");
-	auto const right   = GetItem (dict_, "right");
-	auto const up      = GetItem (dict_, "up");
-
-	if ((forward && !Py_IS_TYPE (forward.borrow (), Vec::Type)) ||
-	    (right && !Py_IS_TYPE (right.borrow (), Vec::Type)) || (up && !Py_IS_TYPE (up.borrow (), Vec::Type)))
-	{
-		PyErr_SetString (PyExc_ValueError, "Pickled object is invalid.");
+	if (Init (self_, args.borrow (), dict_) != 0)
 		return nullptr;
-	}
-
-	PyRef<Vec>::assign (self_->forward, forward.borrow ());
-	PyRef<Vec>::assign (self_->right, right.borrow ());
-	PyRef<Vec>::assign (self_->up, up.borrow ());
 
 	Py_RETURN_NONE;
 }

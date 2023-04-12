@@ -42,7 +42,7 @@ for root, dirs, files in os.walk(os.path.join(base, "src")):
 class build_ext_ex(build_ext):
   extra_compile_args = {
     "debug": {
-      "unix": ["-std=c++2a", "-Og", "-fvisibility=hidden"],
+      "unix": ["-std=c++2a", "-Og", "-fvisibility=hidden", "-UNDEBUG"],
       "msvc": ["/std:c++20"]
     },
     "release": {
@@ -52,7 +52,10 @@ class build_ext_ex(build_ext):
   }
 
   extra_link_args = {
-    "debug": {},
+    "debug": {
+      "unix": [],
+      "msvc": [],
+    },
     "release": {
       "unix": ["-flto"],
       "msvc": ["/LTCG"]
@@ -85,7 +88,7 @@ RocketSim = Extension(
 
 setup(
   name = "RocketSim",
-  version = "1.2.0a4",
+  version = "1.2.0a5",
   description = "This is Rocket League!",
   cmdclass = {"build_ext": build_ext_ex},
   ext_modules = [RocketSim]

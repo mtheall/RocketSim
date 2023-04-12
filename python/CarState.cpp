@@ -116,6 +116,12 @@ PyMemberDef CarState::Members[] = {
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
+PyMethodDef CarState::Methods[] = {
+    {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&CarState::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
+    {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&CarState::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
+};
+
 PyGetSetDef CarState::GetSet[] = {
     GETSET_ENTRY (CarState, pos),
     GETSET_ENTRY (CarState, rot_mat),
@@ -133,6 +139,7 @@ PyType_Slot CarState::Slots[] = {
     {Py_tp_init, (void *)&CarState::Init},
     {Py_tp_dealloc, (void *)&CarState::Dealloc},
     {Py_tp_members, &CarState::Members},
+    {Py_tp_methods, &CarState::Methods},
     {Py_tp_getset, &CarState::GetSet},
     {0, nullptr},
 };
@@ -223,7 +230,146 @@ PyObject *CarState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds
 
 int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	if (!InitFromCarState (self_, ::CarState{}))
+	static char posKwd[]                     = "pos";
+	static char rotMatKwd[]                  = "rot_mat";
+	static char velKwd[]                     = "vel";
+	static char angVelKwd[]                  = "ang_vel";
+	static char isOnGroundKwd[]              = "is_on_ground";
+	static char hasJumpedKwd[]               = "has_jumped";
+	static char hasDoubleJumpedKwd[]         = "has_double_jumped";
+	static char hasFlippedKwd[]              = "has_flipped";
+	static char lastRelDodgeTorqueKwd[]      = "last_rel_dodge_torque";
+	static char jumpTimeKwd[]                = "jump_time";
+	static char flipTimeKwd[]                = "flip_time";
+	static char isJumpingKwd[]               = "is_jumping";
+	static char airTimeSinceJumpKwd[]        = "air_time_since_jump";
+	static char boostKwd[]                   = "boost";
+	static char timeSpentBoostingKwd[]       = "time_spent_boosting";
+	static char isSupersonicKwd[]            = "is_supersonic";
+	static char supersonicTimeKwd[]          = "supersonic_time";
+	static char handbrakeValKwd[]            = "handbrake_val";
+	static char isAutoFlippingKwd[]          = "is_auto_flipping";
+	static char autoFlipTimerKwd[]           = "auto_flip_timer";
+	static char hasWorldContactKwd[]         = "has_world_contact";
+	static char worldContactNormalKwd[]      = "world_contact_normal";
+	static char carContactIDKwd[]            = "car_contact_id";
+	static char carContactCooldownTimerKwd[] = "car_contact_cooldown_timer";
+	static char isDemoedKwd[]                = "is_demoed";
+	static char demoRespawnTimerKwd[]        = "demo_respawn_timer";
+	static char ballHitInfoKwd[]             = "ball_hit_info";
+	static char lastControlsKwd[]            = "last_controls";
+
+	static char *dict[] = {posKwd,
+	    rotMatKwd,
+	    velKwd,
+	    angVelKwd,
+	    isOnGroundKwd,
+	    hasJumpedKwd,
+	    hasDoubleJumpedKwd,
+	    hasFlippedKwd,
+	    lastRelDodgeTorqueKwd,
+	    jumpTimeKwd,
+	    flipTimeKwd,
+	    isJumpingKwd,
+	    airTimeSinceJumpKwd,
+	    boostKwd,
+	    timeSpentBoostingKwd,
+	    isSupersonicKwd,
+	    supersonicTimeKwd,
+	    handbrakeValKwd,
+	    isAutoFlippingKwd,
+	    autoFlipTimerKwd,
+	    hasWorldContactKwd,
+	    worldContactNormalKwd,
+	    carContactIDKwd,
+	    carContactCooldownTimerKwd,
+	    isDemoedKwd,
+	    demoRespawnTimerKwd,
+	    ballHitInfoKwd,
+	    lastControlsKwd,
+	    nullptr};
+
+	::CarState state{};
+
+	PyObject *pos                = nullptr; // borrowed references
+	PyObject *rotMat             = nullptr;
+	PyObject *vel                = nullptr;
+	PyObject *angVel             = nullptr;
+	PyObject *lastRelDodgeTorque = nullptr;
+	PyObject *lastControls       = nullptr;
+	PyObject *worldContactNormal = nullptr;
+	PyObject *ballHitInfo        = nullptr;
+
+	unsigned long carContactID = state.carContact.otherCarID;
+	if (!PyArg_ParseTupleAndKeywords (args_,
+	        kwds_,
+	        "|O!O!O!O!ppppO!ffpfffpffpfpO!kfpfO!O!",
+	        dict,
+	        Vec::Type,
+	        &pos,
+	        RotMat::Type,
+	        &rotMat,
+	        Vec::Type,
+	        &vel,
+	        Vec::Type,
+	        &angVel,
+	        &state.isOnGround,
+	        &state.hasJumped,
+	        &state.hasDoubleJumped,
+	        &state.hasFlipped,
+	        Vec::Type,
+	        &lastRelDodgeTorque,
+	        &state.jumpTime,
+	        &state.flipTime,
+	        &state.isJumping,
+	        &state.airTimeSinceJump,
+	        &state.boost,
+	        &state.timeSpentBoosting,
+	        &state.isSupersonic,
+	        &state.supersonicTime,
+	        &state.handbrakeVal,
+	        &state.isAutoFlipping,
+	        &state.autoFlipTimer,
+	        &state.worldContact.hasContact,
+	        Vec::Type,
+	        &worldContactNormal,
+	        &carContactID,
+	        &state.carContact.cooldownTimer,
+	        &state.isDemoed,
+	        &state.demoRespawnTimer,
+	        BallHitInfo::Type,
+	        &ballHitInfo,
+	        CarControls::Type,
+	        &lastControls))
+		return -1;
+
+	if (pos)
+		state.pos = Vec::ToVec (PyCast<Vec> (pos));
+
+	if (rotMat)
+		state.rotMat = RotMat::ToRotMat (PyCast<RotMat> (rotMat));
+
+	if (vel)
+		state.vel = Vec::ToVec (PyCast<Vec> (vel));
+
+	if (angVel)
+		state.angVel = Vec::ToVec (PyCast<Vec> (angVel));
+
+	if (lastRelDodgeTorque)
+		state.lastRelDodgeTorque = Vec::ToVec (PyCast<Vec> (lastRelDodgeTorque));
+
+	if (worldContactNormal)
+		state.worldContact.contactNormal = Vec::ToVec (PyCast<Vec> (worldContactNormal));
+
+	if (ballHitInfo)
+		state.ballHitInfo = BallHitInfo::ToBallHitInfo (PyCast<BallHitInfo> (ballHitInfo));
+
+	if (lastControls)
+		state.lastControls = CarControls::ToCarControls (PyCast<CarControls> (lastControls));
+
+	state.carContact.otherCarID = carContactID;
+
+	if (!InitFromCarState (self_, state))
 		return -1;
 
 	return 0;
@@ -244,6 +390,149 @@ void CarState::Dealloc (CarState *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *CarState::Pickle (CarState *self_) noexcept
+{
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	::CarState const model{};
+	auto const state = ToCarState (self_);
+
+	if (state.pos != model.pos && !DictSetValue (dict.borrow (), "pos", PyNewRef (self_->pos)))
+		return nullptr;
+
+	if ((state.rotMat.forward != model.rotMat.forward || state.rotMat.right != model.rotMat.right ||
+	        state.rotMat.up != model.rotMat.up) &&
+	    !DictSetValue (dict.borrow (), "rot_mat", PyNewRef (self_->rotMat)))
+		return nullptr;
+
+	if (state.vel != model.vel && !DictSetValue (dict.borrow (), "vel", PyNewRef (self_->vel)))
+		return nullptr;
+
+	if (state.angVel != model.angVel && !DictSetValue (dict.borrow (), "ang_vel", PyNewRef (self_->angVel)))
+		return nullptr;
+
+	if (state.isOnGround != model.isOnGround &&
+	    !DictSetValue (dict.borrow (), "is_on_ground", PyBool_FromLong (state.isOnGround)))
+		return nullptr;
+
+	if (state.hasJumped != model.hasJumped &&
+	    !DictSetValue (dict.borrow (), "has_jumped", PyBool_FromLong (state.hasJumped)))
+		return nullptr;
+
+	if (state.hasDoubleJumped != model.hasDoubleJumped &&
+	    !DictSetValue (dict.borrow (), "has_double_jumped", PyBool_FromLong (state.hasDoubleJumped)))
+		return nullptr;
+
+	if (state.hasFlipped != model.hasFlipped &&
+	    !DictSetValue (dict.borrow (), "has_flipped", PyBool_FromLong (state.hasFlipped)))
+		return nullptr;
+
+	if (state.lastRelDodgeTorque != model.lastRelDodgeTorque &&
+	    !DictSetValue (dict.borrow (), "last_rel_dodge_torque", PyNewRef (self_->lastRelDodgeTorque)))
+		return nullptr;
+
+	if (state.jumpTime != model.jumpTime &&
+	    !DictSetValue (dict.borrow (), "jump_time", PyFloat_FromDouble (state.jumpTime)))
+		return nullptr;
+
+	if (state.flipTime != model.flipTime &&
+	    !DictSetValue (dict.borrow (), "flip_time", PyFloat_FromDouble (state.flipTime)))
+		return nullptr;
+
+	if (state.isJumping != model.isJumping &&
+	    !DictSetValue (dict.borrow (), "is_jumping", PyBool_FromLong (state.isJumping)))
+		return nullptr;
+
+	if (state.airTimeSinceJump != model.airTimeSinceJump &&
+	    !DictSetValue (dict.borrow (), "air_time_since_jump", PyFloat_FromDouble (state.airTimeSinceJump)))
+		return nullptr;
+
+	if (state.boost != model.boost && !DictSetValue (dict.borrow (), "boost", PyFloat_FromDouble (state.boost)))
+		return nullptr;
+
+	if (state.timeSpentBoosting != model.timeSpentBoosting &&
+	    !DictSetValue (dict.borrow (), "time_spent_boosting", PyFloat_FromDouble (state.timeSpentBoosting)))
+		return nullptr;
+
+	if (state.isSupersonic != model.isSupersonic &&
+	    !DictSetValue (dict.borrow (), "is_supersonic", PyBool_FromLong (state.isSupersonic)))
+		return nullptr;
+
+	if (state.supersonicTime != model.supersonicTime &&
+	    !DictSetValue (dict.borrow (), "supersonic_time", PyFloat_FromDouble (state.supersonicTime)))
+		return nullptr;
+
+	if (state.handbrakeVal != model.handbrakeVal &&
+	    !DictSetValue (dict.borrow (), "handbrake_val", PyFloat_FromDouble (state.handbrakeVal)))
+		return nullptr;
+
+	if (state.isAutoFlipping != model.isAutoFlipping &&
+	    !DictSetValue (dict.borrow (), "is_auto_flipping", PyBool_FromLong (state.isAutoFlipping)))
+		return nullptr;
+
+	if (state.autoFlipTimer != model.autoFlipTimer &&
+	    !DictSetValue (dict.borrow (), "auto_flip_timer", PyFloat_FromDouble (state.autoFlipTimer)))
+		return nullptr;
+
+	if (state.worldContact.hasContact != model.worldContact.hasContact &&
+	    !DictSetValue (dict.borrow (), "has_world_contact", PyBool_FromLong (state.worldContact.hasContact)))
+		return nullptr;
+
+	if (state.worldContact.contactNormal != model.worldContact.contactNormal &&
+	    !DictSetValue (dict.borrow (), "world_contact_normal", PyNewRef (self_->worldContactNormal)))
+		return nullptr;
+
+	if (state.carContact.otherCarID != model.carContact.otherCarID &&
+	    !DictSetValue (dict.borrow (), "car_contact_id", PyLong_FromUnsignedLong (state.carContact.otherCarID)))
+		return nullptr;
+
+	if (state.carContact.cooldownTimer != model.carContact.cooldownTimer &&
+	    !DictSetValue (
+	        dict.borrow (), "car_contact_cooldown_timer", PyFloat_FromDouble (state.carContact.cooldownTimer)))
+		return nullptr;
+
+	if (state.isDemoed != model.isDemoed &&
+	    !DictSetValue (dict.borrow (), "is_demoed", PyBool_FromLong (state.isDemoed)))
+		return nullptr;
+
+	if (state.demoRespawnTimer != model.demoRespawnTimer &&
+	    !DictSetValue (dict.borrow (), "demo_respawn_timer", PyFloat_FromDouble (state.demoRespawnTimer)))
+		return nullptr;
+
+	::BallHitInfo const ballHitInfo{};
+	if ((state.ballHitInfo.relativePosOnBall != model.ballHitInfo.relativePosOnBall ||
+	        state.ballHitInfo.ballPos != model.ballHitInfo.ballPos ||
+	        state.ballHitInfo.extraHitVel != model.ballHitInfo.extraHitVel ||
+	        state.ballHitInfo.tickCountWhenHit != model.ballHitInfo.tickCountWhenHit ||
+	        state.ballHitInfo.tickCountWhenExtraImpulseApplied != model.ballHitInfo.tickCountWhenExtraImpulseApplied) &&
+	    !DictSetValue (dict.borrow (), "ball_hit_info", PyNewRef (self_->ballHitInfo)))
+		return nullptr;
+
+	::CarControls const controls{};
+	if ((state.lastControls.throttle != controls.throttle || state.lastControls.steer != controls.steer ||
+	        state.lastControls.pitch != controls.pitch || state.lastControls.yaw != controls.yaw ||
+	        state.lastControls.roll != controls.roll || state.lastControls.boost != controls.boost ||
+	        state.lastControls.jump != controls.jump || state.lastControls.handbrake != controls.handbrake) &&
+	    !DictSetValue (dict.borrow (), "last_controls", PyNewRef (self_->lastControls)))
+		return nullptr;
+
+	return dict.gift ();
+}
+
+PyObject *CarState::Unpickle (CarState *self_, PyObject *dict_) noexcept
+{
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+		return nullptr;
+
+	if (Init (self_, args.borrow (), dict_) != 0)
+		return nullptr;
+
+	Py_RETURN_NONE;
 }
 
 PyObject *CarState::Getpos (CarState *self_, void *) noexcept

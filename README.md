@@ -31,8 +31,8 @@ Documentation is available at: https://zealanl.github.io/RocketSimDocs/
 
 ## Bindings
 If you don't want to work in C++, here are some (unofficial) bindings written in other languages:
-- **Python**: https://github.com/uservar/pyrocketsim by `uservar`
 - **Rust**: https://github.com/VirxEC/rocketsim-rs by `VirxEC`
+- **Python**: `pip3 install git+https://github.com/mtheall/RocketSim@python-dev`
 
 ## Performance
 RocketSim already heavily outperforms the speed of Rocket League's physics tick step without optimization.
@@ -56,10 +56,46 @@ v1.0.0 = 30,334tps
 RocketSim is not perfectly accurate, but it's close enough that it shouldnt matter (for ML bots or humans).
 Bots that work well in RocketSim will work well in the actual game, and visa-versa.
 
+## Example Usage
+```python
+#!/usr/bin/env python3
+
+import RocketSim as rs
+
+# Make an arena instance (this is where our simulation takes place, has its own btDynamicsWorld instance)
+arena = rs.Arena(rs.GameMode.SOCCAR)
+
+# Make a new car
+car = arena.add_car(rs.Team.BLUE)
+
+# Set up an initial state for our car
+car_state = rs.CarState()
+car_state.pos = rs.Vec(0, 0, 17)
+car_state.vel = rs.Vec(50, 0, 0)
+car.set_state(car_state)
+
+# Setup a ball state
+ball_state = rs.BallState()
+ball_state.pos = rs.Vec (0, 400, 100)
+arena.ball.set_state(ball_state);
+
+# Make our car drive forward and turn
+car_controls = rs.CarControls()
+car_controls.throttle = 1
+car_controls.steer = 1
+car.set_controls(car_controls)
+
+# Simulate for 100 ticks
+arena.step(100);
+
+# Lets see where our car went!
+print(f"After {arena.tick_count} ticks, our car is at: {car.get_state().pos:.2f}")
+```
+
 ## Issues & PRs
 Feel free to make issues and pull requests if you encounter any issues!
 
-You can also contact me on Discord if you have questions: `Zealan#5987`
+You can also contact me on Discord if you have questions: `mtheall#6174`
 
 ## Legal Notice
 RocketSim was written to replicate Rocket League's game logic, but does not actually contain any code from the game.

@@ -6,12 +6,20 @@ PyTypeObject *Car::Type = nullptr;
 
 PyMemberDef Car::Members[] = {
     {.name      = "boost_pickups",
-        .type   = T_UINT,
+        .type   = TypeHelper<decltype (Car::boostPickups)>::type,
         .offset = offsetof (Car, boostPickups),
         .flags  = 0,
         .doc    = "Boost pickups"},
-    {.name = "demos", .type = T_UINT, .offset = offsetof (Car, demos), .flags = 0, .doc = "Demos"},
-    {.name = "goals", .type = T_UINT, .offset = offsetof (Car, goals), .flags = 0, .doc = "Goals"},
+    {.name      = "demos",
+        .type   = TypeHelper<decltype (Car::demos)>::type,
+        .offset = offsetof (Car, demos),
+        .flags  = 0,
+        .doc    = "Demos"},
+    {.name      = "goals",
+        .type   = TypeHelper<decltype (Car::goals)>::type,
+        .offset = offsetof (Car, goals),
+        .flags  = 0,
+        .doc    = "Goals"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -106,6 +114,118 @@ void Car::Dealloc (Car *self_) noexcept
 	tp_free (self_);
 }
 
+PyObject *Car::InternalPickle (Car *self_) noexcept
+{
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	if (!DictSetValue (dict.borrow (), "id", PyLong_FromUnsignedLong (self_->car->id)))
+		return nullptr;
+
+	if (!DictSetValue (dict.borrow (), "state", CarState::NewFromCarState (self_->car->GetState ()).giftObject ()))
+		return nullptr;
+
+	if (!DictSetValue (dict.borrow (), "config", CarConfig::NewFromCarConfig (self_->car->config).giftObject ()))
+		return nullptr;
+
+	if (!DictSetValue (
+	        dict.borrow (), "controls", CarControls::NewFromCarControls (self_->car->controls).giftObject ()))
+		return nullptr;
+
+	if (self_->car->team != ::Team::BLUE &&
+	    !DictSetValue (dict.borrow (), "team", PyLong_FromLong (static_cast<long> (self_->car->team))))
+		return nullptr;
+
+	if (self_->goals && !DictSetValue (dict.borrow (), "goals", PyLong_FromUnsignedLong (self_->goals)))
+		return nullptr;
+
+	if (self_->demos && !DictSetValue (dict.borrow (), "demos", PyLong_FromUnsignedLong (self_->demos)))
+		return nullptr;
+
+	if (self_->boostPickups &&
+	    !DictSetValue (dict.borrow (), "boost_pickups", PyLong_FromUnsignedLong (self_->boostPickups)))
+		return nullptr;
+
+	return dict.gift ();
+}
+
+PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, PyObject *dict_) noexcept
+{
+	auto const dummy = PyObjectRef::steal (PyTuple_New (0));
+	if (!dummy)
+		return nullptr;
+
+	static char idKwd[]           = "id";
+	static char teamKwd[]         = "team";
+	static char stateKwd[]        = "state";
+	static char configKwd[]       = "config";
+	static char controlsKwd[]     = "controls";
+	static char goalsKwd[]        = "goals";
+	static char demosKwd[]        = "demos";
+	static char boostPickupsKwd[] = "boost_pickups";
+
+	static char *dict[] = {
+	    idKwd, teamKwd, stateKwd, configKwd, controlsKwd, goalsKwd, demosKwd, boostPickupsKwd, nullptr};
+
+	PyObject *state       = nullptr; // borrowed references
+	PyObject *config      = nullptr;
+	PyObject *controls    = nullptr;
+	unsigned long id      = 0;
+	unsigned goals        = 0;
+	unsigned demos        = 0;
+	unsigned boostPickups = 0;
+	int team              = static_cast<int> (::Team::BLUE);
+	if (!PyArg_ParseTupleAndKeywords (dummy.borrow (),
+	        dict_,
+	        "|kiO!O!O!III",
+	        dict,
+	        &id,
+	        &team,
+	        CarState::Type,
+	        &state,
+	        CarConfig::Type,
+	        &config,
+	        CarControls::Type,
+	        &controls,
+	        &goals,
+	        &demos,
+	        &boostPickups))
+		return nullptr;
+
+	if (id == 0)
+		return PyErr_Format (PyExc_ValueError, "Invalid id '%lu'", id);
+
+	if (arena_->_carIDMap.contains (id))
+		return PyErr_Format (PyExc_ValueError, "Car with id '%lu' already exists", id);
+
+	if (static_cast<::Team> (team) != ::Team::BLUE && static_cast<::Team> (team) != ::Team::ORANGE)
+		return PyErr_Format (PyExc_ValueError, "Invalid team '%d'", team);
+
+	if (!state)
+		return PyErr_Format (PyExc_ValueError, "Car state missing");
+
+	if (!config)
+		return PyErr_Format (PyExc_ValueError, "Car config missing");
+
+	if (!controls)
+		return PyErr_Format (PyExc_ValueError, "Car controls missing");
+
+	arena_->_lastCarID = id - 1;
+
+	self_->car = arena_->AddCar (static_cast<::Team> (team), CarConfig::ToCarConfig (PyCast<CarConfig> (config)));
+
+	self_->arena        = arena_;
+	self_->goals        = goals;
+	self_->demos        = demos;
+	self_->boostPickups = boostPickups;
+
+	self_->car->SetState (CarState::ToCarState (PyCast<CarState> (state)));
+	self_->car->controls = CarControls::ToCarControls (PyCast<CarControls> (controls));
+
+	Py_RETURN_NONE;
+}
+
 PyObject *Car::Getid (Car *self_, void *) noexcept
 {
 	if (!self_->arena)
@@ -114,7 +234,7 @@ PyObject *Car::Getid (Car *self_, void *) noexcept
 		return nullptr;
 	}
 
-	return PyLong_FromLong (self_->car->id);
+	return PyLong_FromUnsignedLong (self_->car->id);
 }
 
 PyObject *Car::Getteam (Car *self_, void *) noexcept
@@ -125,7 +245,7 @@ PyObject *Car::Getteam (Car *self_, void *) noexcept
 		return nullptr;
 	}
 
-	return PyLong_FromLong (static_cast<int> (self_->car->team));
+	return PyLong_FromLong (static_cast<long> (self_->car->team));
 }
 
 PyObject *Car::Demolish (Car *self_) noexcept

@@ -9,16 +9,33 @@ PyTypeObject *BoostPadState::Type = nullptr;
 
 PyMemberDef BoostPadState::Members[] = {
     {.name      = "is_active",
-        .type   = T_BOOL,
+        .type   = TypeHelper<decltype (::BoostPadState::isActive)>::type,
         .offset = offsetof (BoostPadState, state) + offsetof (::BoostPadState, isActive),
         .flags  = 0,
         .doc    = "Is active"},
     {.name      = "cooldown",
-        .type   = T_FLOAT,
+        .type   = TypeHelper<decltype (::BoostPadState::cooldown)>::type,
         .offset = offsetof (BoostPadState, state) + offsetof (::BoostPadState, cooldown),
         .flags  = 0,
         .doc    = "Cooldown"},
+    {.name      = "prev_locked_car_id",
+        .type   = TypeHelper<decltype (::BoostPadState::prevLockedCarID)>::type,
+        .offset = offsetof (BoostPadState, state) + offsetof (::BoostPadState, prevLockedCarID),
+        .flags  = 0,
+        .doc    = "Prev locked car id"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
+};
+
+PyMethodDef BoostPadState::Methods[] = {
+    {.ml_name     = "__getstate__",
+        .ml_meth  = (PyCFunction)&BoostPadState::Pickle,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
+    {.ml_name     = "__setstate__",
+        .ml_meth  = (PyCFunction)&BoostPadState::Unpickle,
+        .ml_flags = METH_O,
+        .ml_doc   = nullptr},
+    {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
 PyType_Slot BoostPadState::Slots[] = {
@@ -26,6 +43,7 @@ PyType_Slot BoostPadState::Slots[] = {
     {Py_tp_init, (void *)&BoostPadState::Init},
     {Py_tp_dealloc, (void *)&BoostPadState::Dealloc},
     {Py_tp_members, &BoostPadState::Members},
+    {Py_tp_methods, &BoostPadState::Methods},
     {0, nullptr},
 };
 
@@ -72,22 +90,19 @@ PyObject *BoostPadState::New (PyTypeObject *subtype_, PyObject *args_, PyObject 
 
 int BoostPadState::Init (BoostPadState *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	PyObject *isActiveObj = nullptr; // borrowed reference
-	float cooldown        = 0.0f;
-	if (!PyArg_ParseTuple (args_, "|Of", &isActiveObj, &cooldown))
-		return -1;
+	static char isActiveKwd[]        = "is_active";
+	static char cooldownKwd[]        = "cooldown";
+	static char prevLockedCarIDKwd[] = "prev_locked_car_id";
+
+	static char *dict[] = {isActiveKwd, cooldownKwd, prevLockedCarIDKwd, nullptr};
 
 	::BoostPadState state{};
-	if (isActiveObj)
-	{
-		auto const isActive = PyObject_IsTrue (isActiveObj);
-		if (isActive < 0)
-			return -1;
 
-		state.isActive = isActive;
-	}
+	unsigned long prevLockedCarID = state.prevLockedCarID;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|pfk", dict, &state.isActive, &state.cooldown, &prevLockedCarID))
+		return -1;
 
-	state.cooldown = cooldown;
+	state.prevLockedCarID = prevLockedCarID;
 
 	if (!InitFromBoostPadState (self_, state))
 		return -1;
@@ -101,5 +116,41 @@ void BoostPadState::Dealloc (BoostPadState *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *BoostPadState::Pickle (BoostPadState *self_) noexcept
+{
+	auto dict = PyObjectRef::steal (PyDict_New ());
+	if (!dict)
+		return nullptr;
+
+	::BoostPadState model{};
+	auto const state = ToBoostPadState (self_);
+
+	if (state.isActive != model.isActive &&
+	    !DictSetValue (dict.borrow (), "is_active", PyBool_FromLong (state.isActive)))
+		return nullptr;
+
+	if (state.cooldown != model.cooldown &&
+	    !DictSetValue (dict.borrow (), "cooldown", PyFloat_FromDouble (state.cooldown)))
+		return nullptr;
+
+	if (state.prevLockedCarID != model.prevLockedCarID &&
+	    !DictSetValue (dict.borrow (), "prev_locked_car_id", PyLong_FromUnsignedLong (state.prevLockedCarID)))
+		return nullptr;
+
+	return dict.gift ();
+}
+
+PyObject *BoostPadState::Unpickle (BoostPadState *self_, PyObject *dict_) noexcept
+{
+	auto const args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+		return nullptr;
+
+	if (Init (self_, args.borrow (), dict_) != 0)
+		return nullptr;
+
+	Py_RETURN_NONE;
 }
 }
