@@ -69,24 +69,16 @@ arena = rs.Arena(rs.GameMode.SOCCAR)
 car = arena.add_car(rs.Team.BLUE)
 
 # Set up an initial state for our car
-car_state = rs.CarState()
-car_state.pos = rs.Vec(0, 0, 17)
-car_state.vel = rs.Vec(50, 0, 0)
-car.set_state(car_state)
+car.set_state(rs.CarState(pos=rs.Vec(z=17), vel=rs.Vec(x=50)))
 
 # Setup a ball state
-ball_state = rs.BallState()
-ball_state.pos = rs.Vec (0, 400, 100)
-arena.ball.set_state(ball_state);
+arena.ball.set_state(rs.BallState(pos=rs.Vec(y=400, z=100)))
 
 # Make our car drive forward and turn
-car_controls = rs.CarControls()
-car_controls.throttle = 1
-car_controls.steer = 1
-car.set_controls(car_controls)
+car.set_controls(rs.CarControls(throttle=1, steer=1))
 
 # Simulate for 100 ticks
-arena.step(100);
+arena.step(100)
 
 # Lets see where our car went!
 print(f"After {arena.tick_count} ticks, our car is at: {car.get_state().pos:.2f}")
