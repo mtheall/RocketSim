@@ -34,7 +34,7 @@ PyMethodDef WheelPairConfig::Methods[] = {
 };
 
 PyGetSetDef WheelPairConfig::GetSet[] = {
-    GETSET_ENTRY (WheelPairConfig, connection_point_offset),
+    GETSET_ENTRY (WheelPairConfig, connection_point_offset, "Connection point offset"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -45,6 +45,11 @@ PyType_Slot WheelPairConfig::Slots[] = {
     {Py_tp_members, &WheelPairConfig::Members},
     {Py_tp_methods, &WheelPairConfig::Methods},
     {Py_tp_getset, &WheelPairConfig::GetSet},
+    {Py_tp_doc, (void *)R"(Wheel pair config
+__init__(self,
+	wheel_radius: float = 0.0,
+	suspension_rest_length: float = 0.0,
+	connection_point_offset: RocketSim.Vec = RocketSim.Vec()))"},
     {0, nullptr},
 };
 

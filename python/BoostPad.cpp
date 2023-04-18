@@ -12,14 +12,26 @@ PyMemberDef BoostPad::Members[] = {
 };
 
 PyMethodDef BoostPad::Methods[] = {
-    {.ml_name = "get_pos", .ml_meth = (PyCFunction)&BoostPad::GetPos, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "get_state", .ml_meth = (PyCFunction)&BoostPad::GetState, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "set_state", .ml_meth = (PyCFunction)&BoostPad::SetState, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name     = "get_pos",
+        .ml_meth  = (PyCFunction)&BoostPad::GetPos,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(get_pos(self) -> RocketSim.Vec
+Get position)"},
+    {.ml_name     = "get_state",
+        .ml_meth  = (PyCFunction)&BoostPad::GetState,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(get_state(self) -> RocketSim.BoostPadState
+Get state)"},
+    {.ml_name     = "set_state",
+        .ml_meth  = (PyCFunction)&BoostPad::SetState,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_state(self, state: RocketSim.BoostPadState)
+Set state)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
 PyGetSetDef BoostPad::GetSet[] = {
-    GETONLY_ENTRY (BoostPad, is_big),
+    GETONLY_ENTRY (BoostPad, is_big, "Is big"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -30,6 +42,7 @@ PyType_Slot BoostPad::Slots[] = {
     {Py_tp_members, &BoostPad::Members},
     {Py_tp_methods, &BoostPad::Methods},
     {Py_tp_getset, &BoostPad::GetSet},
+    {Py_tp_doc, (void *)"Boost pad"},
     {0, nullptr},
 };
 
@@ -95,10 +108,14 @@ PyObject *BoostPad::GetState (BoostPad *self_) noexcept
 	return state.giftObject ();
 }
 
-PyObject *BoostPad::SetState (BoostPad *self_, PyObject *args_) noexcept
+PyObject *BoostPad::SetState (BoostPad *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
+	static char stateKwd[] = "state";
+
+	static char *dict[] = {stateKwd, nullptr};
+
 	BoostPadState *state;
-	if (!PyArg_ParseTuple (args_, "O!", BoostPadState::Type, &state))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O!", dict, BoostPadState::Type, &state))
 		return nullptr;
 
 	self_->pad->SetState (BoostPadState::ToBoostPadState (state));

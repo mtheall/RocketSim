@@ -3,10 +3,10 @@
 
 struct WheelPairConfig {
 	// Radius of both wheels
-	float wheelRadius;
+	float wheelRadius = 0.0f;
 
 	// How far out the suspension rests
-	float suspensionRestLength;
+	float suspensionRestLength = 0.0f;
 
 	// Where the wheel actually connects (suspension start position)
 	// NOTE: Y should ALWAYS be positive. It will be automatically negated when creating the second wheel. 

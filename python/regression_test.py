@@ -24,15 +24,12 @@ class TestRegression(unittest.TestCase):
     blue.set_controls(rs.CarControls(throttle=1, boost=True))
 
     demos = set()
-    def handle_demo(arena, car, victim, is_demo, data):
-      if not is_demo:
-        return
-
-      key = (arena.tick_count, car.id, victim.id)
+    def handle_demo(arena, bumper, victim, data):
+      key = (arena.tick_count, bumper.id, victim.id)
       self.assertNotIn(key, demos)
       demos.add(key)
 
-    arena.set_car_bump_callback(handle_demo)
+    arena.set_car_demo_callback(handle_demo)
 
     arena.step(15)
     self.assertEqual(len(demos), 1)
@@ -42,7 +39,7 @@ class TestRegression(unittest.TestCase):
     arena = rs.Arena(rs.GameMode.SOCCAR)
 
     pickups = [0]
-    def handle_boost(arena, car, pad, data):
+    def handle_boost(arena, car, boost_pad, data):
       pickups[0] += 1
 
     arena.set_boost_pickup_callback(handle_boost)

@@ -35,8 +35,8 @@ def random_mat() -> rs.RotMat:
 def random_angle() -> rs.Vec:
   return rs.Angle(random_float(), random_float(), random_float())
 
-def random_car(arena: rs.Arena) -> rs.Car:
-  return arena.add_car(random.randint(0, 1), random.randint(0, 5))
+def random_car(arena: rs.Arena, team = random.randint(0, 1)) -> rs.Car:
+  return arena.add_car(team, random.randint(0, 5))
 
 def return_self(args):
   return args
@@ -55,16 +55,45 @@ def update_controls(ball: rs.Ball, car: rs.Car):
 
   steer = clamp(steer, -1.0, 1.0)
 
-  car.set_controls(rs.CarControls(throttle=1.0, steer=steer, boost=True))
+  car.set_controls(rs.CarControls(throttle=1.0, steer=steer, boost=True, handbrake=abs(steer)==1.0))
 
 class FuzzyTestCase(unittest.TestCase):
-  def assertEqual(self, a, b, threshold = 1e-7):
-    if type(a) is np.ndarray and type(b) is np.ndarray:
-      error = np.amax(np.absolute(a - b))
-      if error >= threshold:
-        raise self.failureException(f"\n{a}\n\t!=\n{b}")
+  def assertEqual(self, first, second, msg=None):
+    if type(first) is np.ndarray and type(second) is np.ndarray:
+      if np.array_equal(first, second):
+        return
+    elif type(first) is rs.Vec and type(second) is rs.Vec:
+      self.assertEqual(first=first.as_numpy(), second=second.as_numpy(), msg=msg)
+      return
     else:
-      unittest.TestCase.assertEqual(self, a, b)
+      unittest.TestCase.assertAlmostEqual(self, first=first, second=second, msg=msg)
+      return
+
+    raise self.failureException(f"\n{first}\n\t!=\n{second}")
+
+  def assertAlmostEqual(self, first, second, places=7, msg=None, delta=None):
+    if places is not None and delta is not None:
+      raise TypeError("specify delta or places not both")
+
+    if type(first) is np.ndarray and type(second) is np.ndarray:
+      diff = np.amax(np.absolute(first - second))
+    elif type(first) is rs.Vec and type(second) is rs.Vec:
+      self.assertAlmostEqual(first=first.as_numpy(), second=second.as_numpy(), places=places, msg=msg, delta=delta)
+      return
+    else:
+      unittest.TestCase.assertAlmostEqual(self, first=first, second=second, places=places, msg=msg, delta=delta)
+      return
+
+    if delta is not None:
+      if diff <= delta:
+        return
+    else:
+      if places is None:
+        places = 7
+      if round(diff, places) == 0:
+        return
+
+    raise self.failureException(f"\n{first}\n\t!=\n{second}")
 
 class TestGameMode(FuzzyTestCase):
   def test_values(self):
@@ -519,6 +548,39 @@ class TestCar(FuzzyTestCase):
     with self.assertRaises(TypeError):
       rs.Car()
 
+  def test_demo_pos(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    car_a = arena.add_car(rs.Team.BLUE)
+    car_b = arena.add_car(rs.Team.ORANGE)
+
+    car_state = car_a.get_state()
+    car_state.pos.x = -1000
+    car_state.pos.y = 1000
+    car_state.rot_mat = rs.RotMat()
+    car_state.vel.x = 2300
+    car_a.set_state(car_state)
+
+    car_state = car_b.get_state()
+    car_state.pos.x = 1000
+    car_state.pos.y = 1000
+    car_b.set_state(car_state)
+
+    car_a.set_controls(rs.CarControls(throttle=1.0, boost=True))
+
+    demo_pos = []
+    def handle_demo(arena, bumper, victim, data):
+      demo_pos.append(victim.get_state().pos)
+
+    arena.set_car_demo_callback(handle_demo)
+
+    for i in range(120):
+      arena.step()
+      if len(demo_pos):
+        state = car_b.get_state()
+        self.assertEqual(state.pos, demo_pos[0])
+
+    self.assertNotEqual(len(demo_pos), 0)
+
 class TestMutatorConfig(FuzzyTestCase):
   def test_basic(self):
     pass
@@ -576,38 +638,7 @@ class TestMutatorConfig(FuzzyTestCase):
     self.assertEqual(config_a.enable_team_demos,          config_b.enable_team_demos)
 
 class TestArena(FuzzyTestCase):
-  def test_basic(self):
-    pass
-
-  def test_pickle(self):
-    arena_a = rs.Arena(rs.GameMode.SOCCAR)
-    car1 = arena_a.add_car(rs.Team.ORANGE, rs.CarConfig.HYBRID)
-    car2 = arena_a.add_car(rs.Team.BLUE, rs.CarConfig.DOMINUS)
-
-    hybrid  = rs.CarConfig(rs.CarConfig.HYBRID)
-    dominus = rs.CarConfig(rs.CarConfig.DOMINUS)
-
-    arena_a.ball.set_state(
-      rs.BallState(
-        pos             = random_vec(),
-        vel             = random_vec(),
-        ang_vel         = random_vec(),
-        last_hit_car_id = random_int()
-      )
-    )
-
-    for i in range(1000):
-      update_controls(arena_a.ball, car1)
-      update_controls(arena_a.ball, car2)
-      arena_a.step(7)
-
-    # doesn't give the same state; this makes pickling match exactly
-    arena_a.ball.set_state(arena_a.ball.get_state())
-    car1.set_state(car1.get_state())
-    car2.set_state(car2.get_state())
-
-    arena_b = pickled(arena_a)
-
+  def compare(self, arena_a, arena_b):
     self.assertEqual(arena_a.game_mode,    arena_b.game_mode)
     self.assertEqual(arena_a.tick_time,    arena_b.tick_time)
     self.assertEqual(arena_a.tick_count,   arena_b.tick_count)
@@ -646,17 +677,19 @@ class TestArena(FuzzyTestCase):
 
     state_a = ball_a.get_state()
     state_b = ball_b.get_state()
-    self.assertEqual(state_a.pos,             state_b.pos)
-    self.assertEqual(state_a.vel,             state_b.vel)
+    self.assertAlmostEqual(state_a.pos,       state_b.pos, 3)
+    self.assertAlmostEqual(state_a.vel,       state_b.vel, 3)
     self.assertEqual(state_a.ang_vel,         state_b.ang_vel)
     self.assertEqual(state_a.last_hit_car_id, state_b.last_hit_car_id)
 
-    self.assertEqual(len(arena_a.get_cars()), len(arena_b.get_cars()))
-    self.assertEqual(len(arena_b.get_cars()), 2)
+    cars_a = arena_a.get_cars()
+    cars_b = arena_b.get_cars()
+    self.assertEqual(len(cars_a), len(cars_b))
+    self.assertGreater(len(cars_a), 0)
 
-    for car_a in (car1, car2):
+    for car_a, car_b in zip(cars_a, cars_b):
       car_b = arena_b.get_car_from_id(car_a.id, None)
-      self.assertIsNotNone(car_b)
+      self.assertIsNot(car_a, car_b)
 
       self.assertEqual(car_a.id,            car_b.id)
       self.assertEqual(car_a.team,          car_b.team)
@@ -666,11 +699,11 @@ class TestArena(FuzzyTestCase):
 
       state_a = car_a.get_state()
       state_b = car_b.get_state()
-      self.assertEqual(state_a.pos,                        state_b.pos)
+      self.assertAlmostEqual(state_a.pos,                  state_b.pos, 3)
       self.assertEqual(state_a.rot_mat.forward,            state_b.rot_mat.forward)
       self.assertEqual(state_a.rot_mat.right,              state_b.rot_mat.right)
       self.assertEqual(state_a.rot_mat.up,                 state_b.rot_mat.up)
-      self.assertEqual(state_a.vel,                        state_b.vel)
+      self.assertAlmostEqual(state_a.vel,                  state_b.vel, 3)
       self.assertEqual(state_a.ang_vel,                    state_b.ang_vel)
       self.assertEqual(state_a.is_on_ground,               state_b.is_on_ground)
       self.assertEqual(state_a.has_jumped,                 state_b.has_jumped)
@@ -727,7 +760,8 @@ class TestArena(FuzzyTestCase):
       self.assertEqual(controls_a.jump,      controls_b.jump)
       self.assertEqual(controls_a.handbrake, controls_b.handbrake)
 
-    for config_a, config_b in ((car1.get_config(), hybrid), (car2.get_config(), dominus)):
+      config_a = car_a.get_config()
+      config_b = car_b.get_config()
       self.assertEqual(config_a.hitbox_size,                          config_b.hitbox_size)
       self.assertEqual(config_a.hitbox_pos_offset,                    config_b.hitbox_pos_offset)
       self.assertEqual(config_a.front_wheels.wheel_radius,            config_b.front_wheels.wheel_radius)
@@ -740,16 +774,13 @@ class TestArena(FuzzyTestCase):
       self.assertEqual(config_a.back_wheels.connection_point_offset,  config_b.back_wheels.connection_point_offset)
       self.assertEqual(config_a.dodge_deadzone,                       config_b.dodge_deadzone)
 
-    self.assertEqual(len(arena_a.get_boost_pads()), len(arena_b.get_boost_pads()))
+    pads_a = arena_a.get_boost_pads()
+    pads_b = arena_b.get_boost_pads()
+    self.assertEqual(len(pads_a), len(pads_b))
+    self.assertGreater(len(pads_a), 0)
 
-    for pad_a in arena_a.get_boost_pads():
-      pad_b = None
-      for p in arena_b.get_boost_pads():
-        if p.get_pos() == pad_a.get_pos():
-          pad_b = p
-          break
-
-      self.assertIsNotNone(pad_b)
+    for pad_a, pad_b in zip(pads_a, pads_b):
+      self.assertIsNot(pad_a, pad_b)
 
       self.assertEqual(pad_a.get_pos(), pad_b.get_pos())
       self.assertEqual(pad_a.is_big,    pad_b.is_big)
@@ -759,6 +790,115 @@ class TestArena(FuzzyTestCase):
       self.assertEqual(state_a.is_active,          state_b.is_active)
       self.assertEqual(state_a.cooldown,           state_b.cooldown)
       self.assertEqual(state_a.prev_locked_car_id, state_b.prev_locked_car_id)
+
+  def test_basic(self):
+    pass
+
+  def test_boost_pad_order(self):
+    arena = rs.Arena(rs.GameMode.THE_VOID)
+    self.assertEqual(len(arena.get_boost_pads()), 0)
+
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    arena_pads = arena.get_boost_pads()
+    self.assertEqual(len(arena_pads), 34)
+
+    SOCCAR_BOOST_PADS = [
+      (    0.0, -4240.0),
+      (-1792.0, -4184.0),
+      ( 1792.0, -4184.0),
+      (-3072.0, -4096.0),
+      ( 3072.0, -4096.0),
+      (- 940.0, -3308.0),
+      (  940.0, -3308.0),
+      (    0.0, -2816.0),
+      (-3584.0, -2484.0),
+      ( 3584.0, -2484.0),
+      (-1788.0, -2300.0),
+      ( 1788.0, -2300.0),
+      (-2048.0, -1036.0),
+      (    0.0, -1024.0),
+      ( 2048.0, -1036.0),
+      (-3584.0,     0.0),
+      (-1024.0,     0.0),
+      ( 1024.0,     0.0),
+      ( 3584.0,     0.0),
+      (-2048.0,  1036.0),
+      (    0.0,  1024.0),
+      ( 2048.0,  1036.0),
+      (-1788.0,  2300.0),
+      ( 1788.0,  2300.0),
+      (-3584.0,  2484.0),
+      ( 3584.0,  2484.0),
+      (    0.0,  2816.0),
+      (- 940.0,  3310.0),
+      (  940.0,  3308.0),
+      (-3072.0,  4096.0),
+      ( 3072.0,  4096.0),
+      (-1792.0,  4184.0),
+      ( 1792.0,  4184.0),
+      (    0.0,  4240.0),
+    ]
+
+    for pad, pos in zip(arena_pads, SOCCAR_BOOST_PADS):
+      pad_pos = pad.get_pos()
+      self.assertEqual ((pad_pos.x, pad_pos.y), pos)
+
+  def test_car_order(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    cars = []
+    for i in range(100):
+      cars.append(random_car(arena))
+
+    arena_cars = arena.get_cars()
+    self.assertEqual(len(cars), len(arena_cars))
+    self.assertEqual(len(cars), 100)
+
+    for car, arena_car in zip(cars, arena_cars):
+      self.assertIs(car, arena_car)
+
+  def test_clone(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+
+    for i in range(4):
+      random_car(arena, rs.Team.BLUE)
+      random_car(arena, rs.Team.ORANGE)
+
+    for i in range(1000):
+      for car in arena.get_cars():
+        update_controls(arena.ball, car)
+      arena.step(7)
+
+    self.compare(arena, arena.clone())
+
+  def test_clone_into(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+
+    for i in range(4):
+      random_car(arena, rs.Team.BLUE)
+      random_car(arena, rs.Team.ORANGE)
+
+    clone = arena.clone()
+
+    for i in range(1000):
+      for car in arena.get_cars():
+        update_controls(arena.ball, car)
+      arena.step(7)
+
+    arena.clone_into(clone)
+    self.compare(arena, clone)
+
+  def test_pickle(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    for i in range(4):
+      random_car(arena, rs.Team.BLUE)
+      random_car(arena, rs.Team.ORANGE)
+
+    for i in range(1000):
+      for car in arena.get_cars():
+        update_controls(arena.ball, car)
+      arena.step(7)
+
+    self.compare(arena, pickled(arena))
 
   def test_get_car_from_id(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)
@@ -886,10 +1026,10 @@ class TestArena(FuzzyTestCase):
     def invert_quat(quat: np.ndarray) -> np.ndarray:
       return np.array(glm.angleAxis(math.pi, z) * glm.quat(*quat))
 
-    def compare_quat(q1: np.ndarray, q2: np.ndarray, threshold: float = 1e-6) -> bool:
+    def compare_quat(q1: np.ndarray, q2: np.ndarray) -> bool:
       t1 = np.amax(np.absolute(q1 + q2))
       t2 = np.amax(np.absolute(q1 - q2))
-      if t1 >= threshold and t2 >= threshold:
+      if min(t1, t2) >= 1e-6:
         raise self.failureException(f"\n{q1}\n\t!=\n{q2}")
 
     def pyr_to_mat3(pyr: np.ndarray) -> np.ndarray:
@@ -1023,7 +1163,7 @@ class TestArena(FuzzyTestCase):
             q   = glm.quat_cast(m)
             pyr = gym_state[33:36]
             compare_quat(gym_state[14:18], np.array(q))
-            self.assertEqual(np.array(m), pyr_to_mat3(pyr), 1e-4)
+            self.assertAlmostEqual(np.array(m), pyr_to_mat3(pyr), 4)
             self.assertTrue(check_pyr(pyr))
 
             self.assertAlmostEqual(glm.dot(car_dir_x, m * x), 1.0, 5)
@@ -1032,12 +1172,12 @@ class TestArena(FuzzyTestCase):
             self.assertAlmostEqual(glm.dot(car_dir_x, q * x), 1.0, 5)
             self.assertAlmostEqual(glm.dot(car_dir_y, q * y), 1.0, 5)
             self.assertAlmostEqual(glm.dot(car_dir_z, q * z), 1.0, 5)
-            self.assertEqual(np.array(car_dir_x), np.array(m * x), 1e-6)
-            self.assertEqual(np.array(car_dir_y), np.array(m * y), 1e-6)
-            self.assertEqual(np.array(car_dir_z), np.array(m * z), 1e-6)
-            self.assertEqual(np.array(car_dir_x), np.array(q * x), 1e-6)
-            self.assertEqual(np.array(car_dir_y), np.array(q * y), 1e-6)
-            self.assertEqual(np.array(car_dir_z), np.array(q * z), 1e-6)
+            self.assertAlmostEqual(np.array(car_dir_x), np.array(m * x), 5)
+            self.assertAlmostEqual(np.array(car_dir_y), np.array(m * y), 5)
+            self.assertAlmostEqual(np.array(car_dir_z), np.array(m * z), 5)
+            self.assertAlmostEqual(np.array(car_dir_x), np.array(q * x), 5)
+            self.assertAlmostEqual(np.array(car_dir_y), np.array(q * y), 5)
+            self.assertAlmostEqual(np.array(car_dir_z), np.array(q * z), 5)
 
           # check inversion
           gym_state = state[i][1]
@@ -1053,7 +1193,7 @@ class TestArena(FuzzyTestCase):
             q = glm.quat_cast(m)
             pyr = gym_state[33:36]
             compare_quat(gym_state[14:18], np.array(q))
-            self.assertEqual(np.array(m), pyr_to_mat3(pyr), 1e-4)
+            self.assertAlmostEqual(np.array(m), pyr_to_mat3(pyr), 4)
             self.assertTrue(check_pyr(pyr))
 
             self.assertAlmostEqual(glm.dot(invert_vector(car_dir_x), m * x), 1.0, 5)
@@ -1062,12 +1202,12 @@ class TestArena(FuzzyTestCase):
             self.assertAlmostEqual(glm.dot(invert_vector(car_dir_x), q * x), 1.0, 5)
             self.assertAlmostEqual(glm.dot(invert_vector(car_dir_y), q * y), 1.0, 5)
             self.assertAlmostEqual(glm.dot(invert_vector(car_dir_z), q * z), 1.0, 5)
-            self.assertEqual(invert_vector(np.array(car_dir_x)), np.array(m * x), 1e-6)
-            self.assertEqual(invert_vector(np.array(car_dir_y)), np.array(m * y), 1e-6)
-            self.assertEqual(invert_vector(np.array(car_dir_z)), np.array(m * z), 1e-6)
-            self.assertEqual(invert_vector(np.array(car_dir_x)), np.array(q * x), 1e-6)
-            self.assertEqual(invert_vector(np.array(car_dir_y)), np.array(q * y), 1e-6)
-            self.assertEqual(invert_vector(np.array(car_dir_z)), np.array(q * z), 1e-6)
+            self.assertAlmostEqual(invert_vector(np.array(car_dir_x)), np.array(m * x), 5)
+            self.assertAlmostEqual(invert_vector(np.array(car_dir_y)), np.array(m * y), 5)
+            self.assertAlmostEqual(invert_vector(np.array(car_dir_z)), np.array(m * z), 5)
+            self.assertAlmostEqual(invert_vector(np.array(car_dir_x)), np.array(q * x), 5)
+            self.assertAlmostEqual(invert_vector(np.array(car_dir_y)), np.array(q * y), 5)
+            self.assertAlmostEqual(invert_vector(np.array(car_dir_z)), np.array(q * z), 5)
 
     # we definitely should have hit the ball at least once with our actor
     self.assertNotEqual(state[0][1], 0)

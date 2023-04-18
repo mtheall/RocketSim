@@ -23,9 +23,9 @@ PyMethodDef BallState::Methods[] = {
 };
 
 PyGetSetDef BallState::GetSet[] = {
-    GETSET_ENTRY (BallState, pos),
-    GETSET_ENTRY (BallState, vel),
-    GETSET_ENTRY (BallState, ang_vel),
+    GETSET_ENTRY (BallState, pos, "Position"),
+    GETSET_ENTRY (BallState, vel, "Velocity"),
+    GETSET_ENTRY (BallState, ang_vel, "Angular velocity"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -36,6 +36,12 @@ PyType_Slot BallState::Slots[] = {
     {Py_tp_members, &BallState::Members},
     {Py_tp_methods, &BallState::Methods},
     {Py_tp_getset, &BallState::GetSet},
+    {Py_tp_doc, (void *)R"(Ball state
+__init__(self,
+	pos: RocketSim.Vec = RocketSim.Vec(z = 93.15),
+	vel: RocketSim.Vec = RocketSim.Vec(),
+	ang_vel: RocketSim.Vec = RocketSim.Vec(),
+	last_hit_car_id: int = 0))"},
     {0, nullptr},
 };
 
@@ -108,7 +114,8 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	static char velKwd[]          = "vel";
 	static char angVelKwd[]       = "ang_vel";
 	static char lastHitCarIDKwd[] = "last_hit_car_id";
-	static char *dict[]           = {posKwd, velKwd, angVelKwd, lastHitCarIDKwd, nullptr};
+
+	static char *dict[] = {posKwd, velKwd, angVelKwd, lastHitCarIDKwd, nullptr};
 
 	PyObject *pos       = nullptr; // borrowed references
 	PyObject *vel       = nullptr;

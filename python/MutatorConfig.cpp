@@ -136,7 +136,7 @@ PyMethodDef MutatorConfig::Methods[] = {
 };
 
 PyGetSetDef MutatorConfig::GetSet[] = {
-    GETSET_ENTRY (MutatorConfig, gravity),
+    GETSET_ENTRY (MutatorConfig, gravity, "Gravity"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -147,6 +147,31 @@ PyType_Slot MutatorConfig::Slots[] = {
     {Py_tp_members, &MutatorConfig::Members},
     {Py_tp_methods, &MutatorConfig::Methods},
     {Py_tp_getset, &MutatorConfig::GetSet},
+    {Py_tp_doc, (void *)R"(Mutator config
+__init__(self,
+	gravity: RocketSim.Vec = RocketSim.Vec(z = -650.0),
+	car_mass: float = 180.0,
+	car_world_friction: float = 0.3,
+	car_world_restitution: float = 0.3,
+	ball_mass: float = 30.0,
+	ball_max_speed: float = 6000.0,
+	ball_drag: float = 0.03,
+	ball_world_friction: float = 0.35,
+	ball_world_restitution: float = 0.6,
+	jump_accel: float = 4375.0 / 3.0,
+	jump_immediate_force: float = 875.0 / 3.0,
+	boost_accel: float = 21.2,
+	boost_used_per_second: float = 100.0 / 3.0,
+	respawn_delay: float = 3.0,
+	bump_cooldown_time: float = 0.25,
+	boost_pad_cooldown_big: float = 10.0,
+	boost_pad_cooldown_small: float = 4.0,
+	car_spawn_boost_amount: float = 100.0 / 3.0,
+	ball_hit_extra_force_scale: float = 1.0,
+	bump_force_scale: float = 1.0,
+	ball_radius: float = 91.25,
+	demo_mode: int = RocketSim.DemoMode.NORMAL,
+	enable_team_demos: bool = False))"},
     {0, nullptr},
 };
 

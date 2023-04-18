@@ -93,10 +93,10 @@ PyMethodDef CarConfig::Methods[] = {
 };
 
 PyGetSetDef CarConfig::GetSet[] = {
-    GETSET_ENTRY (CarConfig, hitbox_size),
-    GETSET_ENTRY (CarConfig, hitbox_pos_offset),
-    GETSET_ENTRY (CarConfig, front_wheels),
-    GETSET_ENTRY (CarConfig, back_wheels),
+    GETSET_ENTRY (CarConfig, hitbox_size, "Hitbox size"),
+    GETSET_ENTRY (CarConfig, hitbox_pos_offset, "Hitbox position offset"),
+    GETSET_ENTRY (CarConfig, front_wheels, "Front wheels"),
+    GETSET_ENTRY (CarConfig, back_wheels, "Back wheels"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -107,6 +107,14 @@ PyType_Slot CarConfig::Slots[] = {
     {Py_tp_members, &CarConfig::Members},
     {Py_tp_methods, &CarConfig::Methods},
     {Py_tp_getset, &CarConfig::GetSet},
+    {Py_tp_doc, (void *)R"(Car config
+__init__(self,
+	template: int = RocketSim.CarConfig.OCTANE,
+	hitbox_size: RocketSim.Vec,
+	hitbox_pos_offset: RocketSim.Vec,
+	front_wheels: RocketSim.WheelPairConfig,
+	back_wheels: RocketSim.WheelPairConfig,
+	dodge_deadzone: float))"},
     {0, nullptr},
 };
 

@@ -9,19 +9,34 @@ namespace RocketSim::Python
 PyTypeObject *RotMat::Type = nullptr;
 
 PyMethodDef RotMat::Methods[] = {
-    {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&RotMat::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "as_angle", .ml_meth = (PyCFunction)&RotMat::AsAngle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&RotMat::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "__format__", .ml_meth = (PyCFunction)&RotMat::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name     = "as_tuple",
+        .ml_meth  = (PyCFunction)&RotMat::AsTuple,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(as_tuple(self) -> tuple
+Returns (self.forward, self.right, self.up))"},
+    {.ml_name     = "as_angle",
+        .ml_meth  = (PyCFunction)&RotMat::AsAngle,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(as_angle(self) -> RocketSim.Angle
+Returns rotation as a RocketSim.Angle)"},
+    {.ml_name     = "as_numpy",
+        .ml_meth  = (PyCFunction)&RotMat::AsNumpy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(as_numpy(self) -> numpy.ndarray
+Return numpy.array([self.forward.x, self.forward.y, self.forward.z], [self.right.x, self.right.y, self.right.z], [self.up.x, self.up.y, self.up.z])"},
+    {.ml_name     = "__format__",
+        .ml_meth  = (PyCFunction)&RotMat::Format,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = nullptr},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&RotMat::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&RotMat::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
 PyGetSetDef RotMat::GetSet[] = {
-    GETSET_ENTRY (RotMat, forward),
-    GETSET_ENTRY (RotMat, right),
-    GETSET_ENTRY (RotMat, up),
+    GETSET_ENTRY (RotMat, forward, "Forward"),
+    GETSET_ENTRY (RotMat, right, "Right"),
+    GETSET_ENTRY (RotMat, up, "Up"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -32,6 +47,17 @@ PyType_Slot RotMat::Slots[] = {
     {Py_tp_repr, (void *)&RotMat::Repr},
     {Py_tp_methods, &RotMat::Methods},
     {Py_tp_getset, &RotMat::GetSet},
+    {Py_tp_doc, (void *)R"(Rotation matrix (3x3)
+__init__(self)
+	Identity matrix
+
+__init__(self,
+	forward_x: float, forward_y: float, forward_z: float,
+	right_x: float, right_y: float, right_z: float,
+	up_x: float, up_y: float, up_z: float)
+	Row-major
+
+__init__(self, forward: RocketSim.Vec, right: RocketSim.Vec, up: RocketSim.Vec))"},
     {0, nullptr},
 };
 
@@ -105,8 +131,33 @@ int RotMat::Init (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept
 		return 0;
 	}
 
-	if (PyArg_ParseTuple (args_,
+	static char forwardXKwd[] = "forward_x";
+	static char forwardYKwd[] = "forward_y";
+	static char forwardZKwd[] = "forward_z";
+	static char rightXKwd[]   = "right_x";
+	static char rightYKwd[]   = "right_y";
+	static char rightZKwd[]   = "right_z";
+	static char upXKwd[]      = "up_x";
+	static char upYKwd[]      = "up_y";
+	static char upZKwd[]      = "up_z";
+
+	static char *rowMajorDict[] = {
+	    forwardXKwd,
+	    forwardYKwd,
+	    forwardZKwd,
+	    rightXKwd,
+	    rightYKwd,
+	    rightZKwd,
+	    upXKwd,
+	    upYKwd,
+	    upZKwd,
+	    nullptr,
+	};
+
+	if (PyArg_ParseTupleAndKeywords (args_,
+	        kwds_,
 	        "fffffffff",
+	        rowMajorDict,
 	        &mat.forward.x,
 	        &mat.forward.y,
 	        &mat.forward.z,
@@ -128,7 +179,8 @@ int RotMat::Init (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char forwardKwd[] = "forward";
 	static char rightKwd[]   = "right";
 	static char upKwd[]      = "up";
-	static char *dict[]      = {forwardKwd, rightKwd, upKwd, nullptr};
+
+	static char *dict[] = {forwardKwd, rightKwd, upKwd, nullptr};
 
 	PyObject *forward = nullptr; // borrowed references
 	PyObject *right   = nullptr;
@@ -163,17 +215,17 @@ PyObject *RotMat::Repr (RotMat *self_) noexcept
 	return PyObject_Repr (tuple.borrow ());
 }
 
-PyObject *RotMat::Format (RotMat *self_, PyObject *args_) noexcept
+PyObject *RotMat::Format (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	auto const forwardString = PyObjectRef::steal (Vec::Format (self_->forward, args_));
+	auto const forwardString = PyObjectRef::steal (Vec::Format (self_->forward, args_, kwds_));
 	if (!forwardString)
 		return nullptr;
 
-	auto const rightString = PyObjectRef::steal (Vec::Format (self_->right, args_));
+	auto const rightString = PyObjectRef::steal (Vec::Format (self_->right, args_, kwds_));
 	if (!rightString)
 		return nullptr;
 
-	auto const upString = PyObjectRef::steal (Vec::Format (self_->up, args_));
+	auto const upString = PyObjectRef::steal (Vec::Format (self_->up, args_, kwds_));
 	if (!upString)
 		return nullptr;
 
@@ -271,7 +323,7 @@ int RotMat::Setup (RotMat *self_, PyObject *value_, void *) noexcept
 
 PyObject *RotMat::AsTuple (RotMat *self_) noexcept
 {
-	return Py_BuildValue ("OOO", self_->forward, self_->right, self_->up);
+	return PyTuple_Pack (3, self_->forward, self_->right, self_->up);
 }
 
 PyObject *RotMat::AsAngle (RotMat *self_) noexcept

@@ -8,20 +8,19 @@ PyMethodDef Ball::Methods[] = {
     {.ml_name     = "get_radius",
         .ml_meth  = (PyCFunction)&Ball::GetRadius,
         .ml_flags = METH_NOARGS,
-        .ml_doc   = "Get ball radius"},
+        .ml_doc   = R"(get_radius(self) -> float
+Get ball radius)"},
     {.ml_name     = "get_state",
         .ml_meth  = (PyCFunction)&Ball::GetState,
         .ml_flags = METH_NOARGS,
-        .ml_doc   = "Get ball state"},
+        .ml_doc   = R"(get_state(self) -> RocketSim.BallState
+Get ball state)"},
     {.ml_name     = "set_state",
         .ml_meth  = (PyCFunction)&Ball::SetState,
-        .ml_flags = METH_VARARGS,
-        .ml_doc   = "Set ball state"},
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_state(self, state: RocketSim.BallState)
+Set ball state)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
-};
-
-PyGetSetDef Ball::GetSet[] = {
-    {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
 PyType_Slot Ball::Slots[] = {
@@ -29,7 +28,7 @@ PyType_Slot Ball::Slots[] = {
     {Py_tp_init, nullptr},
     {Py_tp_dealloc, (void *)&Ball::Dealloc},
     {Py_tp_methods, &Ball::Methods},
-    {Py_tp_getset, &Ball::GetSet},
+    {Py_tp_doc, (void *)"Ball"},
     {0, nullptr},
 };
 
@@ -83,10 +82,14 @@ PyObject *Ball::GetState (Ball *self_) noexcept
 	return state.giftObject ();
 }
 
-PyObject *Ball::SetState (Ball *self_, PyObject *args_) noexcept
+PyObject *Ball::SetState (Ball *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
+	static char stateKwd[] = "state";
+
+	static char *dict[] = {stateKwd, nullptr};
+
 	BallState *state;
-	if (!PyArg_ParseTuple (args_, "O!", BallState::Type, &state))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O!", dict, BallState::Type, &state))
 		return nullptr;
 
 	self_->ball->SetState (BallState::ToBallState (state));

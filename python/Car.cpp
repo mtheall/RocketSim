@@ -24,46 +24,59 @@ PyMemberDef Car::Members[] = {
 };
 
 PyMethodDef Car::Methods[] = {
-    {.ml_name = "demolish", .ml_meth = (PyCFunction)&Car::Demolish, .ml_flags = METH_NOARGS, .ml_doc = "Demolish"},
+    {.ml_name = "demolish", .ml_meth = (PyCFunction)&Car::Demolish, .ml_flags = METH_NOARGS, .ml_doc = R"(demolish(self)
+Demolish)"},
     {.ml_name     = "get_config",
         .ml_meth  = (PyCFunction)&Car::GetConfig,
         .ml_flags = METH_NOARGS,
-        .ml_doc   = "Get car config"},
+        .ml_doc   = R"(get_config(self) -> RocketSim.CarConfig
+Get car config)"},
     {.ml_name     = "get_controls",
         .ml_meth  = (PyCFunction)&Car::GetControls,
         .ml_flags = METH_NOARGS,
-        .ml_doc   = "Get car controls"},
+        .ml_doc   = R"(get_controls(self) -> RocketSim.CarControls
+Get car controls)"},
     {.ml_name     = "get_forward_dir",
         .ml_meth  = (PyCFunction)&Car::GetForwardDir,
         .ml_flags = METH_NOARGS,
-        .ml_doc   = "Get forward direction"},
+        .ml_doc   = R"(get_forward_dir(self) -> RocketSim.Vec
+Get forward direction)"},
     {.ml_name     = "get_right_dir",
         .ml_meth  = (PyCFunction)&Car::GetRightDir,
         .ml_flags = METH_NOARGS,
-        .ml_doc   = "Get right direction"},
+        .ml_doc   = R"(get_right_dir(self) -> RocketSim.Vec
+Get right direction)"},
     {.ml_name     = "get_state",
         .ml_meth  = (PyCFunction)&Car::GetState,
         .ml_flags = METH_NOARGS,
-        .ml_doc   = "Get car state"},
+        .ml_doc   = R"(get_state(self) -> RocketSim.CarState
+Get car state)"},
     {.ml_name     = "get_up_dir",
         .ml_meth  = (PyCFunction)&Car::GetUpDir,
         .ml_flags = METH_NOARGS,
-        .ml_doc   = "Get up direction"},
-    {.ml_name = "respawn", .ml_meth = (PyCFunction)&Car::Respawn, .ml_flags = METH_VARARGS, .ml_doc = "Respawn"},
+        .ml_doc   = R"(get_up_dir(self) -> RocketSim.Vec
+Get up direction)"},
+    {.ml_name     = "respawn",
+        .ml_meth  = (PyCFunction)&Car::Respawn,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(respawn(self, seed: int = -1, boost: float = <from Arena's MutatorConfig>)
+Respawn)"},
     {.ml_name     = "set_controls",
         .ml_meth  = (PyCFunction)&Car::SetControls,
-        .ml_flags = METH_VARARGS,
-        .ml_doc   = "Set car controls"},
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_controls(self, controls: RocketSim.CarControls)
+Set car controls)"},
     {.ml_name     = "set_state",
         .ml_meth  = (PyCFunction)&Car::SetState,
-        .ml_flags = METH_VARARGS,
-        .ml_doc   = "Set car state"},
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_state(self, state: RocketSim.CarState)
+Set car state)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
 PyGetSetDef Car::GetSet[] = {
-    GETONLY_ENTRY (Car, id),
-    GETONLY_ENTRY (Car, team),
+    GETONLY_ENTRY (Car, id, "ID"),
+    GETONLY_ENTRY (Car, team, "Team"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -74,6 +87,7 @@ PyType_Slot Car::Slots[] = {
     {Py_tp_members, &Car::Members},
     {Py_tp_methods, &Car::Methods},
     {Py_tp_getset, &Car::GetSet},
+    {Py_tp_doc, (void *)"Car"},
     {0, nullptr},
 };
 
@@ -203,13 +217,22 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 		return PyErr_Format (PyExc_ValueError, "Invalid team '%d'", team);
 
 	if (!state)
-		return PyErr_Format (PyExc_ValueError, "Car state missing");
+	{
+		PyErr_SetString (PyExc_ValueError, "Car state missing");
+		return nullptr;
+	}
 
 	if (!config)
-		return PyErr_Format (PyExc_ValueError, "Car config missing");
+	{
+		PyErr_SetString (PyExc_ValueError, "Car config missing");
+		return nullptr;
+	}
 
 	if (!controls)
-		return PyErr_Format (PyExc_ValueError, "Car controls missing");
+	{
+		PyErr_SetString (PyExc_ValueError, "Car controls missing");
+		return nullptr;
+	}
 
 	arena_->_lastCarID = id - 1;
 
@@ -351,7 +374,7 @@ PyObject *Car::GetUpDir (Car *self_) noexcept
 	return dir.giftObject ();
 }
 
-PyObject *Car::Respawn (Car *self_, PyObject *args_) noexcept
+PyObject *Car::Respawn (Car *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	if (!self_->arena)
 	{
@@ -359,16 +382,22 @@ PyObject *Car::Respawn (Car *self_, PyObject *args_) noexcept
 		return nullptr;
 	}
 
-	int seed = -1;
-	if (!PyArg_ParseTuple (args_, "|i", &seed))
+	static char seedKwd[]  = "seed";
+	static char boostKwd[] = "boost";
+
+	static char *dict[] = {seedKwd, boostKwd, nullptr};
+
+	int seed    = -1;
+	float boost = self_->arena->GetMutatorConfig ().carSpawnBoostAmount;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|if", dict, &seed))
 		return nullptr;
 
-	self_->car->Respawn (seed);
+	self_->car->Respawn (seed, boost);
 
 	Py_RETURN_NONE;
 }
 
-PyObject *Car::SetControls (Car *self_, PyObject *args_) noexcept
+PyObject *Car::SetControls (Car *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	if (!self_->arena)
 	{
@@ -376,8 +405,12 @@ PyObject *Car::SetControls (Car *self_, PyObject *args_) noexcept
 		return nullptr;
 	}
 
+	static char seedKwd[] = "seed";
+
+	static char *dict[] = {seedKwd, nullptr};
+
 	CarControls *controls; // borrowed reference
-	if (!PyArg_ParseTuple (args_, "O!", CarControls::Type, &controls))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O!", dict, CarControls::Type, &controls))
 		return nullptr;
 
 	self_->car->controls = CarControls::ToCarControls (controls);
@@ -385,7 +418,7 @@ PyObject *Car::SetControls (Car *self_, PyObject *args_) noexcept
 	Py_RETURN_NONE;
 }
 
-PyObject *Car::SetState (Car *self_, PyObject *args_) noexcept
+PyObject *Car::SetState (Car *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	if (!self_->arena)
 	{
@@ -393,8 +426,12 @@ PyObject *Car::SetState (Car *self_, PyObject *args_) noexcept
 		return nullptr;
 	}
 
+	static char seedKwd[] = "seed";
+
+	static char *dict[] = {seedKwd, nullptr};
+
 	CarState *state; // borrowed reference
-	if (!PyArg_ParseTuple (args_, "O!", CarState::Type, &state))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O!", dict, CarState::Type, &state))
 		return nullptr;
 
 	self_->car->SetState (CarState::ToCarState (state));

@@ -36,9 +36,9 @@ PyMethodDef BallHitInfo::Methods[] = {
 };
 
 PyGetSetDef BallHitInfo::GetSet[] = {
-    GETSET_ENTRY (BallHitInfo, relative_pos_on_ball),
-    GETSET_ENTRY (BallHitInfo, ball_pos),
-    GETSET_ENTRY (BallHitInfo, extra_hit_vel),
+    GETSET_ENTRY (BallHitInfo, relative_pos_on_ball, "Relative position on ball"),
+    GETSET_ENTRY (BallHitInfo, ball_pos, "Ball position"),
+    GETSET_ENTRY (BallHitInfo, extra_hit_vel, "Extra hit velocity"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -49,6 +49,14 @@ PyType_Slot BallHitInfo::Slots[] = {
     {Py_tp_members, &BallHitInfo::Members},
     {Py_tp_methods, &BallHitInfo::Methods},
     {Py_tp_getset, &BallHitInfo::GetSet},
+    {Py_tp_doc, (void *)R"(Ball hit info
+__init__(self,
+	is_valid: bool = False,
+	relative_pos_on_ball: RocketSim.Vec = RocketSim.Vec(),
+	ball_pos: RocketSim.Vec = RocketSim.Vec(),
+	extra_hit_vel: RocketSim.Vec = RocketSim.Vec(),
+	tick_count_when_hit: int = 18446744073709551615,
+	tick_count_when_extra_impulse_applied: int = 18446744073709551615))"},
     {0, nullptr},
 };
 

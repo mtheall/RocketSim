@@ -214,7 +214,7 @@ PyObject *CarControls::Unpickle (CarControls *self_, PyObject *dict_) noexcept
 	Py_RETURN_NONE;
 }
 
-PyObject *CarControls::ClampFix (CarControls *self_, PyObject *args_) noexcept
+PyObject *CarControls::ClampFix (CarControls *self_) noexcept
 {
 	self_->controls.ClampFix ();
 	Py_RETURN_NONE;

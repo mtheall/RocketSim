@@ -13,25 +13,40 @@ PyMemberDef Angle::Members[] = {
         .type   = TypeHelper<decltype (::Angle::yaw)>::type,
         .offset = offsetof (Angle, angle) + offsetof (::Angle, yaw),
         .flags  = 0,
-        .doc    = "yaw"},
+        .doc    = "Yaw component"},
     {.name      = "pitch",
         .type   = TypeHelper<decltype (::Angle::pitch)>::type,
         .offset = offsetof (Angle, angle) + offsetof (::Angle, pitch),
         .flags  = 0,
-        .doc    = "pitch"},
+        .doc    = "Pitch component"},
     {.name      = "roll",
         .type   = TypeHelper<decltype (::Angle::roll)>::type,
         .offset = offsetof (Angle, angle) + offsetof (::Angle, roll),
         .flags  = 0,
-        .doc    = "roll"},
+        .doc    = "Roll component"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
 PyMethodDef Angle::Methods[] = {
-    {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&Angle::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "as_rot_mat", .ml_meth = (PyCFunction)&Angle::AsRotMat, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&Angle::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "__format__", .ml_meth = (PyCFunction)&Angle::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name     = "as_tuple",
+        .ml_meth  = (PyCFunction)&Angle::AsTuple,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(as_tuple(self) -> tuple
+Returns (self.yaw, self.pitch, self.roll))"},
+    {.ml_name     = "as_rot_mat",
+        .ml_meth  = (PyCFunction)&Angle::AsRotMat,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(as_rot_mat(self) -> RocketSim.RotMat
+Returns rotation as a RocketSim.RotMat)"},
+    {.ml_name     = "as_numpy",
+        .ml_meth  = (PyCFunction)&Angle::AsNumpy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(as_numpy(self) -> numpy.ndarray
+Returns numpy.array([self.yaw, self.pitch, self.roll]))"},
+    {.ml_name     = "__format__",
+        .ml_meth  = (PyCFunction)&Angle::Format,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = nullptr},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Angle::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Angle::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
@@ -44,6 +59,8 @@ PyType_Slot Angle::Slots[] = {
     {Py_tp_repr, (void *)&Angle::Repr},
     {Py_tp_members, &Angle::Members},
     {Py_tp_methods, &Angle::Methods},
+    {Py_tp_doc, (void *)R"(Tait-Bryan angle rotation in the order ZYX (yaw/pitch/roll)
+__init__(self, yaw: float = 0.0, pitch: float = 0.0, roll: float = 0.0))"},
     {0, nullptr},
 };
 
@@ -93,7 +110,8 @@ int Angle::Init (Angle *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char yawKwd[]   = "yaw";
 	static char pitchKwd[] = "pitch";
 	static char rollKwd[]  = "roll";
-	static char *dict[]    = {yawKwd, pitchKwd, rollKwd, nullptr};
+
+	static char *dict[] = {yawKwd, pitchKwd, rollKwd, nullptr};
 
 	::Angle angle{};
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|fff", dict, &angle.yaw, &angle.pitch, &angle.roll))
@@ -122,14 +140,24 @@ PyObject *Angle::Repr (Angle *self_) noexcept
 	return PyObject_Repr (tuple.borrow ());
 }
 
-PyObject *Angle::Format (Angle *self_, PyObject *args_) noexcept
+PyObject *Angle::Format (Angle *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto format = PyObject_GetAttrString (reinterpret_cast<PyObject *> (&PyFloat_Type), "__format__");
-	if (!format || !PyCallable_Check (format))
+	if (!format)
 		return nullptr;
 
+	if (!PyCallable_Check (format))
+	{
+		PyErr_SetString (PyExc_TypeError, "float.__format__ is not callable");
+		return nullptr;
+	}
+
+	static char specKwd[] = "format_spec";
+
+	static char *dict[] = {specKwd, nullptr};
+
 	PyObject *spec; // borrowed reference
-	if (!PyArg_ParseTuple (args_, "O!", &PyUnicode_Type, &spec))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O!", dict, &PyUnicode_Type, &spec))
 		return nullptr;
 
 	auto const applyFormat = [&] (float x_) -> PyObjectRef {
@@ -137,11 +165,7 @@ PyObject *Angle::Format (Angle *self_, PyObject *args_) noexcept
 		if (!value)
 			return nullptr;
 
-		auto const formatArgs = PyObjectRef::steal (Py_BuildValue ("OO", value.borrow (), spec));
-		if (!formatArgs)
-			return nullptr;
-
-		return PyObjectRef::steal (PyObject_Call (format, formatArgs.borrow (), nullptr));
+		return PyObjectRef::steal (PyObject_CallFunctionObjArgs (format, value.borrow (), spec, nullptr));
 	};
 
 	auto const yaw   = applyFormat (self_->angle.yaw);

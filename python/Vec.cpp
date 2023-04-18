@@ -16,25 +16,40 @@ PyMemberDef Vec::Members[] = {
         .type   = TypeHelper<decltype (::Vec::x)>::type,
         .offset = offsetof (Vec, vec) + offsetof (::Vec, x),
         .flags  = 0,
-        .doc    = "x"},
+        .doc    = "X component"},
     {.name      = "y",
         .type   = TypeHelper<decltype (::Vec::y)>::type,
         .offset = offsetof (Vec, vec) + offsetof (::Vec, y),
         .flags  = 0,
-        .doc    = "y"},
+        .doc    = "Y component"},
     {.name      = "z",
         .type   = TypeHelper<decltype (::Vec::z)>::type,
         .offset = offsetof (Vec, vec) + offsetof (::Vec, z),
         .flags  = 0,
-        .doc    = "z"},
+        .doc    = "Z component"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
 PyMethodDef Vec::Methods[] = {
-    {.ml_name = "round", .ml_meth = (PyCFunction)&Vec::Round, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
-    {.ml_name = "as_tuple", .ml_meth = (PyCFunction)&Vec::AsTuple, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "as_numpy", .ml_meth = (PyCFunction)&Vec::AsNumpy, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
-    {.ml_name = "__format__", .ml_meth = (PyCFunction)&Vec::Format, .ml_flags = METH_VARARGS, .ml_doc = nullptr},
+    {.ml_name     = "round",
+        .ml_meth  = (PyCFunction)&Vec::Round,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(round(self, precision: float) -> float
+Round vector to desired precision)"},
+    {.ml_name     = "as_tuple",
+        .ml_meth  = (PyCFunction)&Vec::AsTuple,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(as_tuple(self) -> tuple
+Returns (self.x, self.y, self.z))"},
+    {.ml_name     = "as_numpy",
+        .ml_meth  = (PyCFunction)&Vec::AsNumpy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(as_numpy(self) -> numpy.ndarray
+Returns numpy.array([self.x, self.y, self.z]))"},
+    {.ml_name     = "__format__",
+        .ml_meth  = (PyCFunction)&Vec::Format,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = nullptr},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Vec::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Vec::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
@@ -48,6 +63,8 @@ PyType_Slot Vec::Slots[] = {
     {Py_tp_repr, (void *)&Vec::Repr},
     {Py_tp_members, &Vec::Members},
     {Py_tp_methods, &Vec::Methods},
+    {Py_tp_doc, (void *)R"(3-dimensional vector
+__init__(self, x: float = 0.0, y: float = 0.0, z: float = 0.0))"},
     {0, nullptr},
 };
 
@@ -143,14 +160,24 @@ PyObject *Vec::Repr (Vec *self_) noexcept
 	return PyObject_Repr (tuple.borrow ());
 }
 
-PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
+PyObject *Vec::Format (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	auto format = PyObject_GetAttrString (reinterpret_cast<PyObject *> (&PyFloat_Type), "__format__");
-	if (!format || !PyCallable_Check (format))
+	if (!format)
 		return nullptr;
 
+	if (!PyCallable_Check (format))
+	{
+		PyErr_SetString (PyExc_TypeError, "float.__format__ is not callable");
+		return nullptr;
+	}
+
+	static char specKwd[] = "format_spec";
+
+	static char *dict[] = {specKwd, nullptr};
+
 	PyObject *spec; // borrowed reference
-	if (!PyArg_ParseTuple (args_, "O!", &PyUnicode_Type, &spec))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O!", dict, &PyUnicode_Type, &spec))
 		return nullptr;
 
 	auto const applyFormat = [&] (float x_) -> PyObjectRef {
@@ -158,11 +185,7 @@ PyObject *Vec::Format (Vec *self_, PyObject *args_) noexcept
 		if (!value)
 			return nullptr;
 
-		auto const formatArgs = PyObjectRef::steal (Py_BuildValue ("OO", value.borrow (), spec));
-		if (!formatArgs)
-			return nullptr;
-
-		return PyObjectRef::steal (PyObject_Call (format, formatArgs.borrow (), nullptr));
+		return PyObjectRef::steal (PyObject_CallFunctionObjArgs (format, value.borrow (), spec, nullptr));
 	};
 
 	auto const x = applyFormat (self_->vec.x);
@@ -225,10 +248,14 @@ PyObject *Vec::AsNumpy (Vec *self_) noexcept
 	return array.giftObject ();
 }
 
-PyObject *Vec::Round (Vec *self_, PyObject *args_) noexcept
+PyObject *Vec::Round (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
+	static char precisionKwd[] = "precision";
+
+	static char *dict[] = {precisionKwd, nullptr};
+
 	float precision;
-	if (!PyArg_ParseTuple (args_, "f", &precision))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "f", dict, &precision))
 		return nullptr;
 
 	auto vec = Vec::NewFromVec (Math::RoundVec (self_->vec, precision));
