@@ -132,6 +132,16 @@ PyMethodDef MutatorConfig::Methods[] = {
         .ml_meth  = (PyCFunction)&MutatorConfig::Unpickle,
         .ml_flags = METH_O,
         .ml_doc   = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&MutatorConfig::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.MutatorConfig
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&MutatorConfig::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.MutatorConfig
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -455,6 +465,34 @@ PyObject *MutatorConfig::Unpickle (MutatorConfig *self_, PyObject *dict_) noexce
 		return nullptr;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *MutatorConfig::Copy (MutatorConfig *self_) noexcept
+{
+	auto config = PyRef<MutatorConfig>::stealObject (New (Type, nullptr, nullptr));
+	if (!config)
+		return nullptr;
+
+	PyRef<Vec>::assign (config->gravity, reinterpret_cast<PyObject *> (self_->gravity));
+
+	config->config = ToMutatorConfig (self_);
+
+	return config.giftObject ();
+}
+
+PyObject *MutatorConfig::DeepCopy (MutatorConfig *self_, PyObject *memo_) noexcept
+{
+	auto config = PyRef<MutatorConfig>::stealObject (New (Type, nullptr, nullptr));
+	if (!config)
+		return nullptr;
+
+	PyRef<Vec>::assign (config->gravity, PyDeepCopy (self_->gravity, memo_));
+	if (!config->gravity)
+		return nullptr;
+
+	config->config = ToMutatorConfig (self_);
+
+	return config.giftObject ();
 }
 
 PyObject *MutatorConfig::Getgravity (MutatorConfig *self_, void *) noexcept

@@ -30,6 +30,16 @@ Return numpy.array([self.forward.x, self.forward.y, self.forward.z], [self.right
         .ml_doc   = nullptr},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&RotMat::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&RotMat::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&RotMat::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.RotMat
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&RotMat::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.RotMat
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -247,6 +257,40 @@ PyObject *RotMat::Unpickle (RotMat *self_, PyObject *dict_) noexcept
 		return nullptr;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *RotMat::Copy (RotMat *self_) noexcept
+{
+	auto mat = PyRef<RotMat>::stealObject (New (Type, nullptr, nullptr));
+	if (!mat)
+		return nullptr;
+
+	PyRef<Vec>::assign (mat->forward, reinterpret_cast<PyObject *> (self_->forward));
+	PyRef<Vec>::assign (mat->right, reinterpret_cast<PyObject *> (self_->right));
+	PyRef<Vec>::assign (mat->up, reinterpret_cast<PyObject *> (self_->up));
+
+	return mat.giftObject ();
+}
+
+PyObject *RotMat::DeepCopy (RotMat *self_, PyObject *memo_) noexcept
+{
+	auto mat = PyRef<RotMat>::stealObject (New (Type, nullptr, nullptr));
+	if (!mat)
+		return nullptr;
+
+	PyRef<Vec>::assign (mat->forward, PyDeepCopy (self_->forward, memo_));
+	if (!mat->forward)
+		return nullptr;
+
+	PyRef<Vec>::assign (mat->right, PyDeepCopy (self_->right, memo_));
+	if (!mat->right)
+		return nullptr;
+
+	PyRef<Vec>::assign (mat->up, PyDeepCopy (self_->up, memo_));
+	if (!mat->up)
+		return nullptr;
+
+	return mat.giftObject ();
 }
 
 PyObject *RotMat::Getforward (RotMat *self_, void *) noexcept

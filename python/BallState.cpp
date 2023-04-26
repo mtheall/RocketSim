@@ -19,6 +19,16 @@ PyMemberDef BallState::Members[] = {
 PyMethodDef BallState::Methods[] = {
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&BallState::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&BallState::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&BallState::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.BallState
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&BallState::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.BallState
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -189,6 +199,44 @@ PyObject *BallState::Unpickle (BallState *self_, PyObject *dict_) noexcept
 		return nullptr;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *BallState::Copy (BallState *self_) noexcept
+{
+	auto state = PyRef<BallState>::stealObject (New (Type, nullptr, nullptr));
+	if (!state)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->pos, reinterpret_cast<PyObject *> (self_->pos));
+	PyRef<Vec>::assign (state->vel, reinterpret_cast<PyObject *> (self_->vel));
+	PyRef<Vec>::assign (state->angVel, reinterpret_cast<PyObject *> (self_->angVel));
+
+	state->state = ToBallState (self_);
+
+	return state.giftObject ();
+}
+
+PyObject *BallState::DeepCopy (BallState *self_, PyObject *memo_) noexcept
+{
+	auto state = PyRef<BallState>::stealObject (New (Type, nullptr, nullptr));
+	if (!state)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->pos, PyDeepCopy (self_->pos, memo_));
+	if (!state->pos)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->vel, PyDeepCopy (self_->vel, memo_));
+	if (!state->vel)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->angVel, PyDeepCopy (self_->angVel, memo_));
+	if (!state->angVel)
+		return nullptr;
+
+	state->state = ToBallState (self_);
+
+	return state.giftObject ();
 }
 
 PyObject *BallState::Getpos (BallState *self_, void *) noexcept

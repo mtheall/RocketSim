@@ -66,6 +66,8 @@ void InitInternal (char const *path_) noexcept;
 
 bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept;
 
+PyObject *PyDeepCopy (void *obj_, PyObject *memo_) noexcept;
+
 struct GameMode
 {
 	PyObject_HEAD
@@ -117,6 +119,8 @@ struct Vec
 	static PyObject *Format (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *Pickle (Vec *self_) noexcept;
 	static PyObject *Unpickle (Vec *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (Vec *self_) noexcept;
+	static PyObject *DeepCopy (Vec *self_, PyObject *memo_) noexcept;
 
 	static PyObject *AsTuple (Vec *self_) noexcept;
 	static PyObject *AsNumpy (Vec *self_) noexcept;
@@ -148,6 +152,8 @@ struct RotMat
 	static PyObject *Format (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *Pickle (RotMat *self_) noexcept;
 	static PyObject *Unpickle (RotMat *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (RotMat *self_) noexcept;
+	static PyObject *DeepCopy (RotMat *self_, PyObject *memo_) noexcept;
 
 	static PyObject *AsTuple (RotMat *self_) noexcept;
 	static PyObject *AsAngle (RotMat *self_) noexcept;
@@ -181,6 +187,8 @@ struct Angle
 	static PyObject *Format (Angle *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *Pickle (Angle *self_) noexcept;
 	static PyObject *Unpickle (Angle *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (Angle *self_) noexcept;
+	static PyObject *DeepCopy (Angle *self_, PyObject *memo_) noexcept;
 
 	static PyObject *AsTuple (Angle *self_) noexcept;
 	static PyObject *AsRotMat (Angle *self_) noexcept;
@@ -213,6 +221,8 @@ struct BallHitInfo
 	static void Dealloc (BallHitInfo *self_) noexcept;
 	static PyObject *Pickle (BallHitInfo *self_) noexcept;
 	static PyObject *Unpickle (BallHitInfo *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (BallHitInfo *self_) noexcept;
+	static PyObject *DeepCopy (BallHitInfo *self_, PyObject *memo_) noexcept;
 
 	GETSET_DECLARE (BallHitInfo, relative_pos_on_ball)
 	GETSET_DECLARE (BallHitInfo, ball_pos)
@@ -245,6 +255,8 @@ struct BallState
 	static void Dealloc (BallState *self_) noexcept;
 	static PyObject *Pickle (BallState *self_) noexcept;
 	static PyObject *Unpickle (BallState *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (BallState *self_) noexcept;
+	static PyObject *DeepCopy (BallState *self_, PyObject *memo_) noexcept;
 
 	GETSET_DECLARE (BallState, pos)
 	GETSET_DECLARE (BallState, vel)
@@ -293,6 +305,8 @@ struct BoostPadState
 	static void Dealloc (BoostPadState *self_) noexcept;
 	static PyObject *Pickle (BoostPadState *self_) noexcept;
 	static PyObject *Unpickle (BoostPadState *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (BoostPadState *self_) noexcept;
+	static PyObject *DeepCopy (BoostPadState *self_, PyObject *memo_) noexcept;
 };
 
 struct BoostPad
@@ -344,6 +358,8 @@ struct WheelPairConfig
 	static void Dealloc (WheelPairConfig *self_) noexcept;
 	static PyObject *Pickle (WheelPairConfig *self_) noexcept;
 	static PyObject *Unpickle (WheelPairConfig *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (WheelPairConfig *self_) noexcept;
+	static PyObject *DeepCopy (WheelPairConfig *self_, PyObject *memo_) noexcept;
 
 	GETSET_DECLARE (WheelPairConfig, connection_point_offset)
 };
@@ -386,6 +402,8 @@ struct CarConfig
 	static void Dealloc (CarConfig *self_) noexcept;
 	static PyObject *Pickle (CarConfig *self_) noexcept;
 	static PyObject *Unpickle (CarConfig *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (CarConfig *self_) noexcept;
+	static PyObject *DeepCopy (CarConfig *self_, PyObject *memo_) noexcept;
 
 	GETSET_DECLARE (CarConfig, hitbox_size)
 	GETSET_DECLARE (CarConfig, hitbox_pos_offset)
@@ -414,6 +432,8 @@ struct CarControls
 	static void Dealloc (CarControls *self_) noexcept;
 	static PyObject *Pickle (CarControls *self_) noexcept;
 	static PyObject *Unpickle (CarControls *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (CarControls *self_) noexcept;
+	static PyObject *DeepCopy (CarControls *self_, PyObject *memo_) noexcept;
 
 	static PyObject *ClampFix (CarControls *self_) noexcept;
 };
@@ -449,6 +469,8 @@ struct CarState
 	static void Dealloc (CarState *self_) noexcept;
 	static PyObject *Pickle (CarState *self_) noexcept;
 	static PyObject *Unpickle (CarState *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (CarState *self_) noexcept;
+	static PyObject *DeepCopy (CarState *self_, PyObject *memo_) noexcept;
 
 	GETSET_DECLARE (CarState, pos)
 	GETSET_DECLARE (CarState, rot_mat)
@@ -523,6 +545,8 @@ struct MutatorConfig
 	static void Dealloc (MutatorConfig *self_) noexcept;
 	static PyObject *Pickle (MutatorConfig *self_) noexcept;
 	static PyObject *Unpickle (MutatorConfig *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (MutatorConfig *self_) noexcept;
+	static PyObject *DeepCopy (MutatorConfig *self_, PyObject *memo_) noexcept;
 
 	GETSET_DECLARE (MutatorConfig, gravity)
 };
@@ -567,6 +591,8 @@ struct Arena
 	static void Dealloc (Arena *self_) noexcept;
 	static PyObject *Pickle (Arena *self_) noexcept;
 	static PyObject *Unpickle (Arena *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (Arena *self_) noexcept;
+	static PyObject *DeepCopy (Arena *self_, PyObject *memo_) noexcept;
 
 	static PyObject *AddCar (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;

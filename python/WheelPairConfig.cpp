@@ -30,6 +30,16 @@ PyMethodDef WheelPairConfig::Methods[] = {
         .ml_meth  = (PyCFunction)&WheelPairConfig::Unpickle,
         .ml_flags = METH_O,
         .ml_doc   = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&WheelPairConfig::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.WheelPairConfig
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&WheelPairConfig::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.WheelPairConfig
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -169,6 +179,34 @@ PyObject *WheelPairConfig::Unpickle (WheelPairConfig *self_, PyObject *dict_) no
 		return nullptr;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *WheelPairConfig::Copy (WheelPairConfig *self_) noexcept
+{
+	auto config = PyRef<WheelPairConfig>::stealObject (New (Type, nullptr, nullptr));
+	if (!config)
+		return nullptr;
+
+	PyRef<Vec>::assign (config->connectionPointOffset, reinterpret_cast<PyObject *> (self_->connectionPointOffset));
+
+	config->config = ToWheelPairConfig (self_);
+
+	return config.giftObject ();
+}
+
+PyObject *WheelPairConfig::DeepCopy (WheelPairConfig *self_, PyObject *memo_) noexcept
+{
+	auto config = PyRef<WheelPairConfig>::stealObject (New (Type, nullptr, nullptr));
+	if (!config)
+		return nullptr;
+
+	PyRef<Vec>::assign (config->connectionPointOffset, PyDeepCopy (self_->connectionPointOffset, memo_));
+	if (!config->connectionPointOffset)
+		return nullptr;
+
+	config->config = ToWheelPairConfig (self_);
+
+	return config.giftObject ();
 }
 
 PyObject *WheelPairConfig::Getconnection_point_offset (WheelPairConfig *self_, void *) noexcept

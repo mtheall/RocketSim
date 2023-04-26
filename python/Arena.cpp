@@ -358,6 +358,16 @@ Returns previous (callback, data))"},
         .ml_doc   = R"(step(self, ticks: int = 1))"},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Arena::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Arena::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&Arena::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.Arena
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&Arena::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.Arena
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -962,6 +972,28 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	{
 		return PyErr_NoMemory ();
 	}
+}
+
+PyObject *Arena::Copy (Arena *self_) noexcept
+{
+	auto args = PyObjectRef::steal (PyTuple_New (1));
+	if (!args)
+		return nullptr;
+
+	PyTuple_SetItem (args.borrow (), 0, PyBool_FromLong (true));
+
+	return Clone (self_, args.borrow (), nullptr);
+}
+
+PyObject *Arena::DeepCopy (Arena *self_, PyObject *memo_) noexcept
+{
+	auto args = PyObjectRef::steal (PyTuple_New (1));
+	if (!args)
+		return nullptr;
+
+	PyTuple_SetItem (args.borrow (), 0, PyBool_FromLong (true));
+
+	return Clone (self_, args.borrow (), nullptr);
 }
 
 PyObject *Arena::AddCar (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept

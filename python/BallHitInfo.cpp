@@ -32,6 +32,16 @@ PyMethodDef BallHitInfo::Methods[] = {
         .ml_flags = METH_NOARGS,
         .ml_doc   = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&BallHitInfo::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&BallHitInfo::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.BallHitInfo
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&BallHitInfo::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.BallHitInfo
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -239,6 +249,44 @@ PyObject *BallHitInfo::Unpickle (BallHitInfo *self_, PyObject *dict_) noexcept
 		return nullptr;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *BallHitInfo::Copy (BallHitInfo *self_) noexcept
+{
+	auto info = PyRef<BallHitInfo>::stealObject (New (Type, nullptr, nullptr));
+	if (!info)
+		return nullptr;
+
+	PyRef<Vec>::assign (info->relativePosOnBall, reinterpret_cast<PyObject *> (self_->relativePosOnBall));
+	PyRef<Vec>::assign (info->ballPos, reinterpret_cast<PyObject *> (self_->ballPos));
+	PyRef<Vec>::assign (info->extraHitVel, reinterpret_cast<PyObject *> (self_->extraHitVel));
+
+	info->info = ToBallHitInfo (self_);
+
+	return info.giftObject ();
+}
+
+PyObject *BallHitInfo::DeepCopy (BallHitInfo *self_, PyObject *memo_) noexcept
+{
+	auto info = PyRef<BallHitInfo>::stealObject (New (Type, nullptr, nullptr));
+	if (!info)
+		return nullptr;
+
+	PyRef<Vec>::assign (info->relativePosOnBall, PyDeepCopy (self_->relativePosOnBall, memo_));
+	if (!info->relativePosOnBall)
+		return nullptr;
+
+	PyRef<Vec>::assign (info->ballPos, PyDeepCopy (self_->ballPos, memo_));
+	if (!info->ballPos)
+		return nullptr;
+
+	PyRef<Vec>::assign (info->extraHitVel, PyDeepCopy (self_->extraHitVel, memo_));
+	if (!info->extraHitVel)
+		return nullptr;
+
+	info->info = ToBallHitInfo (self_);
+
+	return info.giftObject ();
 }
 
 PyObject *BallHitInfo::Getrelative_pos_on_ball (BallHitInfo *self_, void *) noexcept

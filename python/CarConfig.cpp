@@ -89,6 +89,16 @@ PyMemberDef CarConfig::Members[] = {
 PyMethodDef CarConfig::Methods[] = {
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&CarConfig::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&CarConfig::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&CarConfig::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.CarConfig
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&CarConfig::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.CarConfig
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -342,6 +352,49 @@ PyObject *CarConfig::Unpickle (CarConfig *self_, PyObject *dict_) noexcept
 		return nullptr;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *CarConfig::Copy (CarConfig *self_) noexcept
+{
+	auto config = PyRef<CarConfig>::stealObject (New (Type, nullptr, nullptr));
+	if (!config)
+		return nullptr;
+
+	PyRef<Vec>::assign (config->hitboxSize, reinterpret_cast<PyObject *> (self_->hitboxSize));
+	PyRef<Vec>::assign (config->hitboxPosOffset, reinterpret_cast<PyObject *> (self_->hitboxPosOffset));
+	PyRef<WheelPairConfig>::assign (config->frontWheels, reinterpret_cast<PyObject *> (self_->frontWheels));
+	PyRef<WheelPairConfig>::assign (config->backWheels, reinterpret_cast<PyObject *> (self_->backWheels));
+
+	config->config = ToCarConfig (self_);
+
+	return config.giftObject ();
+}
+
+PyObject *CarConfig::DeepCopy (CarConfig *self_, PyObject *memo_) noexcept
+{
+	auto config = PyRef<CarConfig>::stealObject (New (Type, nullptr, nullptr));
+	if (!config)
+		return nullptr;
+
+	PyRef<Vec>::assign (config->hitboxSize, PyDeepCopy (self_->hitboxSize, memo_));
+	if (!config->hitboxSize)
+		return nullptr;
+
+	PyRef<Vec>::assign (config->hitboxPosOffset, PyDeepCopy (self_->hitboxPosOffset, memo_));
+	if (!config->hitboxPosOffset)
+		return nullptr;
+
+	PyRef<WheelPairConfig>::assign (config->frontWheels, PyDeepCopy (self_->frontWheels, memo_));
+	if (!config->frontWheels)
+		return nullptr;
+
+	PyRef<WheelPairConfig>::assign (config->backWheels, PyDeepCopy (self_->backWheels, memo_));
+	if (!config->backWheels)
+		return nullptr;
+
+	config->config = ToCarConfig (self_);
+
+	return config.giftObject ();
 }
 
 PyObject *CarConfig::Gethitbox_size (CarConfig *self_, void *) noexcept

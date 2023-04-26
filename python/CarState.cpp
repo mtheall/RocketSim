@@ -119,6 +119,16 @@ PyMemberDef CarState::Members[] = {
 PyMethodDef CarState::Methods[] = {
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&CarState::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&CarState::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&CarState::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.CarState
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&CarState::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.CarState
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -563,6 +573,69 @@ PyObject *CarState::Unpickle (CarState *self_, PyObject *dict_) noexcept
 		return nullptr;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *CarState::Copy (CarState *self_) noexcept
+{
+	auto state = PyRef<CarState>::stealObject (New (Type, nullptr, nullptr));
+	if (!state)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->pos, reinterpret_cast<PyObject *> (self_->pos));
+	PyRef<RotMat>::assign (state->rotMat, reinterpret_cast<PyObject *> (self_->rotMat));
+	PyRef<Vec>::assign (state->vel, reinterpret_cast<PyObject *> (self_->vel));
+	PyRef<Vec>::assign (state->angVel, reinterpret_cast<PyObject *> (self_->angVel));
+	PyRef<Vec>::assign (state->lastRelDodgeTorque, reinterpret_cast<PyObject *> (self_->lastRelDodgeTorque));
+	PyRef<CarControls>::assign (state->lastControls, reinterpret_cast<PyObject *> (self_->lastControls));
+	PyRef<Vec>::assign (state->worldContactNormal, reinterpret_cast<PyObject *> (self_->worldContactNormal));
+	PyRef<BallHitInfo>::assign (state->ballHitInfo, reinterpret_cast<PyObject *> (self_->ballHitInfo));
+
+	state->state = ToCarState (self_);
+
+	return state.giftObject ();
+}
+
+PyObject *CarState::DeepCopy (CarState *self_, PyObject *memo_) noexcept
+{
+	auto state = PyRef<CarState>::stealObject (New (Type, nullptr, nullptr));
+	if (!state)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->pos, PyDeepCopy (self_->pos, memo_));
+	if (!state->pos)
+		return nullptr;
+
+	PyRef<RotMat>::assign (state->rotMat, PyDeepCopy (self_->rotMat, memo_));
+	if (!state->rotMat)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->vel, PyDeepCopy (self_->vel, memo_));
+	if (!state->vel)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->angVel, PyDeepCopy (self_->angVel, memo_));
+	if (!state->angVel)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->lastRelDodgeTorque, PyDeepCopy (self_->lastRelDodgeTorque, memo_));
+	if (!state->lastRelDodgeTorque)
+		return nullptr;
+
+	PyRef<CarControls>::assign (state->lastControls, PyDeepCopy (self_->lastControls, memo_));
+	if (!state->lastControls)
+		return nullptr;
+
+	PyRef<Vec>::assign (state->worldContactNormal, PyDeepCopy (self_->worldContactNormal, memo_));
+	if (!state->worldContactNormal)
+		return nullptr;
+
+	PyRef<BallHitInfo>::assign (state->ballHitInfo, PyDeepCopy (self_->ballHitInfo, memo_));
+	if (!state->ballHitInfo)
+		return nullptr;
+
+	state->state = ToCarState (self_);
+
+	return state.giftObject ();
 }
 
 PyObject *CarState::Getpos (CarState *self_, void *) noexcept

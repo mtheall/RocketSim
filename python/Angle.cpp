@@ -49,6 +49,16 @@ Returns numpy.array([self.yaw, self.pitch, self.roll]))"},
         .ml_doc   = nullptr},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Angle::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Angle::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
+    {.ml_name     = "__copy__",
+        .ml_meth  = (PyCFunction)&Angle::Copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(__copy__(self) -> RocketSim.Angle
+Shallow copy)"},
+    {.ml_name     = "__deepcopy__",
+        .ml_meth  = (PyCFunction)&Angle::DeepCopy,
+        .ml_flags = METH_O,
+        .ml_doc   = R"(__deepcopy__(self, memo) -> RocketSim.Angle
+Deep copy)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -208,6 +218,16 @@ PyObject *Angle::Unpickle (Angle *self_, PyObject *dict_) noexcept
 		return nullptr;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *Angle::Copy (Angle *self_) noexcept
+{
+	return NewFromAngle (self_->angle).giftObject ();
+}
+
+PyObject *Angle::DeepCopy (Angle *self_, PyObject *memo_) noexcept
+{
+	return NewFromAngle (self_->angle).giftObject ();
 }
 
 PyObject *Angle::AsTuple (Angle *self_) noexcept

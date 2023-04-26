@@ -2,12 +2,13 @@
 
 import RocketSim as rs
 
+import copy
 import glm
 import math
 import numpy as np
+import pickle
 import random
 import unittest
-import pickle
 
 np.set_printoptions(formatter={"float": lambda x: f"{x: .6f}"}, linewidth=100)
 
@@ -130,6 +131,22 @@ class TestVec(FuzzyTestCase):
     self.compare(rs.Vec(z=2), 0.0, 0.0, 2.0)
     self.compare(rs.Vec(1, z=2), 1.0, 0.0, 2.0)
 
+  def test_copy(self):
+    vec_a = random_vec()
+    vec_b = copy.copy(vec_a)
+
+    self.assertEqual(vec_a.x, vec_b.x)
+    self.assertEqual(vec_a.y, vec_b.y)
+    self.assertEqual(vec_a.z, vec_b.z)
+
+  def test_deep_copy(self):
+    vec_a = random_vec()
+    vec_b = copy.deepcopy(vec_a)
+
+    self.assertEqual(vec_a.x, vec_b.x)
+    self.assertEqual(vec_a.y, vec_b.y)
+    self.assertEqual(vec_a.z, vec_b.z)
+
   def test_pickle(self):
     vec_a = random_vec()
     vec_b = pickled(vec_a)
@@ -190,6 +207,34 @@ class TestRotMat(FuzzyTestCase):
     self.assertAlmostEqual(src.up.y,      dst.up.y,      places=5)
     self.assertAlmostEqual(src.up.z,      dst.up.z,      places=5)
 
+  def test_copy(self):
+    mat_a = rs.RotMat(
+      forward = random_vec(),
+      right   = random_vec(),
+      up      = random_vec(),
+    )
+    mat_b = copy.copy(mat_a)
+
+    self.assertIs(mat_a.forward, mat_b.forward)
+    self.assertIs(mat_a.right,   mat_b.right)
+    self.assertIs(mat_a.up,      mat_b.up)
+
+  def test_deep_copy(self):
+    mat_a = rs.RotMat(
+      forward = random_vec(),
+      right   = random_vec(),
+      up      = random_vec(),
+    )
+    mat_b = copy.deepcopy(mat_a)
+
+    self.assertIsNot(mat_a.forward, mat_b.forward)
+    self.assertIsNot(mat_a.right,   mat_b.right)
+    self.assertIsNot(mat_a.up,      mat_b.up)
+
+    self.assertEqual(mat_a.forward, mat_b.forward)
+    self.assertEqual(mat_a.right,   mat_b.right)
+    self.assertEqual(mat_a.up,      mat_b.up)
+
   def test_pickle(self):
     mat_a = rs.RotMat(
       forward = random_vec(),
@@ -242,6 +287,49 @@ class TestBallHitInfo(FuzzyTestCase):
   def test_basic(self):
     pass
 
+  def test_copy(self):
+    info_a = rs.BallHitInfo(
+      is_valid             = random_bool(),
+      relative_pos_on_ball = random_vec(),
+      ball_pos             = random_vec(),
+      extra_hit_vel        = random_vec(),
+      tick_count_when_hit  = random_int(),
+      tick_count_when_extra_impulse_applied = random_int()
+    )
+    info_b = copy.copy(info_a)
+
+    self.assertIs(info_a.relative_pos_on_ball, info_b.relative_pos_on_ball)
+    self.assertIs(info_a.ball_pos,             info_b.ball_pos)
+    self.assertIs(info_a.extra_hit_vel,        info_b.extra_hit_vel)
+
+    self.assertEqual(info_a.is_valid,             info_b.is_valid)
+    self.assertEqual(info_a.tick_count_when_hit,  info_b.tick_count_when_hit)
+    self.assertEqual(info_a.tick_count_when_extra_impulse_applied,
+      info_b.tick_count_when_extra_impulse_applied)
+
+  def test_deep_copy(self):
+    info_a = rs.BallHitInfo(
+      is_valid             = random_bool(),
+      relative_pos_on_ball = random_vec(),
+      ball_pos             = random_vec(),
+      extra_hit_vel        = random_vec(),
+      tick_count_when_hit  = random_int(),
+      tick_count_when_extra_impulse_applied = random_int()
+    )
+    info_b = copy.deepcopy(info_a)
+
+    self.assertIsNot(info_a.relative_pos_on_ball, info_b.relative_pos_on_ball)
+    self.assertIsNot(info_a.ball_pos,             info_b.ball_pos)
+    self.assertIsNot(info_a.extra_hit_vel,        info_b.extra_hit_vel)
+
+    self.assertEqual(info_a.is_valid,             info_b.is_valid)
+    self.assertEqual(info_a.relative_pos_on_ball, info_b.relative_pos_on_ball)
+    self.assertEqual(info_a.ball_pos,             info_b.ball_pos)
+    self.assertEqual(info_a.extra_hit_vel,        info_b.extra_hit_vel)
+    self.assertEqual(info_a.tick_count_when_hit,  info_b.tick_count_when_hit)
+    self.assertEqual(info_a.tick_count_when_extra_impulse_applied,
+      info_b.tick_count_when_extra_impulse_applied)
+
   def test_pickle(self):
     info_a = rs.BallHitInfo(
       is_valid             = random_bool(),
@@ -272,6 +360,40 @@ class TestBallState(FuzzyTestCase):
     self.compare(rs.BallState(), rs.Vec(0, 0, 93.15), rs.Vec(), rs.Vec(), 0)
     self.compare(rs.BallState(rs.Vec()), rs.Vec(), rs.Vec(), rs.Vec(), 0)
     self.compare(rs.BallState(vel=rs.Vec(1, 2, 3), last_hit_car_id=10), rs.Vec(0, 0, 93.15), rs.Vec(1, 2, 3), rs.Vec(), 10)
+
+  def test_copy(self):
+    state_a = rs.BallState(
+      pos             = random_vec(),
+      vel             = random_vec(),
+      ang_vel         = random_vec(),
+      last_hit_car_id = random_int()
+    )
+    state_b = copy.copy(state_a)
+
+    self.assertIs(state_a.pos,     state_b.pos)
+    self.assertIs(state_a.vel,     state_b.vel)
+    self.assertIs(state_a.ang_vel, state_b.ang_vel)
+
+    self.assertEqual(state_a.last_hit_car_id, state_b.last_hit_car_id)
+
+  def test_deep_copy(self):
+    state_a = rs.BallState(
+      pos             = random_vec(),
+      vel             = random_vec(),
+      ang_vel         = random_vec(),
+      last_hit_car_id = random_int()
+    )
+    state_b = copy.deepcopy(state_a)
+
+    self.assertIsNot(state_a.pos,     state_b.pos)
+    self.assertIsNot(state_a.vel,     state_b.vel)
+    self.assertIsNot(state_a.ang_vel, state_b.ang_vel)
+
+    self.assertEqual(state_a.pos,             state_b.pos)
+    self.assertEqual(state_a.vel,             state_b.vel)
+    self.assertEqual(state_a.ang_vel,         state_b.ang_vel)
+    self.assertEqual(state_a.last_hit_car_id, state_b.last_hit_car_id)
+
 
   def test_pickle(self):
     state_a = rs.BallState(
@@ -308,6 +430,30 @@ class TestBoostPadState(FuzzyTestCase):
     self.assertEqual(state_a.cooldown,           state_b.cooldown)
     self.assertEqual(state_a.prev_locked_car_id, state_b.prev_locked_car_id)
 
+  def test_copy(self):
+    state_a = rs.BoostPadState(
+      is_active          = random_bool(),
+      cooldown           = random_float(),
+      prev_locked_car_id = random_int(),
+    )
+    state_b = copy.copy(state_a)
+
+    self.assertEqual(state_a.is_active,          state_b.is_active)
+    self.assertEqual(state_a.cooldown,           state_b.cooldown)
+    self.assertEqual(state_a.prev_locked_car_id, state_b.prev_locked_car_id)
+
+  def test_deep_copy(self):
+    state_a = rs.BoostPadState(
+      is_active          = random_bool(),
+      cooldown           = random_float(),
+      prev_locked_car_id = random_int(),
+    )
+    state_b = copy.copy(state_a)
+
+    self.assertEqual(state_a.is_active,          state_b.is_active)
+    self.assertEqual(state_a.cooldown,           state_b.cooldown)
+    self.assertEqual(state_a.prev_locked_car_id, state_b.prev_locked_car_id)
+
 class TestBoostPad(FuzzyTestCase):
   def test_create(self):
     with self.assertRaises(TypeError):
@@ -327,6 +473,31 @@ class TestWheelPairConfig(FuzzyTestCase):
 
     self.assertEqual(config_a.wheel_radius,            config_b.wheel_radius)
     self.assertEqual(config_a.suspension_rest_length,  config_b.suspension_rest_length)
+    self.assertEqual(config_a.connection_point_offset, config_b.connection_point_offset)
+
+  def test_copy(self):
+    config_a = rs.WheelPairConfig(
+      wheel_radius            = random_float(),
+      suspension_rest_length  = random_float(),
+      connection_point_offset = random_vec()
+    )
+    config_b = copy.copy(config_a)
+
+    self.assertEqual(config_a.wheel_radius,           config_b.wheel_radius)
+    self.assertEqual(config_a.suspension_rest_length, config_b.suspension_rest_length)
+    self.assertIs(config_a.connection_point_offset,   config_b.connection_point_offset)
+
+  def test_deep_copy(self):
+    config_a = rs.WheelPairConfig(
+      wheel_radius            = random_float(),
+      suspension_rest_length  = random_float(),
+      connection_point_offset = random_vec()
+    )
+    config_b = copy.deepcopy(config_a)
+
+    self.assertEqual(config_a.wheel_radius,            config_b.wheel_radius)
+    self.assertEqual(config_a.suspension_rest_length,  config_b.suspension_rest_length)
+    self.assertIsNot(config_a.connection_point_offset, config_b.connection_point_offset)
     self.assertEqual(config_a.connection_point_offset, config_b.connection_point_offset)
 
 class TestCarConfig(FuzzyTestCase):
@@ -366,6 +537,69 @@ class TestCarConfig(FuzzyTestCase):
       dodge_deadzone = random_float()
     )
     config_b = pickled(config_a)
+
+    self.assertEqual(config_a.hitbox_size,       config_b.hitbox_size)
+    self.assertEqual(config_a.hitbox_pos_offset, config_b.hitbox_pos_offset)
+    self.assertEqual(config_a.front_wheels.wheel_radius,
+      config_b.front_wheels.wheel_radius)
+    self.assertEqual(config_a.front_wheels.suspension_rest_length,
+      config_b.front_wheels.suspension_rest_length)
+    self.assertEqual(config_a.front_wheels.connection_point_offset,
+      config_b.front_wheels.connection_point_offset)
+    self.assertEqual(config_a.back_wheels.wheel_radius,
+      config_b.back_wheels.wheel_radius)
+    self.assertEqual(config_a.back_wheels.suspension_rest_length,
+      config_b.back_wheels.suspension_rest_length)
+    self.assertEqual(config_a.back_wheels.connection_point_offset,
+      config_b.back_wheels.connection_point_offset)
+    self.assertEqual(config_a.dodge_deadzone, config_b.dodge_deadzone)
+
+  def test_copy(self):
+    config_a = rs.CarConfig(
+      hitbox_size       = random_vec(),
+      hitbox_pos_offset = random_vec(),
+      front_wheels      = rs.WheelPairConfig(
+        wheel_radius            = random_float(),
+        suspension_rest_length  = random_float(),
+        connection_point_offset = random_vec()
+      ),
+      back_wheels       = rs.WheelPairConfig(
+        wheel_radius            = random_float(),
+        suspension_rest_length  = random_float(),
+        connection_point_offset = random_vec()
+      ),
+      dodge_deadzone = random_float()
+    )
+    config_b = copy.copy(config_a)
+
+    self.assertIs(config_a.hitbox_size,       config_b.hitbox_size)
+    self.assertIs(config_a.hitbox_pos_offset, config_b.hitbox_pos_offset)
+    self.assertIs(config_a.front_wheels,      config_b.front_wheels)
+    self.assertIs(config_a.back_wheels,       config_b.back_wheels)
+    self.assertEqual(config_a.dodge_deadzone, config_b.dodge_deadzone)
+
+  def test_deep_copy(self):
+    config_a = rs.CarConfig(
+      hitbox_size       = random_vec(),
+      hitbox_pos_offset = random_vec(),
+      front_wheels      = rs.WheelPairConfig(
+        wheel_radius            = random_float(),
+        suspension_rest_length  = random_float(),
+        connection_point_offset = random_vec()
+      ),
+      back_wheels       = rs.WheelPairConfig(
+        wheel_radius            = random_float(),
+        suspension_rest_length  = random_float(),
+        connection_point_offset = random_vec()
+      ),
+      dodge_deadzone = random_float()
+    )
+    config_b = copy.deepcopy(config_a)
+
+    self.assertIsNot(config_a.hitbox_size,       config_b.hitbox_size)
+    self.assertIsNot(config_a.hitbox_pos_offset, config_b.hitbox_pos_offset)
+    self.assertIsNot(config_a.front_wheels,      config_b.front_wheels)
+    self.assertIsNot(config_a.back_wheels,       config_b.back_wheels)
 
     self.assertEqual(config_a.hitbox_size,       config_b.hitbox_size)
     self.assertEqual(config_a.hitbox_pos_offset, config_b.hitbox_pos_offset)
@@ -439,6 +673,50 @@ class TestCarControls(FuzzyTestCase):
     self.assertEqual(controls_a.jump,      controls_b.jump)
     self.assertEqual(controls_a.handbrake, controls_b.handbrake)
 
+  def test_copy(self):
+    controls_a = rs.CarControls(
+      throttle  = random_float(),
+      steer     = random_float(),
+      yaw       = random_float(),
+      pitch     = random_float(),
+      roll      = random_float(),
+      boost     = random_bool(),
+      jump      = random_bool(),
+      handbrake = random_bool()
+    )
+    controls_b = copy.copy(controls_a)
+
+    self.assertEqual(controls_a.throttle,  controls_b.throttle)
+    self.assertEqual(controls_a.steer,     controls_b.steer)
+    self.assertEqual(controls_a.yaw,       controls_b.yaw)
+    self.assertEqual(controls_a.pitch,     controls_b.pitch)
+    self.assertEqual(controls_a.roll,      controls_b.roll)
+    self.assertEqual(controls_a.boost,     controls_b.boost)
+    self.assertEqual(controls_a.jump,      controls_b.jump)
+    self.assertEqual(controls_a.handbrake, controls_b.handbrake)
+
+  def test_deep_copy(self):
+    controls_a = rs.CarControls(
+      throttle  = random_float(),
+      steer     = random_float(),
+      yaw       = random_float(),
+      pitch     = random_float(),
+      roll      = random_float(),
+      boost     = random_bool(),
+      jump      = random_bool(),
+      handbrake = random_bool()
+    )
+    controls_b = copy.deepcopy(controls_a)
+
+    self.assertEqual(controls_a.throttle,  controls_b.throttle)
+    self.assertEqual(controls_a.steer,     controls_b.steer)
+    self.assertEqual(controls_a.yaw,       controls_b.yaw)
+    self.assertEqual(controls_a.pitch,     controls_b.pitch)
+    self.assertEqual(controls_a.roll,      controls_b.roll)
+    self.assertEqual(controls_a.boost,     controls_b.boost)
+    self.assertEqual(controls_a.jump,      controls_b.jump)
+    self.assertEqual(controls_a.handbrake, controls_b.handbrake)
+
 class TestCarState(FuzzyTestCase):
   def test_basic(self):
     pass
@@ -491,6 +769,204 @@ class TestCarState(FuzzyTestCase):
       )
     )
     state_b = pickled(state_a)
+
+    self.assertEqual(state_a.pos,                        state_b.pos)
+    self.assertEqual(state_a.rot_mat.forward,            state_b.rot_mat.forward)
+    self.assertEqual(state_a.rot_mat.right,              state_b.rot_mat.right)
+    self.assertEqual(state_a.rot_mat.up,                 state_b.rot_mat.up)
+    self.assertEqual(state_a.vel,                        state_b.vel)
+    self.assertEqual(state_a.ang_vel,                    state_b.ang_vel)
+    self.assertEqual(state_a.is_on_ground,               state_b.is_on_ground)
+    self.assertEqual(state_a.has_jumped,                 state_b.has_jumped)
+    self.assertEqual(state_a.has_double_jumped,          state_b.has_double_jumped)
+    self.assertEqual(state_a.has_flipped,                state_b.has_flipped)
+    self.assertEqual(state_a.last_rel_dodge_torque,      state_b.last_rel_dodge_torque)
+    self.assertEqual(state_a.jump_time,                  state_b.jump_time)
+    self.assertEqual(state_a.flip_time,                  state_b.flip_time)
+    self.assertEqual(state_a.is_jumping,                 state_b.is_jumping)
+    self.assertEqual(state_a.air_time_since_jump,        state_b.air_time_since_jump)
+    self.assertEqual(state_a.boost,                      state_b.boost)
+    self.assertEqual(state_a.time_spent_boosting,        state_b.time_spent_boosting)
+    self.assertEqual(state_a.is_supersonic,              state_b.is_supersonic)
+    self.assertEqual(state_a.supersonic_time,            state_b.supersonic_time)
+    self.assertEqual(state_a.handbrake_val,              state_b.handbrake_val)
+    self.assertEqual(state_a.is_auto_flipping,           state_b.is_auto_flipping)
+    self.assertEqual(state_a.auto_flip_timer,            state_b.auto_flip_timer)
+    self.assertEqual(state_a.has_world_contact,          state_b.has_world_contact)
+    self.assertEqual(state_a.world_contact_normal,       state_b.world_contact_normal)
+    self.assertEqual(state_a.car_contact_id,             state_b.car_contact_id)
+    self.assertEqual(state_a.car_contact_cooldown_timer, state_b.car_contact_cooldown_timer)
+    self.assertEqual(state_a.is_demoed,                  state_b.is_demoed)
+    self.assertEqual(state_a.demo_respawn_timer,         state_b.demo_respawn_timer)
+
+    self.assertEqual(state_a.ball_hit_info.is_valid,
+      state_b.ball_hit_info.is_valid)
+    self.assertEqual(state_a.ball_hit_info.relative_pos_on_ball,
+      state_b.ball_hit_info.relative_pos_on_ball)
+    self.assertEqual(state_a.ball_hit_info.ball_pos,
+      state_b.ball_hit_info.ball_pos)
+    self.assertEqual(state_a.ball_hit_info.extra_hit_vel,
+      state_b.ball_hit_info.extra_hit_vel)
+    self.assertEqual(state_a.ball_hit_info.tick_count_when_hit,
+      state_b.ball_hit_info.tick_count_when_hit)
+    self.assertEqual(state_a.ball_hit_info.tick_count_when_extra_impulse_applied,
+      state_b.ball_hit_info.tick_count_when_extra_impulse_applied)
+
+    self.assertEqual(state_a.last_controls.throttle,  state_b.last_controls.throttle)
+    self.assertEqual(state_a.last_controls.steer,     state_b.last_controls.steer)
+    self.assertEqual(state_a.last_controls.yaw,       state_b.last_controls.yaw)
+    self.assertEqual(state_a.last_controls.pitch,     state_b.last_controls.pitch)
+    self.assertEqual(state_a.last_controls.roll,      state_b.last_controls.roll)
+    self.assertEqual(state_a.last_controls.boost,     state_b.last_controls.boost)
+    self.assertEqual(state_a.last_controls.jump,      state_b.last_controls.jump)
+    self.assertEqual(state_a.last_controls.handbrake, state_b.last_controls.handbrake)
+
+  def test_copy(self):
+    state_a = rs.CarState(
+      pos                        = random_vec(),
+      rot_mat                    = random_mat(),
+      vel                        = random_vec(),
+      ang_vel                    = random_vec(),
+      is_on_ground               = random_bool(),
+      has_jumped                 = random_bool(),
+      has_double_jumped          = random_bool(),
+      has_flipped                = random_bool(),
+      last_rel_dodge_torque      = random_vec(),
+      jump_time                  = random_float(),
+      flip_time                  = random_float(),
+      is_jumping                 = random_bool(),
+      air_time_since_jump        = random_float(),
+      boost                      = random_float(),
+      time_spent_boosting        = random_float(),
+      is_supersonic              = random_bool(),
+      supersonic_time            = random_float(),
+      handbrake_val              = random_float(),
+      is_auto_flipping           = random_bool(),
+      auto_flip_timer            = random_float(),
+      has_world_contact          = random_bool(),
+      world_contact_normal       = random_vec(),
+      car_contact_id             = random_int(),
+      car_contact_cooldown_timer = random_float(),
+      is_demoed                  = random_bool(),
+      demo_respawn_timer         = random_float(),
+      ball_hit_info = rs.BallHitInfo(
+        is_valid             = random_bool(),
+        relative_pos_on_ball = random_vec(),
+        ball_pos             = random_vec(),
+        extra_hit_vel        = random_vec(),
+        tick_count_when_hit  = random_int(),
+        tick_count_when_extra_impulse_applied = random_int()
+      ),
+      last_controls = rs.CarControls(
+        throttle  = random_float(),
+        steer     = random_float(),
+        yaw       = random_float(),
+        pitch     = random_float(),
+        roll      = random_float(),
+        boost     = random_bool(),
+        jump      = random_bool(),
+        handbrake = random_bool()
+      )
+    )
+    state_b = copy.copy(state_a)
+
+    self.assertIs(state_a.pos,                  state_b.pos)
+    self.assertIs(state_a.rot_mat,              state_b.rot_mat)
+    self.assertIs(state_a.vel,                  state_b.vel)
+    self.assertIs(state_a.ang_vel,              state_b.ang_vel)
+    self.assertIs(state_a.world_contact_normal, state_b.world_contact_normal)
+    self.assertIs(state_a.last_controls,        state_b.last_controls)
+
+    self.assertEqual(state_a.is_on_ground,               state_b.is_on_ground)
+    self.assertEqual(state_a.has_jumped,                 state_b.has_jumped)
+    self.assertEqual(state_a.has_double_jumped,          state_b.has_double_jumped)
+    self.assertEqual(state_a.has_flipped,                state_b.has_flipped)
+    self.assertEqual(state_a.last_rel_dodge_torque,      state_b.last_rel_dodge_torque)
+    self.assertEqual(state_a.jump_time,                  state_b.jump_time)
+    self.assertEqual(state_a.flip_time,                  state_b.flip_time)
+    self.assertEqual(state_a.is_jumping,                 state_b.is_jumping)
+    self.assertEqual(state_a.air_time_since_jump,        state_b.air_time_since_jump)
+    self.assertEqual(state_a.boost,                      state_b.boost)
+    self.assertEqual(state_a.time_spent_boosting,        state_b.time_spent_boosting)
+    self.assertEqual(state_a.is_supersonic,              state_b.is_supersonic)
+    self.assertEqual(state_a.supersonic_time,            state_b.supersonic_time)
+    self.assertEqual(state_a.handbrake_val,              state_b.handbrake_val)
+    self.assertEqual(state_a.is_auto_flipping,           state_b.is_auto_flipping)
+    self.assertEqual(state_a.auto_flip_timer,            state_b.auto_flip_timer)
+    self.assertEqual(state_a.has_world_contact,          state_b.has_world_contact)
+    self.assertEqual(state_a.car_contact_id,             state_b.car_contact_id)
+    self.assertEqual(state_a.car_contact_cooldown_timer, state_b.car_contact_cooldown_timer)
+    self.assertEqual(state_a.is_demoed,                  state_b.is_demoed)
+    self.assertEqual(state_a.demo_respawn_timer,         state_b.demo_respawn_timer)
+
+    self.assertEqual(state_a.ball_hit_info.is_valid,
+      state_b.ball_hit_info.is_valid)
+    self.assertEqual(state_a.ball_hit_info.relative_pos_on_ball,
+      state_b.ball_hit_info.relative_pos_on_ball)
+    self.assertEqual(state_a.ball_hit_info.ball_pos,
+      state_b.ball_hit_info.ball_pos)
+    self.assertEqual(state_a.ball_hit_info.extra_hit_vel,
+      state_b.ball_hit_info.extra_hit_vel)
+    self.assertEqual(state_a.ball_hit_info.tick_count_when_hit,
+      state_b.ball_hit_info.tick_count_when_hit)
+    self.assertEqual(state_a.ball_hit_info.tick_count_when_extra_impulse_applied,
+      state_b.ball_hit_info.tick_count_when_extra_impulse_applied)
+
+  def test_deep_copy(self):
+    state_a = rs.CarState(
+      pos                        = random_vec(),
+      rot_mat                    = random_mat(),
+      vel                        = random_vec(),
+      ang_vel                    = random_vec(),
+      is_on_ground               = random_bool(),
+      has_jumped                 = random_bool(),
+      has_double_jumped          = random_bool(),
+      has_flipped                = random_bool(),
+      last_rel_dodge_torque      = random_vec(),
+      jump_time                  = random_float(),
+      flip_time                  = random_float(),
+      is_jumping                 = random_bool(),
+      air_time_since_jump        = random_float(),
+      boost                      = random_float(),
+      time_spent_boosting        = random_float(),
+      is_supersonic              = random_bool(),
+      supersonic_time            = random_float(),
+      handbrake_val              = random_float(),
+      is_auto_flipping           = random_bool(),
+      auto_flip_timer            = random_float(),
+      has_world_contact          = random_bool(),
+      world_contact_normal       = random_vec(),
+      car_contact_id             = random_int(),
+      car_contact_cooldown_timer = random_float(),
+      is_demoed                  = random_bool(),
+      demo_respawn_timer         = random_float(),
+      ball_hit_info = rs.BallHitInfo(
+        is_valid             = random_bool(),
+        relative_pos_on_ball = random_vec(),
+        ball_pos             = random_vec(),
+        extra_hit_vel        = random_vec(),
+        tick_count_when_hit  = random_int(),
+        tick_count_when_extra_impulse_applied = random_int()
+      ),
+      last_controls = rs.CarControls(
+        throttle  = random_float(),
+        steer     = random_float(),
+        yaw       = random_float(),
+        pitch     = random_float(),
+        roll      = random_float(),
+        boost     = random_bool(),
+        jump      = random_bool(),
+        handbrake = random_bool()
+      )
+    )
+    state_b = copy.deepcopy(state_a)
+
+    self.assertIsNot(state_a.pos,                  state_b.pos)
+    self.assertIsNot(state_a.rot_mat,              state_b.rot_mat)
+    self.assertIsNot(state_a.vel,                  state_b.vel)
+    self.assertIsNot(state_a.ang_vel,              state_b.ang_vel)
+    self.assertIsNot(state_a.world_contact_normal, state_b.world_contact_normal)
+    self.assertIsNot(state_a.last_controls,        state_b.last_controls)
 
     self.assertEqual(state_a.pos,                        state_b.pos)
     self.assertEqual(state_a.rot_mat.forward,            state_b.rot_mat.forward)
@@ -612,6 +1088,113 @@ class TestMutatorConfig(FuzzyTestCase):
       enable_team_demos          = random_bool()
     )
     config_b = pickled(config_a)
+
+    self.assertEqual(config_a.gravity,                    config_b.gravity)
+    self.assertEqual(config_a.car_mass,                   config_b.car_mass)
+    self.assertEqual(config_a.car_world_friction,         config_b.car_world_friction)
+    self.assertEqual(config_a.car_world_restitution,      config_b.car_world_restitution)
+    self.assertEqual(config_a.ball_mass,                  config_b.ball_mass)
+    self.assertEqual(config_a.ball_max_speed,             config_b.ball_max_speed)
+    self.assertEqual(config_a.ball_drag,                  config_b.ball_drag)
+    self.assertEqual(config_a.ball_world_friction,        config_b.ball_world_friction)
+    self.assertEqual(config_a.ball_world_restitution,     config_b.ball_world_restitution)
+    self.assertEqual(config_a.jump_accel,                 config_b.jump_accel)
+    self.assertEqual(config_a.jump_immediate_force,       config_b.jump_immediate_force)
+    self.assertEqual(config_a.boost_accel,                config_b.boost_accel)
+    self.assertEqual(config_a.boost_used_per_second,      config_b.boost_used_per_second)
+    self.assertEqual(config_a.respawn_delay,              config_b.respawn_delay)
+    self.assertEqual(config_a.bump_cooldown_time,         config_b.bump_cooldown_time)
+    self.assertEqual(config_a.boost_pad_cooldown_big,     config_b.boost_pad_cooldown_big)
+    self.assertEqual(config_a.boost_pad_cooldown_small,   config_b.boost_pad_cooldown_small)
+    self.assertEqual(config_a.car_spawn_boost_amount,     config_b.car_spawn_boost_amount)
+    self.assertEqual(config_a.ball_hit_extra_force_scale, config_b.ball_hit_extra_force_scale)
+    self.assertEqual(config_a.bump_force_scale,           config_b.bump_force_scale)
+    self.assertEqual(config_a.ball_radius,                config_b.ball_radius)
+    self.assertEqual(config_a.demo_mode,                  config_b.demo_mode)
+    self.assertEqual(config_a.enable_team_demos,          config_b.enable_team_demos)
+
+  def test_copy(self):
+    config_a = rs.MutatorConfig(
+      gravity                    = random_vec(),
+      car_mass                   = random_float(),
+      car_world_friction         = random_float(),
+      car_world_restitution      = random_float(),
+      ball_mass                  = random_float(),
+      ball_max_speed             = random_float(),
+      ball_drag                  = random_float(),
+      ball_world_friction        = random_float(),
+      ball_world_restitution     = random_float(),
+      jump_accel                 = random_float(),
+      jump_immediate_force       = random_float(),
+      boost_accel                = random_float(),
+      boost_used_per_second      = random_float(),
+      respawn_delay              = random_float(),
+      bump_cooldown_time         = random_float(),
+      boost_pad_cooldown_big     = random_float(),
+      boost_pad_cooldown_small   = random_float(),
+      car_spawn_boost_amount     = random_float(),
+      ball_hit_extra_force_scale = random_float(),
+      bump_force_scale           = random_float(),
+      ball_radius                = random_float(),
+      demo_mode                  = random.randint(0, 2),
+      enable_team_demos          = random_bool()
+    )
+    config_b = copy.copy(config_a)
+
+    self.assertIs(config_a.gravity, config_b.gravity)
+
+    self.assertEqual(config_a.car_mass,                   config_b.car_mass)
+    self.assertEqual(config_a.car_world_friction,         config_b.car_world_friction)
+    self.assertEqual(config_a.car_world_restitution,      config_b.car_world_restitution)
+    self.assertEqual(config_a.ball_mass,                  config_b.ball_mass)
+    self.assertEqual(config_a.ball_max_speed,             config_b.ball_max_speed)
+    self.assertEqual(config_a.ball_drag,                  config_b.ball_drag)
+    self.assertEqual(config_a.ball_world_friction,        config_b.ball_world_friction)
+    self.assertEqual(config_a.ball_world_restitution,     config_b.ball_world_restitution)
+    self.assertEqual(config_a.jump_accel,                 config_b.jump_accel)
+    self.assertEqual(config_a.jump_immediate_force,       config_b.jump_immediate_force)
+    self.assertEqual(config_a.boost_accel,                config_b.boost_accel)
+    self.assertEqual(config_a.boost_used_per_second,      config_b.boost_used_per_second)
+    self.assertEqual(config_a.respawn_delay,              config_b.respawn_delay)
+    self.assertEqual(config_a.bump_cooldown_time,         config_b.bump_cooldown_time)
+    self.assertEqual(config_a.boost_pad_cooldown_big,     config_b.boost_pad_cooldown_big)
+    self.assertEqual(config_a.boost_pad_cooldown_small,   config_b.boost_pad_cooldown_small)
+    self.assertEqual(config_a.car_spawn_boost_amount,     config_b.car_spawn_boost_amount)
+    self.assertEqual(config_a.ball_hit_extra_force_scale, config_b.ball_hit_extra_force_scale)
+    self.assertEqual(config_a.bump_force_scale,           config_b.bump_force_scale)
+    self.assertEqual(config_a.ball_radius,                config_b.ball_radius)
+    self.assertEqual(config_a.demo_mode,                  config_b.demo_mode)
+    self.assertEqual(config_a.enable_team_demos,          config_b.enable_team_demos)
+
+  def test_deep_copy(self):
+    config_a = rs.MutatorConfig(
+      gravity                    = random_vec(),
+      car_mass                   = random_float(),
+      car_world_friction         = random_float(),
+      car_world_restitution      = random_float(),
+      ball_mass                  = random_float(),
+      ball_max_speed             = random_float(),
+      ball_drag                  = random_float(),
+      ball_world_friction        = random_float(),
+      ball_world_restitution     = random_float(),
+      jump_accel                 = random_float(),
+      jump_immediate_force       = random_float(),
+      boost_accel                = random_float(),
+      boost_used_per_second      = random_float(),
+      respawn_delay              = random_float(),
+      bump_cooldown_time         = random_float(),
+      boost_pad_cooldown_big     = random_float(),
+      boost_pad_cooldown_small   = random_float(),
+      car_spawn_boost_amount     = random_float(),
+      ball_hit_extra_force_scale = random_float(),
+      bump_force_scale           = random_float(),
+      ball_radius                = random_float(),
+      demo_mode                  = random.randint(0, 2),
+      enable_team_demos          = random_bool()
+    )
+    config_b = copy.deepcopy(config_a)
+
+    self.assertIsNot(config_a.gravity, config_b.gravity)
 
     self.assertEqual(config_a.gravity,                    config_b.gravity)
     self.assertEqual(config_a.car_mass,                   config_b.car_mass)
@@ -899,6 +1482,32 @@ class TestArena(FuzzyTestCase):
       arena.step(7)
 
     self.compare(arena, pickled(arena))
+
+  def test_copy(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    for i in range(4):
+      random_car(arena, rs.Team.BLUE)
+      random_car(arena, rs.Team.ORANGE)
+
+    for i in range(1000):
+      for car in arena.get_cars():
+        update_controls(arena.ball, car)
+      arena.step(7)
+
+    self.compare(arena, copy.copy(arena))
+
+  def test_deep_copy(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    for i in range(4):
+      random_car(arena, rs.Team.BLUE)
+      random_car(arena, rs.Team.ORANGE)
+
+    for i in range(1000):
+      for car in arena.get_cars():
+        update_controls(arena.ball, car)
+      arena.step(7)
+
+    self.compare(arena, copy.deepcopy(arena))
 
   def test_get_car_from_id(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)

@@ -6,6 +6,32 @@ namespace
 {
 // No data races due to GIL
 bool inited = false;
+
+RocketSim::Python::PyObjectRef CopyModuleObj;
+RocketSim::Python::PyObjectRef DeepCopyObj;
+
+bool InitDeepCopy () noexcept
+{
+	if (DeepCopyObj)
+		return true;
+
+	CopyModuleObj = RocketSim::Python::PyObjectRef::steal (PyImport_ImportModule ("copy"));
+	if (!CopyModuleObj)
+		return false;
+
+	DeepCopyObj = RocketSim::Python::PyObjectRef::steal (PyObject_GetAttrString (CopyModuleObj.borrow (), "deepcopy"));
+	if (!DeepCopyObj)
+		return false;
+
+	if (!PyCallable_Check (DeepCopyObj.borrow ()))
+	{
+		DeepCopyObj = {};
+		PyErr_SetString (PyExc_ImportError, "Failed to import copy.deepcopy");
+		return false;
+	}
+
+	return true;
+}
 }
 
 namespace RocketSim::Python
@@ -30,6 +56,18 @@ bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept
 	Py_DECREF (value_);
 
 	return success;
+}
+
+PyObject *PyDeepCopy (void *obj_, PyObject *memo_) noexcept
+{
+	if (!InitDeepCopy ())
+		return nullptr;
+
+	auto args = PyObjectRef::steal (PyTuple_Pack (2, obj_, memo_));
+	if (!args)
+		return nullptr;
+
+	return PyObject_Call (DeepCopyObj.borrow (), args.borrow (), nullptr);
 }
 }
 
@@ -58,6 +96,12 @@ PyObject *Init (PyObject *self_, PyObject *args_, PyObject *kwds_) noexcept
 	Py_RETURN_NONE;
 }
 
+void Free (void *)
+{
+	CopyModuleObj = nullptr;
+	DeepCopyObj   = nullptr;
+}
+
 struct PyMethodDef Methods[] = {
     {.ml_name     = "init",
         .ml_meth  = (PyCFunction)&Init,
@@ -73,6 +117,7 @@ struct PyModuleDef Module = {
     .m_doc     = R"(This is Rocket League!)",
     .m_size    = -1,
     .m_methods = Methods,
+    .m_free    = &Free,
     // clang-format on
 };
 }
