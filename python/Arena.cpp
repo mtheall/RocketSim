@@ -1465,6 +1465,12 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 		auto const ball = self_->arena->ball;
 
 		assign (ballState, 0, ball->_rigidBody);
+		if (ballState.isnan ())
+		{
+			PyErr_SetString (PyExc_RuntimeError, R"(!!DETECTED NaN VALUE IN BALL DATA!!
+DID YOU STATE SET MULTIPLE OBJECTS IN THE SAME LOCATION?)");
+			return nullptr;
+		}
 
 		PyTuple_SetItem (tuple.borrow (), 2, ballState.giftObject ());
 	}
@@ -1497,6 +1503,12 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 		}
 
 		assign (carState, 11, car->car->_rigidBody, state.isDemoed ? &car->demoState : nullptr);
+		if (carState.isnan ())
+		{
+			PyErr_SetString (PyExc_RuntimeError, R"(!!DETECTED NaN VALUE IN CAR DATA!!
+DID YOU STATE SET MULTIPLE OBJECTS IN THE SAME LOCATION?)");
+			return nullptr;
+		}
 
 		PyTuple_SetItem (tuple.borrow (), 3 + carIndex, carState.giftObject ());
 		++carIndex;

@@ -2,6 +2,8 @@
 
 #include "Array.h"
 
+#include <cmath>
+
 namespace
 {
 bool importNumpy ()
@@ -58,5 +60,32 @@ float const &PyArrayRef::operator() (unsigned dim0_, unsigned dim1_) const noexc
 		return *static_cast<float const *> (PyArray_GETPTR2 (borrow (), dim0_, dim1_));
 
 	return *static_cast<float const *> (PyArray_GETPTR1 (borrow (), dim0_));
+}
+
+bool PyArrayRef::isnan () const noexcept
+{
+	if (m_dim1)
+	{
+		for (unsigned j = 0; j < m_dim0; ++j)
+		{
+			auto const p = static_cast<float const *> (PyArray_GETPTR2 (borrow (), j, 0));
+			for (unsigned i = 0; i < m_dim1; ++i)
+			{
+				if (std::isnan (p[i]))
+					return true;
+			}
+		}
+	}
+	else
+	{
+		auto const p = static_cast<float const *> (PyArray_GETPTR1 (borrow (), 0));
+		for (unsigned i = 0; i < m_dim0; ++i)
+		{
+			if (std::isnan (p[i]))
+				return true;
+		}
+	}
+
+	return false;
 }
 }
