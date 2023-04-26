@@ -214,7 +214,7 @@ Car* Car::_AllocateCar() {
 void Car::_BulletSetup(btDynamicsWorld* bulletWorld, const MutatorConfig& mutatorConfig) {
 	{ // Set up rigidbody and collision shapes
 		_childHitboxShape = new btBoxShape((config.hitboxSize * UU_TO_BT) / 2);
-		_compoundShape = new btCompoundShape();
+		_compoundShape = new btCompoundShape(false, 1);
 
 		btTransform hitboxOffsetTransform = btTransform();
 		hitboxOffsetTransform.setIdentity();
@@ -681,7 +681,7 @@ void Car::_UpdateDoubleJumpOrFlip(float tickTime, const MutatorConfig& mutatorCo
 						if (abs(controls.yaw + controls.roll) < 0.1f && abs(controls.pitch) < 0.1f) {
 							dodgeDir = { 0, 0, 0 };
 						} else {
-							dodgeDir.safeNormalize();
+							dodgeDir = dodgeDir.safeNormalized();
 						}
 
 						_internalState.lastRelDodgeTorque = btVector3(-dodgeDir.y(), dodgeDir.x(), 0);
