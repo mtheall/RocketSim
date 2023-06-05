@@ -191,7 +191,7 @@ void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btMatrix3x3 c
 
 void assign (RocketSim::Python::PyArrayRef &array_,
     unsigned col_,
-    btRigidBody *rigidBody_,
+    btRigidBody &rigidBody_,
     CarState const *state_ = nullptr) noexcept
 {
 	if (state_)
@@ -202,13 +202,13 @@ void assign (RocketSim::Python::PyArrayRef &array_,
 	}
 	else
 	{
-		assign (array_, col_ + 0, rigidBody_->getWorldTransform ().getOrigin () * BT_TO_UU);
-		assign (array_, col_ + 7, rigidBody_->getLinearVelocity () * BT_TO_UU);
-		assign (array_, col_ + 10, rigidBody_->getAngularVelocity (), true);
+		assign (array_, col_ + 0, rigidBody_.getWorldTransform ().getOrigin () * BT_TO_UU);
+		assign (array_, col_ + 7, rigidBody_.getLinearVelocity () * BT_TO_UU);
+		assign (array_, col_ + 10, rigidBody_.getAngularVelocity (), true);
 	}
 
-	assign (array_, col_ + 3, rigidBody_->getOrientation ());
-	assign (array_, col_ + 13, rigidBody_->getWorldTransform ().getBasis ());
+	assign (array_, col_ + 3, rigidBody_.getOrientation ());
+	assign (array_, col_ + 13, rigidBody_.getWorldTransform ().getBasis ());
 }
 }
 

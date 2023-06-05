@@ -7,6 +7,9 @@
 
 #include "../MutatorConfig/MutatorConfig.h"
 
+#include "../../../libsrc/bullet3-3.24/BulletDynamics/Dynamics/btRigidBody.h"
+#include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btSphereShape.h"
+
 struct BallState {
 	// Position in world space
 	Vec pos = { 0, 0, RLConst::BALL_REST_Z };
@@ -33,15 +36,15 @@ public:
 	RSAPI BallState GetState();
 	RSAPI void SetState(const BallState& state);
 
-	// No copy/move constructor
-	Ball(const Ball& other) = delete;
-	Ball(Ball&& other) = delete;
-
-	class btRigidBody* _rigidBody;
-	class btSphereShape* _collisionShape;
+	btRigidBody _rigidBody;
+	btSphereShape _collisionShape;
 
 	// For construction by Arena
-	static Ball* _AllocBall();
+	static Ball* _AllocBall() { return new Ball(); }
+
+	// For removal by Arena
+	static void _DestroyBall(Ball* ball) { delete ball; }
+
 	void _BulletSetup(class btDynamicsWorld* bulletWorld, const MutatorConfig& mutatorConfig);
 
 	Vec _velocityImpulseCache = { 0,0,0 };
@@ -55,8 +58,10 @@ public:
 		return GetRadiusBullet() * BT_TO_UU;
 	}
 
-	~Ball();
+	Ball(const Ball& other) = delete;
+	Ball& operator=(const Ball& other) = delete;
 
 private:
 	Ball() {}
+	~Ball() {}
 };
