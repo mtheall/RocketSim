@@ -1,15 +1,17 @@
 .PHONY: all build wheel install clean
 
+PYTHON ?= python3
+
 all: build
 
 build:
-	python3 ../setup.py build --debug
+	$(PYTHON) ../setup.py build --debug
 
 wheel: build
-	python3 ../setup.py bdist_wheel --py-limited-api=cp34
+	$(PYTHON) ../setup.py bdist_wheel --py-limited-api=cp34
 
 install: wheel
-	pip3 install --force-reinstall --user ./dist/RocketSim-1.2.0a8-cp34-abi3-linux_x86_64.whl
+	$(PYTHON) -m pip install --force-reinstall --user ./dist/RocketSim-1.2.0a9-cp34-abi3-linux_x86_64.whl
 
 clean:
 	$(RM) -r build/ dist/ RocketSim.egg-info/
