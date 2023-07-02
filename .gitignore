@@ -34,6 +34,7 @@ out/
 *.sln
 *.filters
 *.user
+build/
 
 # python
 python/build/
