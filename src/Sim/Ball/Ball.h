@@ -20,8 +20,6 @@ struct BallState {
 	// Angular velocity (axis-angle)
 	Vec angVel = { 0, 0, 0 };
 
-	std::uint32_t lastHitCarID = 0;
-
 	void Serialize(DataStreamOut& out);
 	void Deserialize(DataStreamIn& in);
 };
@@ -61,7 +59,8 @@ public:
 	Ball(const Ball& other) = delete;
 	Ball& operator=(const Ball& other) = delete;
 
+	~Ball() {}
+
 private:
 	Ball() {}
-	~Ball() {}
 };
