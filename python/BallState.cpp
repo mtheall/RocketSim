@@ -8,11 +8,6 @@ namespace RocketSim::Python
 PyTypeObject *BallState::Type = nullptr;
 
 PyMemberDef BallState::Members[] = {
-    {.name      = "last_hit_car_id",
-        .type   = TypeHelper<decltype (::BallState::lastHitCarID)>::type,
-        .offset = offsetof (BallState, state) + offsetof (::BallState, lastHitCarID),
-        .flags  = 0,
-        .doc    = "Last hit car id"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -50,8 +45,7 @@ PyType_Slot BallState::Slots[] = {
 __init__(self,
 	pos: RocketSim.Vec = RocketSim.Vec(z = 93.15),
 	vel: RocketSim.Vec = RocketSim.Vec(),
-	ang_vel: RocketSim.Vec = RocketSim.Vec(),
-	last_hit_car_id: int = 0))"},
+	ang_vel: RocketSim.Vec = RocketSim.Vec()))"},
     {0, nullptr},
 };
 
@@ -123,9 +117,8 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	static char posKwd[]          = "pos";
 	static char velKwd[]          = "vel";
 	static char angVelKwd[]       = "ang_vel";
-	static char lastHitCarIDKwd[] = "last_hit_car_id";
 
-	static char *dict[] = {posKwd, velKwd, angVelKwd, lastHitCarIDKwd, nullptr};
+	static char *dict[] = {posKwd, velKwd, angVelKwd, nullptr};
 
 	PyObject *pos       = nullptr; // borrowed references
 	PyObject *vel       = nullptr;
@@ -142,8 +135,6 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 		state.vel = Vec::ToVec (reinterpret_cast<Vec *> (vel));
 	if (angVel)
 		state.angVel = Vec::ToVec (reinterpret_cast<Vec *> (angVel));
-
-	state.lastHitCarID = carId;
 
 	if (!InitFromBallState (self_, state))
 		return -1;
@@ -180,10 +171,6 @@ PyObject *BallState::Pickle (BallState *self_) noexcept
 
 	if (Vec::ToVec (self_->angVel) != model.angVel &&
 	    !DictSetValue (dict.borrow (), "ang_vel", PyNewRef (self_->angVel)))
-		return nullptr;
-
-	if (state.lastHitCarID != model.lastHitCarID &&
-	    !DictSetValue (dict.borrow (), "last_hit_car_id", PyLong_FromUnsignedLong (state.lastHitCarID)))
 		return nullptr;
 
 	return dict.gift ();

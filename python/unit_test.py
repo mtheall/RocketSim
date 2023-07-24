@@ -354,19 +354,17 @@ class TestBallState(FuzzyTestCase):
     self.assertEqual(state.pos, pos)
     self.assertEqual(state.vel, vel)
     self.assertEqual(state.ang_vel, ang_vel)
-    self.assertEqual(state.last_hit_car_id, car_id)
 
   def test_basic(self):
-    self.compare(rs.BallState(), rs.Vec(0, 0, 93.15), rs.Vec(), rs.Vec(), 0)
-    self.compare(rs.BallState(rs.Vec()), rs.Vec(), rs.Vec(), rs.Vec(), 0)
-    self.compare(rs.BallState(vel=rs.Vec(1, 2, 3), last_hit_car_id=10), rs.Vec(0, 0, 93.15), rs.Vec(1, 2, 3), rs.Vec(), 10)
+    self.compare(rs.BallState(), rs.Vec(0, 0, 93.15), rs.Vec(), rs.Vec())
+    self.compare(rs.BallState(rs.Vec()), rs.Vec(), rs.Vec(), rs.Vec())
+    self.compare(rs.BallState(vel=rs.Vec(1, 2, 3)), rs.Vec(0, 0, 93.15), rs.Vec(1, 2, 3), rs.Vec())
 
   def test_copy(self):
     state_a = rs.BallState(
       pos             = random_vec(),
       vel             = random_vec(),
-      ang_vel         = random_vec(),
-      last_hit_car_id = random_int()
+      ang_vel         = random_vec()
     )
     state_b = copy.copy(state_a)
 
@@ -374,14 +372,11 @@ class TestBallState(FuzzyTestCase):
     self.assertIs(state_a.vel,     state_b.vel)
     self.assertIs(state_a.ang_vel, state_b.ang_vel)
 
-    self.assertEqual(state_a.last_hit_car_id, state_b.last_hit_car_id)
-
   def test_deep_copy(self):
     state_a = rs.BallState(
       pos             = random_vec(),
       vel             = random_vec(),
-      ang_vel         = random_vec(),
-      last_hit_car_id = random_int()
+      ang_vel         = random_vec()
     )
     state_b = copy.deepcopy(state_a)
 
@@ -392,22 +387,19 @@ class TestBallState(FuzzyTestCase):
     self.assertEqual(state_a.pos,             state_b.pos)
     self.assertEqual(state_a.vel,             state_b.vel)
     self.assertEqual(state_a.ang_vel,         state_b.ang_vel)
-    self.assertEqual(state_a.last_hit_car_id, state_b.last_hit_car_id)
 
 
   def test_pickle(self):
     state_a = rs.BallState(
       pos             = random_vec(),
       vel             = random_vec(),
-      ang_vel         = random_vec(),
-      last_hit_car_id = random_int()
+      ang_vel         = random_vec()
     )
     state_b = pickled(state_a)
 
     self.assertEqual(state_a.pos,             state_b.pos)
     self.assertEqual(state_a.vel,             state_b.vel)
     self.assertEqual(state_a.ang_vel,         state_b.ang_vel)
-    self.assertEqual(state_a.last_hit_car_id, state_b.last_hit_car_id)
 
 class TestBall(FuzzyTestCase):
   def test_create(self):
@@ -1263,7 +1255,6 @@ class TestArena(FuzzyTestCase):
     self.assertAlmostEqual(state_a.pos,       state_b.pos, 3)
     self.assertAlmostEqual(state_a.vel,       state_b.vel, 3)
     self.assertEqual(state_a.ang_vel,         state_b.ang_vel)
-    self.assertEqual(state_a.last_hit_car_id, state_b.last_hit_car_id)
 
     cars_a = arena_a.get_cars()
     cars_b = arena_b.get_cars()
