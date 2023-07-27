@@ -69,11 +69,11 @@ jobs:
 
       - name: Run unit tests
         run: |
-          python3 python/unit_test.py
+          python3 python-mtheall/unit_test.py
 
       - name: Run regression tests
         run: |
-          python3 python/regression_test.py
+          python3 python-mtheall/regression_test.py
 
       - uses: actions/upload-artifact@v3
         with:
