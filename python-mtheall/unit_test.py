@@ -734,6 +734,7 @@ class TestCarState(FuzzyTestCase):
       last_rel_dodge_torque      = random_vec(),
       jump_time                  = random_float(),
       flip_time                  = random_float(),
+      is_flipping                = random_bool(),
       is_jumping                 = random_bool(),
       air_time_since_jump        = random_float(),
       boost                      = random_float(),
@@ -783,6 +784,7 @@ class TestCarState(FuzzyTestCase):
     self.assertEqual(state_a.last_rel_dodge_torque,      state_b.last_rel_dodge_torque)
     self.assertEqual(state_a.jump_time,                  state_b.jump_time)
     self.assertEqual(state_a.flip_time,                  state_b.flip_time)
+    self.assertEqual(state_a.is_flipping,                state_b.is_flipping)
     self.assertEqual(state_a.is_jumping,                 state_b.is_jumping)
     self.assertEqual(state_a.air_time_since_jump,        state_b.air_time_since_jump)
     self.assertEqual(state_a.boost,                      state_b.boost)
@@ -834,6 +836,7 @@ class TestCarState(FuzzyTestCase):
       last_rel_dodge_torque      = random_vec(),
       jump_time                  = random_float(),
       flip_time                  = random_float(),
+      is_flipping                = random_bool(),
       is_jumping                 = random_bool(),
       air_time_since_jump        = random_float(),
       boost                      = random_float(),
@@ -884,6 +887,7 @@ class TestCarState(FuzzyTestCase):
     self.assertEqual(state_a.last_rel_dodge_torque,      state_b.last_rel_dodge_torque)
     self.assertEqual(state_a.jump_time,                  state_b.jump_time)
     self.assertEqual(state_a.flip_time,                  state_b.flip_time)
+    self.assertEqual(state_a.is_flipping,                state_b.is_flipping)
     self.assertEqual(state_a.is_jumping,                 state_b.is_jumping)
     self.assertEqual(state_a.air_time_since_jump,        state_b.air_time_since_jump)
     self.assertEqual(state_a.boost,                      state_b.boost)
@@ -925,6 +929,7 @@ class TestCarState(FuzzyTestCase):
       last_rel_dodge_torque      = random_vec(),
       jump_time                  = random_float(),
       flip_time                  = random_float(),
+      is_flipping                = random_bool(),
       is_jumping                 = random_bool(),
       air_time_since_jump        = random_float(),
       boost                      = random_float(),
@@ -981,6 +986,7 @@ class TestCarState(FuzzyTestCase):
     self.assertEqual(state_a.last_rel_dodge_torque,      state_b.last_rel_dodge_torque)
     self.assertEqual(state_a.jump_time,                  state_b.jump_time)
     self.assertEqual(state_a.flip_time,                  state_b.flip_time)
+    self.assertEqual(state_a.is_flipping,                state_b.is_flipping)
     self.assertEqual(state_a.is_jumping,                 state_b.is_jumping)
     self.assertEqual(state_a.air_time_since_jump,        state_b.air_time_since_jump)
     self.assertEqual(state_a.boost,                      state_b.boost)
@@ -1584,6 +1590,12 @@ class TestArena(FuzzyTestCase):
         with self.assertRaises(KeyError):
           arena.get_car_from_id(car_id)
       arena_cars = arena.get_cars()
+
+  def test_get_ball_rot(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    # ensure it doesn't crash/output only 0
+    ball_rot = arena.ball.get_rot()
+    self.assertNotEqual(sum(ball_rot), 0)
 
   def test_get_gym_state(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)

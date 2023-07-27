@@ -279,6 +279,7 @@ struct Ball
 	static PyObject *NewStub (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
 	static void Dealloc (Ball *self_) noexcept;
 
+	static PyObject *GetRot (Ball *self_) noexcept;
 	static PyObject *GetRadius (Ball *self_) noexcept;
 	static PyObject *GetState (Ball *self_) noexcept;
 	static PyObject *SetState (Ball *self_, PyObject *args_, PyObject *kwds_) noexcept;
