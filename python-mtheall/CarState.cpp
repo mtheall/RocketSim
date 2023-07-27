@@ -38,6 +38,11 @@ PyMemberDef CarState::Members[] = {
         .offset = offsetof (CarState, state) + offsetof (::CarState, flipTime),
         .flags  = 0,
         .doc    = "Flip time"},
+    {.name      = "is_flipping",
+        .type   = TypeHelper<decltype (::CarState::isFlipping)>::type,
+        .offset = offsetof (CarState, state) + offsetof (::CarState, isFlipping),
+        .flags  = 0,
+        .doc    = "Is flipping"},
     {.name      = "is_jumping",
         .type   = TypeHelper<decltype (::CarState::isJumping)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, isJumping),
@@ -164,6 +169,7 @@ __init__(self
 	last_rel_dodge_torque: RocketSim.Vec = RocketSim.Vec(),
 	jump_time: float = 0.0,
 	flip_time: float = 0.0,
+	is_flipping: bool = False,
 	is_jumping: bool = False,
 	air_time_since_jump: float = 0.0,
 	boost: float = 33.3,
@@ -281,6 +287,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char lastRelDodgeTorqueKwd[]      = "last_rel_dodge_torque";
 	static char jumpTimeKwd[]                = "jump_time";
 	static char flipTimeKwd[]                = "flip_time";
+	static char isFlippingKwd[]              = "is_flipping";
 	static char isJumpingKwd[]               = "is_jumping";
 	static char airTimeSinceJumpKwd[]        = "air_time_since_jump";
 	static char boostKwd[]                   = "boost";
@@ -310,6 +317,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    lastRelDodgeTorqueKwd,
 	    jumpTimeKwd,
 	    flipTimeKwd,
+		isFlippingKwd,
 	    isJumpingKwd,
 	    airTimeSinceJumpKwd,
 	    boostKwd,
@@ -343,7 +351,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	unsigned long carContactID = state.carContact.otherCarID;
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!ppppO!ffpfffpffpfpO!kfpfO!O!",
+	        "|O!O!O!O!ppppO!ffppfffpffpfpO!kfpfO!O!",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -361,6 +369,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        &lastRelDodgeTorque,
 	        &state.jumpTime,
 	        &state.flipTime,
+			&state.isFlipping,
 	        &state.isJumping,
 	        &state.airTimeSinceJump,
 	        &state.boost,
@@ -481,6 +490,10 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 
 	if (state.flipTime != model.flipTime &&
 	    !DictSetValue (dict.borrow (), "flip_time", PyFloat_FromDouble (state.flipTime)))
+		return nullptr;
+
+	if (state.isFlipping != model.isFlipping &&
+	    !DictSetValue (dict.borrow (), "is_flipping", PyBool_FromLong (state.isFlipping)))
 		return nullptr;
 
 	if (state.isJumping != model.isJumping &&
