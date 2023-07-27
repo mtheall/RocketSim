@@ -24,7 +24,7 @@ Set ball state)"},
         .ml_meth  = (PyCFunction)&Ball::GetRot,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc   = R"(get_rot(self) -> (float, float, float, float)
-Get ball rotation as quaternion)"},
+Get ball rotation as a quaternion (xyzw))"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
