@@ -1591,6 +1591,12 @@ class TestArena(FuzzyTestCase):
           arena.get_car_from_id(car_id)
       arena_cars = arena.get_cars()
 
+  def test_get_ball_rot(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    # ensure it doesn't crash/output only 0
+    ball_rot = arena.ball.get_rot()
+    self.assertNotEqual(sum(ball_rot), 0)
+
   def test_get_gym_state(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)
     car1  = arena.add_car(rs.Team.BLUE, rs.CarConfig.DOMINUS)

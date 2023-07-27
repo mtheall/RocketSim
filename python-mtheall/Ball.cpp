@@ -20,6 +20,11 @@ Get ball state)"},
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc   = R"(set_state(self, state: RocketSim.BallState)
 Set ball state)"},
+    {.ml_name     = "get_rot",
+        .ml_meth  = (PyCFunction)&Ball::GetRot,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(get_rot(self) -> (float, float, float, float)
+Get ball rotation as quaternion)"},
     {.ml_name = nullptr, .ml_meth = nullptr, .ml_flags = 0, .ml_doc = nullptr},
 };
 
@@ -66,6 +71,22 @@ void Ball::Dealloc (Ball *self_) noexcept
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
+}
+
+PyObject *Ball::GetRot (Ball *self_) noexcept
+{
+	auto tuple = PyObjectRef::steal (PyTuple_New (4));
+	if (!tuple)
+		return nullptr;
+
+	auto rot = self_->ball->_rigidBody.getOrientation();
+
+    PyTuple_SetItem (tuple.borrow (), 0, PyFloat_FromDouble (rot.getX ()));
+    PyTuple_SetItem (tuple.borrow (), 1, PyFloat_FromDouble (rot.getY ()));
+    PyTuple_SetItem (tuple.borrow (), 2, PyFloat_FromDouble (rot.getZ ()));
+    PyTuple_SetItem (tuple.borrow (), 3, PyFloat_FromDouble (rot.getW ()));
+
+	return tuple.giftObject ();
 }
 
 PyObject *Ball::GetRadius (Ball *self_) noexcept
