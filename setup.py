@@ -18,7 +18,7 @@ headers = []
 
 base = os.path.abspath(os.path.dirname(argv[0]))
 
-for root, dirs, files in os.walk(os.path.join(base, "python")):
+for root, dirs, files in os.walk(os.path.join(base, "python-mtheall")):
   for file in files:
     if file.endswith(".cpp"):
       sources.append(os.path.join(root, file))
