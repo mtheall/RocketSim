@@ -38,12 +38,17 @@ public:
 	GameMode gameMode;
 
 	uint32_t _lastCarID = 0;
-	unordered_set<Car*> _cars;
-	unordered_map<uint32_t, Car*> _carIDMap;
+	std::unordered_set<Car*> _cars;
+	bool ownsCars = true; // If true, deleting this arena instance deletes all cars
+
+	std::unordered_map<uint32_t, Car*> _carIDMap;
 	
 	Ball* ball;
-
-	vector<BoostPad*> _boostPads;
+	bool ownsBall = true; // If true, deleting this arena instance deletes the ball
+	
+	std::vector<BoostPad*> _boostPads;
+	bool ownsBoostPads = true; // If true, deleing this arena instance deletes all boost pads
+	
 	BoostPadGrid _boostPadGrid;
 
 	SuspensionCollisionGrid _suspColGrid;
@@ -64,8 +69,8 @@ public:
 	// Total ticks this arena instance has been simulated for, never resets
 	uint64_t tickCount = 0;
 
-	const unordered_set<Car*>& GetCars() { return _cars; }
-	const vector<BoostPad*>& GetBoostPads() { return _boostPads; }
+	const std::unordered_set<Car*>& GetCars() { return _cars; }
+	const std::vector<BoostPad*>& GetBoostPads() { return _boostPads; }
 
 	// Returns true if added, false if car was already added
 	bool _AddCarFromPtr(Car* car);
@@ -123,11 +128,11 @@ public:
 	// NOTE: Arena should be destroyed after use
 	RSAPI static Arena* Create(GameMode gameMode, float tickRate = 120);
 	
-	// Serialize cars, ball, and boostpads to a file
-	RSAPI void WriteToFile(std::filesystem::path path);
+	// Serialize entire arena state including cars, ball, and boostpads
+	RSAPI void Serialize(DataStreamOut& out);
 
-	// Create a new arena from a file written by Arena.WriteToFile()
-	RSAPI static Arena* LoadFromFile(std::filesystem::path path);
+	// Load new arena from serialized data
+	RSAPI static Arena* DeserializeNew(DataStreamIn& in);
 
 	Arena(const Arena& other) = delete; // No copy constructor, use Arena::Clone() instead
 	Arena& operator =(const Arena& other) = delete; // No copy operator, use Arena::Clone() instead
@@ -137,8 +142,6 @@ public:
 
 	// Get a deep copy of the arena
 	RSAPI Arena* Clone(bool copyCallbacks);
-
-	RSAPI static void SerializeCar(DataStreamOut& out, Car* car);
 
 	// NOTE: Car ID will not be restored
 	RSAPI Car* DeserializeNewCar(DataStreamIn& in, Team team);

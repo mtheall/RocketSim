@@ -82,7 +82,8 @@ bool Arena::RemoveCar(uint32_t id) {
 		_carIDMap.erase(itr);
 		_cars.erase(car);
 		_bulletWorld.removeCollisionObject(&car->_rigidBody);
-		Car::_DestroyCar(car);
+		if (ownsCars)
+			delete car;
 		return true;
 	} else {
 		return false;
@@ -124,7 +125,7 @@ void Arena::ResetToRandomKickoff(int seed) {
 
 	// TODO: Make shuffling of kickoff setup more efficient (?)
 
-	static thread_local vector<int> kickoffOrder;
+	static thread_local std::vector<int> kickoffOrder;
 	if (kickoffOrder.empty()) {
 		for (int i = 0; i < CAR_SPAWN_LOCATION_AMOUNT; i++)
 			kickoffOrder.push_back(i);
@@ -138,7 +139,7 @@ void Arena::ResetToRandomKickoff(int seed) {
 		std::shuffle(kickoffOrder.begin(), kickoffOrder.end(), randEngine);
 	}
 
-	vector<Car*> blueCars, orangeCars;
+	std::vector<Car*> blueCars, orangeCars;
 	for (Car* car : _cars)
 		((car->team == Team::BLUE) ? blueCars : orangeCars).push_back(car);
 
@@ -148,7 +149,7 @@ void Arena::ResetToRandomKickoff(int seed) {
 
 		for (int teamIndex = 0; teamIndex < 2; teamIndex++) {
 			bool isBlue = (teamIndex == 0);
-			vector<Car*> teamCars = isBlue ? blueCars : orangeCars;
+			std::vector<Car*> teamCars = isBlue ? blueCars : orangeCars;
 
 			if (i < teamCars.size()) {
 				CarState spawnState;
@@ -471,17 +472,15 @@ Arena* Arena::Create(GameMode gameMode, float tickRate) {
 	return new Arena(gameMode, tickRate);
 }
 
-void Arena::WriteToFile(std::filesystem::path path) {
-	DataStreamOut out = {};
-
+void Arena::Serialize(DataStreamOut& out) {
 	out.WriteMultiple(gameMode, tickTime, tickCount, _lastCarID);
 
 	{ // Serialize cars
 		out.Write<uint32_t>(_cars.size());
 		for (auto car : _cars) {
-			out.WriteMultiple(car->team, car->id);
-
-			SerializeCar(out, car);
+			out.Write(car->team);
+			out.Write(car->id);
+			car->Serialize(out);
 		}
 	}
 
@@ -498,14 +497,10 @@ void Arena::WriteToFile(std::filesystem::path path) {
 	{ // Serialize mutators
 		_mutatorConfig.Serialize(out);
 	}
-
-	out.WriteToFile(path, true);
 }
 
-Arena* Arena::LoadFromFile(std::filesystem::path path) {
-	constexpr char ERROR_PREFIX[] = "Arena::LoadFromFile(): ";
-
-	DataStreamIn in = DataStreamIn(path, true);
+Arena* Arena::DeserializeNew(DataStreamIn& in) {
+	constexpr char ERROR_PREFIX[] = "Arena::Deserialize(): ";
 
 	GameMode gameMode;
 	float tickTime;
@@ -522,11 +517,12 @@ Arena* Arena::LoadFromFile(std::filesystem::path path) {
 		for (int i = 0; i < carAmount; i++) {
 			Team team;
 			uint32_t id;
-			in.ReadMultiple(team, id);
+			in.Read(team);
+			in.Read(id);
 
 #ifndef RS_MAX_SPEED
 			if (newArena->_carIDMap.count(id))
-				RS_ERR_CLOSE(ERROR_PREFIX << "Failed to load from " << path << ", got repeated car ID of " << id << ".");
+				RS_ERR_CLOSE(ERROR_PREFIX << "Failed to load, got repeated car ID of " << id << ".");
 #endif
 
 			Car* newCar = newArena->DeserializeNewCar(in, team);
@@ -546,8 +542,8 @@ Arena* Arena::LoadFromFile(std::filesystem::path path) {
 
 #ifndef RS_MAX_SPEED
 		if (boostPadAmount != newArena->_boostPads.size())
-			RS_ERR_CLOSE(ERROR_PREFIX << "Failed to load from " << path <<
-				", different boost pad amount written in file (" << boostPadAmount << "/" << newArena->_boostPads.size() << ")");
+			RS_ERR_CLOSE(ERROR_PREFIX << "Failed to load, " <<
+				"different boost pad amount written in file (" << boostPadAmount << "/" << newArena->_boostPads.size() << ")");
 #endif
 
 		for (auto pad : newArena->_boostPads) {
@@ -605,13 +601,6 @@ Arena* Arena::Clone(bool copyCallbacks) {
 	return newArena;
 }
 
-void Arena::SerializeCar(DataStreamOut& out, Car* car) {
-	car->_Serialize(out);
-
-	CarState state = car->GetState();
-	state.Serialize(out);
-}
-
 Car* Arena::DeserializeNewCar(DataStreamIn& in, Team team) {
 	Car* car = Car::_AllocateCar();
 	car->_Deserialize(in);
@@ -620,10 +609,7 @@ Car* Arena::DeserializeNewCar(DataStreamIn& in, Team team) {
 	_AddCarFromPtr(car);
 
 	car->_BulletSetup(&_bulletWorld, _mutatorConfig);
-
-	CarState state = CarState();
-	state.Deserialize(in);
-	car->SetState(state);
+	car->SetState(car->_internalState);
 
 	return car;
 }
@@ -772,22 +758,32 @@ bool Arena::IsBallProbablyGoingIn(float maxTime) {
 
 Arena::~Arena() {
 
+	// Remove all from bullet world constraints
+	while (_bulletWorld.getNumConstraints() > 0)
+		_bulletWorld.removeConstraint(0);
+
 	// Manually remove all collision objects
 	// Otherwise we run into issues regarding deconstruction order
 	while (_bulletWorld.getNumCollisionObjects() > 0)
 		_bulletWorld.removeCollisionObject(_bulletWorld.getCollisionObjectArray()[0]);
 
 	// Remove all cars
-	for (Car* car : _cars)
-		Car::_DestroyCar(car);
+	if (ownsCars) {
+		for (Car* car : _cars)
+			delete car;
+	}
 
 	// Remove the ball
-	Ball::_DestroyBall(ball);
+	if (ownsBall) {
+		Ball::_DestroyBall(ball);
+	}
 
 	if (gameMode == GameMode::SOCCAR) {
-		// Remove all boost pads
-		for (BoostPad* boostPad : _boostPads)
-			delete boostPad;
+		if (ownsBoostPads) {
+			// Remove all boost pads
+			for (BoostPad* boostPad : _boostPads)
+				delete boostPad;
+		}
 
 		delete[] _worldCollisionRBs;
 		delete[] _worldCollisionPlaneShapes;

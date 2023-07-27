@@ -61,7 +61,8 @@ public:
 	Ball(const Ball& other) = delete;
 	Ball& operator=(const Ball& other) = delete;
 
+	~Ball() {}
+
 private:
 	Ball() {}
-	~Ball() {}
 };

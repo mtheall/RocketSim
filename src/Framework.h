@@ -1,6 +1,6 @@
 #pragma once
 
-#define RS_VERSION "1.2.0"
+#define RS_VERSION "pre-1.3.0"
 
 #include <cstdint>
 #include <cstdlib>
@@ -33,20 +33,6 @@
 #define _USE_MATH_DEFINES // for M_PI and similar
 #include <cmath>
 
-// Remove need for std namespace scope for very common datatypes
-using std::vector;
-using std::map;
-using std::unordered_map;
-using std::set;
-using std::multiset;
-using std::unordered_set;
-using std::list;
-using std::stack;
-using std::deque;
-using std::string;
-using std::wstring;
-using std::pair;
-
 typedef uint8_t byte;
 
 // Current millisecond time
@@ -72,7 +58,7 @@ typedef uint8_t byte;
 
 #define RS_WARN(s) RS_LOG("WARNING: " << s)
 
-#define RS_ERR_CLOSE(s) { std::cout << std::dec << "FATAL ERROR: " << s << std::endl; std::exit(EXIT_FAILURE); }
+#define RS_ERR_CLOSE(s) { std::string _errorStr = RS_STR("FATAL ERROR: " << s); RS_LOG(_errorStr); throw new std::runtime_error(_errorStr); exit(EXIT_FAILURE); }
 
 #if 0 // FOR FUTURE USE: Exports/imports setup
 #ifdef ROCKETSIM_EXPORTS
