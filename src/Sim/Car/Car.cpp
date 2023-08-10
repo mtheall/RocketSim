@@ -594,7 +594,7 @@ void Car::_UpdateAirControl(float tickTime, const MutatorConfig& mutatorConfig) 
 		float pitchTorqueScale = 1;
 		if (controls.pitch || controls.yaw || controls.roll) {
 
-			if (_internalState.hasFlipped && _internalState.flipTime < FLIP_PITCHLOCK_TIME)
+			if (_internalState.isFlipping && _internalState.flipTime < FLIP_PITCHLOCK_TIME)
 				pitchTorqueScale = 0;
 
 			// TODO: Use actual dot product operator functions (?)
@@ -631,7 +631,7 @@ void Car::_UpdateDoubleJumpOrFlip(float tickTime, const MutatorConfig& mutatorCo
 	if (_internalState.isOnGround) {
 		_internalState.hasDoubleJumped = false;
 		_internalState.hasFlipped = false;
-		_internalState.airTimeSinceJump = false;
+		_internalState.airTimeSinceJump = 0;
 	} else {
 		if (_internalState.hasJumped && !_internalState.isJumping) {
 			_internalState.airTimeSinceJump += tickTime;
@@ -727,7 +727,7 @@ void Car::_UpdateDoubleJumpOrFlip(float tickTime, const MutatorConfig& mutatorCo
 		}
 	}
 
-	if (_internalState.hasFlipped) {
+	if (_internalState.isFlipping) {
 		// Replicated from https://github.com/samuelpmish/RLUtilities/blob/develop/src/mechanics/dodge.cc
 		_internalState.flipTime += tickTime;
 		if (_internalState.flipTime <= FLIP_TORQUE_TIME) {

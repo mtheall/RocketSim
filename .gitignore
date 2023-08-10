@@ -43,6 +43,10 @@ out/
 *.filters
 *.user
 build/
+CMakeSettings.json
+
+# Anything starting with three underscores
+___*
 
 # python-mtheall
 python-mtheall/build/
