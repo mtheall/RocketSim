@@ -82,13 +82,14 @@ RocketSim = Extension(
     ("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION"),
     ("PY_ARRAY_UNIQUE_SYMBOL", "RocketSim_ARRAY_API"),
     ("NO_IMPORT_ARRAY", "1"),
-    ("RS_DONT_LOG", "1")
+    ("RS_DONT_LOG", "1"),
+    ("RS_MERGE_ARENA_MESHES", "1")
   ]
 )
 
 setup(
   name = "RocketSim",
-  version = "1.3.0a1",
+  version = "1.3.0a2",
   description = "This is Rocket League!",
   cmdclass = {"build_ext": build_ext_ex},
   ext_modules = [RocketSim]

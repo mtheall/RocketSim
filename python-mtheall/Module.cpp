@@ -36,15 +36,26 @@ bool InitDeepCopy () noexcept
 
 namespace RocketSim::Python
 {
-void InitInternal (char const *path_) noexcept
+bool InitInternal (char const *path_) noexcept
 {
 	if (inited)
-		return;
+		return true;
 
 	if (!path_)
 		path_ = std::getenv ("RS_COLLISION_MESHES");
 
-	RocketSim::Init (path_ ? path_ : COLLISION_MESH_BASE_PATH);
+	try
+	{
+		RocketSim::Init (path_ ? path_ : COLLISION_MESH_BASE_PATH);
+	}
+	catch (...)
+	{
+		return false;
+	}
+
+	inited = true;
+
+	return true;
 }
 
 bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept
@@ -89,9 +100,11 @@ PyObject *Init (PyObject *self_, PyObject *args_, PyObject *kwds_) noexcept
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|s", dict, &path))
 		return nullptr;
 
-	RocketSim::Python::InitInternal (path);
-
-	inited = true;
+	if (!RocketSim::Python::InitInternal (path))
+	{
+		PyErr_SetString (PyExc_RuntimeError, "Failed to initialize RocketSim");
+		return nullptr;
+	}
 
 	Py_RETURN_NONE;
 }

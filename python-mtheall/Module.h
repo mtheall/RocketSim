@@ -62,7 +62,7 @@ static_assert (sizeof (bool) == sizeof (char));
 
 namespace RocketSim::Python
 {
-void InitInternal (char const *path_) noexcept;
+bool InitInternal (char const *path_) noexcept;
 
 bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept;
 
@@ -487,7 +487,7 @@ struct Car
 {
 	PyObject_HEAD
 
-	    ::CarState demoState;
+	::CarState demoState;
 
 	std::shared_ptr<Arena> arena;
 	::Car *car;

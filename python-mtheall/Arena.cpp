@@ -466,7 +466,11 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 	}
 
 	// default initialization if it hasn't been done yet
-	InitInternal (nullptr);
+	if (!InitInternal (nullptr))
+	{
+		PyErr_SetString (PyExc_RuntimeError, "Failed to initialize RocketSim");
+		return -1;
+	}
 
 	try
 	{
@@ -839,6 +843,12 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	if (goalScoreCallback && goalScoreCallback != Py_None && !PyCallable_Check (goalScoreCallback))
 	{
 		PyErr_SetString (PyExc_ValueError, "Invalid goal score callback");
+		return nullptr;
+	}
+
+	if (!InitInternal (nullptr))
+	{
+		PyErr_SetString (PyExc_RuntimeError, "Failed to initialize RocketSim");
 		return nullptr;
 	}
 
