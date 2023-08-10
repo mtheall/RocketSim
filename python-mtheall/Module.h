@@ -62,7 +62,7 @@ static_assert (sizeof (bool) == sizeof (char));
 
 namespace RocketSim::Python
 {
-bool InitInternal (char const *path_) noexcept;
+void InitInternal (char const *path_);
 
 bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept;
 

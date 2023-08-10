@@ -9,6 +9,7 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdlib>
+#include <exception>
 #include <new>
 #include <tuple>
 #include <unordered_map>
@@ -465,10 +466,14 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		return -1;
 	}
 
-	// default initialization if it hasn't been done yet
-	if (!InitInternal (nullptr))
+	try
 	{
-		PyErr_SetString (PyExc_RuntimeError, "Failed to initialize RocketSim");
+		// default initialization if it hasn't been done yet
+		InitInternal (nullptr);
+	}
+	catch (std::exception const &err)
+	{
+		PyErr_SetString (PyExc_RuntimeError, err.what ());
 		return -1;
 	}
 
@@ -846,17 +851,19 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		return nullptr;
 	}
 
-	if (!InitInternal (nullptr))
+	try
 	{
-		PyErr_SetString (PyExc_RuntimeError, "Failed to initialize RocketSim");
+		// default initialization if it hasn't been done yet
+		InitInternal (nullptr);
+	}
+	catch (std::exception const &err)
+	{
+		PyErr_SetString (PyExc_RuntimeError, err.what ());
 		return nullptr;
 	}
 
 	try
 	{
-		// default initialization if it hasn't been done yet
-		InitInternal (nullptr);
-
 		auto arena = std::shared_ptr<::Arena> (::Arena::Create (static_cast<::GameMode> (gameMode), 1.0f / tickTime));
 		if (!arena)
 			return PyErr_NoMemory ();
