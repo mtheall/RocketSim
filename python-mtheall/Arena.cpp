@@ -479,7 +479,8 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	try
 	{
-		auto arena = std::shared_ptr<::Arena> (::Arena::Create (static_cast<::GameMode> (gameMode), tickRate));
+		auto arena = std::shared_ptr<::Arena> (
+		    ::Arena::Create (static_cast<::GameMode> (gameMode), ArenaMemWeightMode::HEAVY, tickRate));
 		if (!arena)
 			throw -1;
 
@@ -864,7 +865,8 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 	try
 	{
-		auto arena = std::shared_ptr<::Arena> (::Arena::Create (static_cast<::GameMode> (gameMode), 1.0f / tickTime));
+		auto arena = std::shared_ptr<::Arena> (
+		    ::Arena::Create (static_cast<::GameMode> (gameMode), ArenaMemWeightMode::HEAVY, 1.0f / tickTime));
 		if (!arena)
 			return PyErr_NoMemory ();
 

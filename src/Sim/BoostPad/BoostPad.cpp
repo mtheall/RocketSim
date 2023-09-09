@@ -84,7 +84,7 @@ bool BoostPad::_PostTickUpdate(float tickTime, const MutatorConfig& mutatorConfi
 	return pickedUp;
 }
 
-void BoostPadState::Serialize(DataStreamOut& out) {
+void BoostPadState::Serialize(DataStreamOut& out) const {
 	out.WriteMultiple(
 		BOOSTPAD_SERIALIZATION_FIELDS
 	);
