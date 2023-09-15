@@ -68,6 +68,23 @@ bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept
 
 PyObject *PyDeepCopy (void *obj_, PyObject *memo_) noexcept;
 
+class GIL
+{
+public:
+	~GIL () noexcept
+	{
+		PyGILState_Release (m_state);
+	}
+
+	GIL () noexcept
+	: m_state (PyGILState_Ensure ())
+	{
+	}
+
+private:
+	PyGILState_STATE m_state;
+};
+
 struct GameMode
 {
 	PyObject_HEAD
@@ -87,6 +104,15 @@ struct Team
 };
 
 struct DemoMode
+{
+	PyObject_HEAD
+
+	static PyTypeObject *Type;
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+};
+
+struct MemoryWeightMode
 {
 	PyObject_HEAD
 
@@ -554,9 +580,12 @@ struct MutatorConfig
 
 struct Arena
 {
+	class ThreadPool;
+
 	PyObject_HEAD
 
 	std::shared_ptr<::Arena> arena;
+	std::shared_ptr<ThreadPool> threadPool;
 	std::map<std::uint32_t, PyRef<Car>> *cars;
 	std::unordered_map<::BoostPad *, PyRef<BoostPad>> *boostPads;
 	std::vector<PyRef<BoostPad>> *boostPadsByIndex;
@@ -578,7 +607,9 @@ struct Arena
 	std::uint64_t lastGoalTick;
 	std::uint64_t lastGymStateTick;
 
-	bool stepException;
+	mutable PyObject *stepExceptionType;
+	mutable PyObject *stepExceptionValue;
+	mutable PyObject *stepExceptionTraceback;
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
@@ -613,6 +644,9 @@ struct Arena
 	static PyObject *SetGoalScoreCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetMutatorConfig (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *Step (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *Stop (Arena *self_) noexcept;
+
+	static PyObject *MultiStep (PyObject *dummy_, PyObject *args_, PyObject *kwds_) noexcept;
 
 	static void HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept;
 	static void

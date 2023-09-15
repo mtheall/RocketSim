@@ -6,13 +6,23 @@
 #include <array>
 #include <bit>
 #include <cassert>
+#include <chrono>
 #include <cinttypes>
 #include <cmath>
+#include <condition_variable>
 #include <cstdlib>
+#include <deque>
 #include <exception>
+#include <future>
+#include <mutex>
 #include <new>
+#include <set>
+#include <thread>
 #include <tuple>
 #include <unordered_map>
+#include <vector>
+
+using namespace std::chrono_literals;
 
 namespace
 {
@@ -211,10 +221,179 @@ void assign (RocketSim::Python::PyArrayRef &array_,
 	assign (array_, col_ + 3, rigidBody_.getOrientation ());
 	assign (array_, col_ + 13, rigidBody_.getWorldTransform ().getBasis ());
 }
+
+void saveException (RocketSim::Python::Arena const *const arena_) noexcept
+{
+	PyErr_Fetch (&arena_->stepExceptionType, &arena_->stepExceptionValue, &arena_->stepExceptionTraceback);
+	arena_->arena->Stop ();
+}
+
+void restoreException (RocketSim::Python::Arena const *const arena_) noexcept
+{
+	// normalize exception
+	PyErr_NormalizeException (&arena_->stepExceptionType, &arena_->stepExceptionValue, &arena_->stepExceptionTraceback);
+	if (arena_->stepExceptionTraceback)
+		PyException_SetTraceback (arena_->stepExceptionValue, arena_->stepExceptionTraceback);
+	else
+		PyException_SetTraceback (arena_->stepExceptionValue, Py_None);
+
+	// this steals our reference
+	PyErr_Restore (arena_->stepExceptionType, arena_->stepExceptionValue, arena_->stepExceptionTraceback);
+
+	arena_->stepExceptionType      = nullptr;
+	arena_->stepExceptionValue     = nullptr;
+	arena_->stepExceptionTraceback = nullptr;
+}
+
+void discardException (RocketSim::Python::Arena const *const arena_) noexcept
+{
+	Py_XDECREF (arena_->stepExceptionType);
+	Py_XDECREF (arena_->stepExceptionValue);
+	Py_XDECREF (arena_->stepExceptionTraceback);
+
+	arena_->stepExceptionType      = nullptr;
+	arena_->stepExceptionValue     = nullptr;
+	arena_->stepExceptionTraceback = nullptr;
+}
 }
 
 namespace RocketSim::Python
 {
+class Arena::ThreadPool
+{
+public:
+	~ThreadPool () noexcept
+	{
+		{
+			auto const lock = std::scoped_lock (m_mutex);
+			m_quit          = true;
+		}
+
+		m_cv.notify_all ();
+
+		for (auto &thread : m_threads)
+			thread.join ();
+	}
+
+	ThreadPool () noexcept
+	{
+		auto const numThreads = std::max (1u, std::thread::hardware_concurrency ());
+
+		m_threads.reserve (numThreads);
+
+		for (unsigned i = 0; i < numThreads; ++i)
+			m_threads.emplace_back (&Arena::ThreadPool::run, this);
+	}
+
+	bool SubmitJob (std::set<PyRef<Arena>> const &arenas_, unsigned const ticks_) noexcept
+	{
+		std::vector<std::shared_future<void>> futures;
+
+		try
+		{
+			futures.reserve (arenas_.size ());
+		}
+		catch (std::exception const &err)
+		{
+			PyErr_SetString (PyExc_RuntimeError, err.what ());
+			return false;
+		}
+
+		{
+			auto const lock = std::scoped_lock (m_mutex);
+
+			try
+			{
+				for (auto &arena : arenas_)
+				{
+					auto future =
+					    std::async (std::launch::deferred, &::Arena::Step, arena->arena.get (), ticks_).share ();
+					m_jobs.emplace_back (future);
+					futures.emplace_back (future);
+				}
+			}
+			catch (std::exception const &err)
+			{
+				// remove added jobs
+				for (unsigned i = 0; i < futures.size (); ++i)
+					m_jobs.pop_back ();
+
+				PyErr_SetString (PyExc_RuntimeError, err.what ());
+				return false;
+			}
+		}
+
+		if (futures.size () >= m_threads.size ())
+			m_cv.notify_all ();
+		else
+		{
+			for (unsigned i = 0; i < futures.size (); ++i)
+				m_cv.notify_one ();
+		}
+
+		// wait for submitted jobs to complete
+		for (auto &future : futures)
+		{
+			while (future.valid () && future.wait_for (100ms) != std::future_status::ready)
+			{
+			}
+		}
+
+		return true;
+	}
+
+	static std::shared_ptr<ThreadPool> GetInstance () noexcept
+	{
+		static std::mutex mutex;
+		auto const lock = std::scoped_lock (mutex);
+
+		try
+		{
+			auto pool = s_instance.lock ();
+			if (!pool)
+				s_instance = pool = std::make_shared<ThreadPool> ();
+
+			return pool;
+		}
+		catch (...)
+		{
+			return nullptr;
+		}
+	}
+
+private:
+	void run () noexcept
+	{
+		while (true)
+		{
+			auto lock = std::unique_lock (m_mutex);
+
+			while (!m_quit && m_jobs.empty ())
+				m_cv.wait (lock);
+
+			if (m_quit && m_jobs.empty ())
+				return;
+
+			auto job = m_jobs.front ();
+			m_jobs.pop_front ();
+
+			lock.unlock ();
+
+			job.get ();
+		}
+	}
+
+	static std::weak_ptr<ThreadPool> s_instance;
+
+	std::vector<std::thread> m_threads;
+	std::deque<std::shared_future<void>> m_jobs;
+	std::mutex m_mutex;
+	std::condition_variable m_cv;
+	bool m_quit = false;
+};
+
+std::weak_ptr<Arena::ThreadPool> Arena::ThreadPool::s_instance;
+
 PyTypeObject *Arena::Type = nullptr;
 
 PyMemberDef Arena::Members[] = {
@@ -276,7 +455,7 @@ Format: tuple(a, b, c, car1, car2, ...)
 	carX: numpy.array(car_state, car_state_inverse)
 
 	ball_state: [pos_x, pos_y, pos_z,
-	             quat_w, quat_x, quat_y, quat_z, 
+	             quat_w, quat_x, quat_y, quat_z,
 	             vel_x, vel_y, vel_z,
 	             ang_vel_x, ang_vel_y, ang_vel_z,
 	             rot_forward_x, rot_forward_y, rot_forward_z,
@@ -288,7 +467,7 @@ Format: tuple(a, b, c, car1, car2, ...)
 	car_state: [car_id, team, goals, saves, shots, demos, boost_pickups,
 	            is_demoed, is_on_ground, hit_last_step, boost, # boost is 0 to 100
 	            pos_x, pos_y, pos_z,
-	            quat_w, quat_x, quat_y, quat_z, 
+	            quat_w, quat_x, quat_y, quat_z,
 	            vel_x, vel_y, vel_z,
 	            ang_vel_x, ang_vel_y, ang_vel_z,
 	            rot_forward_x, rot_forward_y, rot_forward_z,
@@ -357,6 +536,12 @@ Returns previous (callback, data))"},
         .ml_meth  = (PyCFunction)&Arena::Step,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc   = R"(step(self, ticks: int = 1))"},
+    {.ml_name = "stop", .ml_meth = (PyCFunction)&Arena::Stop, .ml_flags = METH_NOARGS, .ml_doc = R"(stop(self)
+This can be called from within a callback to stop simulation early)"},
+    {.ml_name     = "multi_step",
+        .ml_meth  = (PyCFunction)&Arena::MultiStep,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS | METH_STATIC,
+        .ml_doc   = R"(multi_step(arenas: list[RocketSim.Arena] = [], ticks: int = 1))"},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Arena::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Arena::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name     = "__copy__",
@@ -388,7 +573,7 @@ PyType_Slot Arena::Slots[] = {
     {Py_tp_members, &Arena::Members},
     {Py_tp_getset, &Arena::GetSet},
     {Py_tp_doc, (void *)R"(Arena
-__init__(self, game_mode: int = RocketSim.GameMode.SOCCAR, tick_rate: float = 120.0))"},
+__init__(self, game_mode: int = RocketSim.GameMode.SOCCAR, memory_weight_mode = RocketSim.MemoryWeightMode.HEAVY, tick_rate: float = 120.0))"},
     {0, nullptr},
 };
 
@@ -409,6 +594,7 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 		return nullptr;
 
 	new (&self->arena) std::shared_ptr<::Arena>{};
+	new (&self->threadPool) std::shared_ptr<Arena::ThreadPool>{};
 	self->cars                        = new (std::nothrow) std::map<std::uint32_t, PyRef<Car>>{};
 	self->boostPads                   = new (std::nothrow) std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
 	self->boostPadsByIndex            = nullptr;
@@ -427,11 +613,14 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	self->orangeScore                 = 0;
 	self->lastGoalTick                = 0;
 	self->lastGymStateTick            = 0;
-	self->stepException               = 0;
+	self->stepExceptionType           = nullptr;
+	self->stepExceptionValue          = nullptr;
+	self->stepExceptionTraceback      = nullptr;
 
 	if (!self->cars || !self->boostPads)
 	{
 		self->arena.~shared_ptr ();
+		self->threadPool.~shared_ptr ();
 		delete self->cars;
 		delete self->boostPads;
 
@@ -443,15 +632,17 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 
 int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	int gameMode   = static_cast<int> (::GameMode::SOCCAR);
-	float tickRate = 120.0f;
+	int gameMode         = static_cast<int> (::GameMode::SOCCAR);
+	int memoryWeightMode = static_cast<int> (::ArenaMemWeightMode::HEAVY);
+	float tickRate       = 120.0f;
 
-	static char gameModeKwd[] = "game_mode";
-	static char tickRateKwd[] = "tick_rate";
+	static char gameModeKwd[]         = "game_mode";
+	static char memoryWeightModeKwd[] = "memory_weight_mode";
+	static char tickRateKwd[]         = "tick_rate";
 
-	static char *dict[] = {gameModeKwd, tickRateKwd, nullptr};
+	static char *dict[] = {gameModeKwd, memoryWeightModeKwd, tickRateKwd, nullptr};
 
-	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|if", dict, &gameMode, &tickRate))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|iif", dict, &gameMode, &memoryWeightMode, &tickRate))
 		return -1;
 
 	if (gameMode != static_cast<int> (::GameMode::SOCCAR) && gameMode != static_cast<int> (::GameMode::THE_VOID))
@@ -479,8 +670,8 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	try
 	{
-		auto arena = std::shared_ptr<::Arena> (
-		    ::Arena::Create (static_cast<::GameMode> (gameMode), ArenaMemWeightMode::HEAVY, tickRate));
+		auto arena = std::shared_ptr<::Arena> (::Arena::Create (
+		    static_cast<::GameMode> (gameMode), static_cast<::ArenaMemWeightMode> (memoryWeightMode), tickRate));
 		if (!arena)
 			throw -1;
 
@@ -539,6 +730,7 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 void Arena::Dealloc (Arena *self_) noexcept
 {
 	self_->arena.~shared_ptr ();
+	self_->threadPool.~shared_ptr ();
 	delete self_->cars;
 	delete self_->boostPads;
 	delete self_->boostPadsByIndex;
@@ -717,6 +909,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		return nullptr;
 
 	static char gameModeKwd[]                    = "game_mode";
+	static char memoryWeightModeKwd[]            = "memory_weight_mode";
 	static char lastCarIDKwd[]                   = "last_car_id";
 	static char mutatorConfigKwd[]               = "mutator_config";
 	static char tickTimeKwd[]                    = "tick_time";
@@ -740,6 +933,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	static char goalScoreCallbackUserDataKwd[]   = "goal_score_callback_user_data";
 
 	static char *dict[] = {gameModeKwd,
+	    memoryWeightModeKwd,
 	    lastCarIDKwd,
 	    mutatorConfigKwd,
 	    tickTimeKwd,
@@ -785,11 +979,13 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	unsigned blueScore                    = 0;
 	unsigned orangeScore                  = 0;
 	int gameMode                          = static_cast<int> (::GameMode::SOCCAR);
+	int memoryWeightMode                  = static_cast<int> (::ArenaMemWeightMode::HEAVY);
 	if (!PyArg_ParseTupleAndKeywords (dummy.borrow (),
 	        dict_,
-	        "|ikO!fKO!O!O!IIKKOOOOOOOO",
+	        "|iikO!fKO!O!O!IIKKOOOOOOOO",
 	        dict,
 	        &gameMode,
+	        &memoryWeightMode,
 	        &lastCarID,
 	        MutatorConfig::Type,
 	        &mutatorConfig,
@@ -820,6 +1016,10 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	if (static_cast<::GameMode> (gameMode) != ::GameMode::SOCCAR &&
 	    static_cast<::GameMode> (gameMode) != ::GameMode::THE_VOID)
 		return PyErr_Format (PyExc_ValueError, "Invalid game mode '%d'", gameMode);
+
+	if (static_cast<::ArenaMemWeightMode> (memoryWeightMode) != ::ArenaMemWeightMode::LIGHT &&
+	    static_cast<::ArenaMemWeightMode> (memoryWeightMode) != ::ArenaMemWeightMode::HEAVY)
+		return PyErr_Format (PyExc_ValueError, "Invalid arena memory weight mode '%d'", memoryWeightMode);
 
 	// make sure callback are None or callable
 	if (ballTouchCallback && ballTouchCallback != Py_None && !PyCallable_Check (ballTouchCallback))
@@ -865,8 +1065,8 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 	try
 	{
-		auto arena = std::shared_ptr<::Arena> (
-		    ::Arena::Create (static_cast<::GameMode> (gameMode), ArenaMemWeightMode::HEAVY, 1.0f / tickTime));
+		auto arena = std::shared_ptr<::Arena> (::Arena::Create (
+		    static_cast<::GameMode> (gameMode), static_cast<::ArenaMemWeightMode> (memoryWeightMode), 1.0f / tickTime));
 		if (!arena)
 			return PyErr_NoMemory ();
 
@@ -1142,6 +1342,7 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 		// no exceptions thrown after this point
 		clone->arena      = arena;
+		clone->threadPool = self_->threadPool;
 		*clone->boostPads = std::move (boostPads);
 		*clone->cars      = std::move (cars);
 
@@ -1802,18 +2003,112 @@ PyObject *Arena::Step (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|i", dict, &ticksToSimulate))
 		return nullptr;
 
-	self_->stepException = false;
+	Py_BEGIN_ALLOW_THREADS;
 	self_->arena->Step (ticksToSimulate);
-	if (self_->stepException)
+	if (self_->stepExceptionType)
+	{
+		restoreException (self_);
 		return nullptr;
+	}
+	Py_END_ALLOW_THREADS;
 
 	Py_RETURN_NONE;
+}
+
+PyObject *Arena::Stop (Arena *self_) noexcept
+{
+	self_->arena->Stop ();
+
+	Py_RETURN_NONE;
+}
+
+PyObject *Arena::MultiStep (PyObject *dummy_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	static char arenasKwd[] = "arenas";
+	static char ticksKwd[]  = "ticks";
+
+	static char *dict[] = {arenasKwd, ticksKwd, nullptr};
+
+	PyObject *arenas    = nullptr;
+	int ticksToSimulate = 1;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|O!i", dict, &PyList_Type, &arenas, &ticksToSimulate))
+		return nullptr;
+
+	auto const count = PyList_Size (arenas);
+	if (count == 0)
+		Py_RETURN_NONE;
+
+	std::set<PyRef<Arena>> jobs;
+
+	auto pool = Arena::ThreadPool::GetInstance ();
+	if (!pool)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "Failed to create thread pool");
+		return nullptr;
+	}
+
+	try
+	{
+		for (unsigned i = 0; i < count; ++i)
+		{
+			auto obj = PyList_GetItem (arenas, i);
+			if (!obj)
+				return nullptr;
+
+			if (!Py_IS_TYPE (obj, Arena::Type))
+			{
+				PyErr_SetString (PyExc_RuntimeError, "Unexpected type");
+				return nullptr;
+			}
+
+			auto arena = PyRef<Arena>::incObjectRef (obj);
+			if (!jobs.insert (arena).second)
+			{
+				PyErr_SetString (PyExc_RuntimeError, "Duplicate arena detected");
+				return nullptr;
+			}
+
+			arena->threadPool = pool;
+		}
+	}
+	catch (std::exception const &err)
+	{
+		PyErr_SetString (PyExc_RuntimeError, err.what ());
+		return nullptr;
+	}
+
+	bool ok;
+	Py_BEGIN_ALLOW_THREADS;
+	ok = pool->SubmitJob (jobs, ticksToSimulate);
+	Py_END_ALLOW_THREADS;
+
+	if (!ok)
+		return nullptr;
+
+	auto raised = false;
+	for (auto &arena : jobs)
+	{
+		if (arena->stepExceptionType)
+		{
+			restoreException (arena.borrow ());
+			raised = true;
+			break;
+		}
+	}
+
+	if (!raised)
+		Py_RETURN_NONE;
+
+	for (auto &arena : jobs)
+		discardException (arena.borrow ());
+
+	return nullptr;
 }
 
 void Arena::HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
-	if (self->stepException)
+	if (self->stepExceptionType)
 		return;
 
 	if (self->ballTouchCallback == Py_None)
@@ -1822,17 +2117,21 @@ void Arena::HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userDat
 	auto it = self->cars->find (car_->id);
 	if (it == std::end (*self->cars) || !it->second)
 	{
+		auto const gil = GIL{};
+
 		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", car_->id);
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
 	auto const car = it->second;
 
+	auto const gil = GIL{};
+
 	auto args = PyObjectRef::steal (PyTuple_New (0));
 	if (!args)
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
@@ -1840,13 +2139,13 @@ void Arena::HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userDat
 	    Py_BuildValue ("{sOsOsO}", "arena", self, "car", car.borrow (), "data", self->ballTouchCallbackUserData));
 	if (!kwds)
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
 	if (!PyObject_Call (self->ballTouchCallback, args.borrow (), kwds.borrow ()))
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 }
@@ -1854,15 +2153,17 @@ void Arena::HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userDat
 void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad *boostPad_, void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
-	if (self->stepException)
+	if (self->stepExceptionType)
 		return;
 
 	auto it = self->cars->find (car_->id);
 	if (it == std::end (*self->cars) || !it->second)
 	{
 		// this should never happen
+		auto const gil = GIL{};
+
 		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", car_->id);
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
@@ -1870,8 +2171,10 @@ void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad 
 	if (it2 == std::end (*self->boostPads) || !it->second)
 	{
 		// this should never happen
+		auto const gil = GIL{};
+
 		PyErr_SetString (PyExc_KeyError, "Boost pad not found");
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
@@ -1883,10 +2186,12 @@ void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad 
 
 	auto boostPad = it2->second;
 
+	auto const gil = GIL{};
+
 	auto args = PyObjectRef::steal (PyTuple_New (0));
 	if (!args)
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
@@ -1901,13 +2206,13 @@ void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad 
 	    self->boostPickupCallbackUserData));
 	if (!kwds)
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
 	if (!PyObject_Call (self->boostPickupCallback, args.borrow (), kwds.borrow ()))
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 }
@@ -1919,14 +2224,16 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
     void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
-	if (self->stepException)
+	if (self->stepExceptionType)
 		return;
 
 	auto it = self->cars->find (bumper_->id);
 	if (it == std::end (*self->cars) || !it->second)
 	{
+		auto const gil = GIL{};
+
 		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", bumper_->id);
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
@@ -1940,8 +2247,10 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
 	it = self->cars->find (victim_->id);
 	if (it == std::end (*self->cars) || !it->second)
 	{
+		auto const gil = GIL{};
+
 		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", victim_->id);
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
@@ -1949,12 +2258,17 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
 	if (isDemo_)
 		victim->demoState = victim->car->GetState ();
 
+	if (self->carBumpCallback == Py_None && (!isDemo_ || self->carDemoCallback == Py_None))
+		return;
+
+	auto const gil = GIL{};
+
 	if (self->carBumpCallback != Py_None)
 	{
 		auto args = PyObjectRef::steal (PyTuple_New (0));
 		if (!args)
 		{
-			self->stepException = true;
+			saveException (self);
 			return;
 		}
 
@@ -1971,13 +2285,13 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
 		    self->carBumpCallbackUserData));
 		if (!kwds)
 		{
-			self->stepException = true;
+			saveException (self);
 			return;
 		}
 
 		if (!PyObject_Call (self->carBumpCallback, args.borrow (), kwds.borrow ()))
 		{
-			self->stepException = true;
+			saveException (self);
 			return;
 		}
 	}
@@ -1987,7 +2301,7 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
 		auto args = PyObjectRef::steal (PyTuple_New (0));
 		if (!args)
 		{
-			self->stepException = true;
+			saveException (self);
 			return;
 		}
 
@@ -2002,13 +2316,13 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
 		    self->carDemoCallbackUserData));
 		if (!kwds)
 		{
-			self->stepException = true;
+			saveException (self);
 			return;
 		}
 
 		if (!PyObject_Call (self->carDemoCallback, args.borrow (), kwds.borrow ()))
 		{
-			self->stepException = true;
+			saveException (self);
 			return;
 		}
 	}
@@ -2017,7 +2331,7 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
 void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
-	if (self->stepException)
+	if (self->stepExceptionType)
 		return;
 
 	// avoid continuously counting goals until the ball exits goal zone
@@ -2053,17 +2367,19 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void 
 	if (self->goalScoreCallback == Py_None)
 		return;
 
+	auto const gil = GIL{};
+
 	auto const team = PyObjectRef::steal (PyLong_FromLong (static_cast<int> (scoringTeam_)));
 	if (!team)
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
 	auto args = PyObjectRef::steal (PyTuple_New (0));
 	if (!args)
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 
@@ -2072,7 +2388,7 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void 
 
 	if (!PyObject_Call (self->goalScoreCallback, args.borrow (), kwds.borrow ()))
 	{
-		self->stepException = true;
+		saveException (self);
 		return;
 	}
 }

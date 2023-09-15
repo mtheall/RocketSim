@@ -156,6 +156,9 @@ public:
 	// Simulate everything in the arena for a given number of ticks
 	RSAPI void Step(int ticksToSimulate = 1);
 
+	// Stop simulation
+	RSAPI void Stop();
+
 	RSAPI void ResetToRandomKickoff(int seed = -1);
 
 	// Returns true if the ball is probably going in, does not account for wall or ceiling bounces
@@ -199,7 +202,9 @@ public:
 	}
 
 private:
-	
+	// Whether to stop
+	bool _stop = false;
+
 	// Constructor for use by Arena::Create()
 	Arena(GameMode gameMode, ArenaMemWeightMode memWeightMode, float tickRate = 120);
 

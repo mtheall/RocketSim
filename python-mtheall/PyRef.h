@@ -121,6 +121,12 @@ public:
 		return m_object;
 	}
 
+	template <typename U>
+	bool operator< (PyRef<U> that_) const noexcept
+	{
+		return borrowObject () < that_.borrowObject ();
+	}
+
 	/// \brief Relinquish reference
 	T *gift () noexcept
 	{

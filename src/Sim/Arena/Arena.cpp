@@ -7,6 +7,8 @@
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btBoxShape.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btSphereShape.h"
 
+#include <array>
+
 RSAPI void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
 
 	bool
@@ -120,16 +122,19 @@ void Arena::SetGoalScoreCallback(GoalScoreEventFn callbackFunc, void* userInfo) 
 	_goalScoreCallback.userInfo = userInfo;
 }
 
+namespace
+{
+template <typename T, std::size_t... I>
+auto make_array(std::index_sequence<I...>)
+{
+	return std::array<T, sizeof...(I)>{I...};
+}
+}
+
 void Arena::ResetToRandomKickoff(int seed) {
 	using namespace RLConst;
 
-	// TODO: Make shuffling of kickoff setup more efficient (?)
-
-	static thread_local std::vector<int> kickoffOrder;
-	if (kickoffOrder.empty()) {
-		for (int i = 0; i < CAR_SPAWN_LOCATION_AMOUNT; i++)
-			kickoffOrder.push_back(i);
-	}
+	auto kickoffOrder = make_array<int> (std::make_index_sequence<CAR_SPAWN_LOCATION_AMOUNT>{});
 
 	if (seed == -1) {
 		std::default_random_engine& randEngine = Math::GetRandEngine();
@@ -640,7 +645,9 @@ Car* Arena::DeserializeNewCar(DataStreamIn& in, Team team) {
 }
 
 void Arena::Step(int ticksToSimulate) {
-	for (int i = 0; i < ticksToSimulate; i++) {
+	_stop = false;
+
+	for (int i = 0; i < ticksToSimulate && !_stop; i++) {
 
 		_bulletWorld.setWorldUserInfo(this);
 
@@ -737,6 +744,10 @@ void Arena::Step(int ticksToSimulate) {
 
 		tickCount++;
 	}
+}
+
+void Arena::Stop() {
+	_stop = true;
 }
 
 bool Arena::IsBallProbablyGoingIn(float maxTime) const {

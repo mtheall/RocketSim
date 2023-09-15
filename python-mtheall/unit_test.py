@@ -1381,7 +1381,8 @@ class TestArena(FuzzyTestCase):
       self.assertEqual(state_a.prev_locked_car_id, state_b.prev_locked_car_id)
 
   def test_basic(self):
-    pass
+    arena = rs.Arena(rs.GameMode.THE_VOID, rs.MemoryWeightMode.LIGHT)
+    arena = rs.Arena(rs.GameMode.THE_VOID, rs.MemoryWeightMode.HEAVY)
 
   def test_boost_pad_order(self):
     arena = rs.Arena(rs.GameMode.THE_VOID)
@@ -1444,6 +1445,89 @@ class TestArena(FuzzyTestCase):
 
     for car, arena_car in zip(cars, arena_cars):
       self.assertIs(car, arena_car)
+
+  def test_stop(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    car = random_car(arena)
+
+    tick = [0]
+    def ball_touch_callback(arena: rs.Arena, car: rs.Car, data):
+      arena.stop()
+      data[0] = arena.tick_count
+
+    arena.set_ball_touch_callback(ball_touch_callback, tick)
+
+    for i in range(100):
+      update_controls(arena.ball, car)
+      arena.step(8)
+      if tick[0] > 0:
+        break
+
+    self.assertEqual(arena.tick_count, tick[0] + 1)
+
+  def test_multi_step(self):
+    arenas = [rs.Arena(rs.GameMode.SOCCAR, rs.MemoryWeightMode.HEAVY) for i in range(24)]
+
+    for arena in arenas:
+      car = arena.add_car(rs.Team.BLUE)
+      arena.reset_kickoff(seed=999)
+
+    for arena in arenas[1:]:
+      self.compare(arena, arenas[0])
+
+    rs.Arena.multi_step(arenas, 1)
+
+    for i in range(10000 // 8):
+      for arena in arenas:
+        for car in arena.get_cars():
+          update_controls(arena.ball, car)
+      rs.Arena.multi_step(arenas, 8)
+
+    for arena in arenas[1:]:
+      self.compare(arena, arenas[0])
+
+  def test_multi_step_exception(self):
+    class BallTouchError(Exception):
+      def __init__(self):
+        super().__init__()
+
+    def ball_touch_callback(arena: rs.Arena, car: rs.Car, data):
+      data[0][data[1]] = arena.tick_count
+      raise BallTouchError()
+
+    arenas = [rs.Arena(rs.GameMode.SOCCAR, rs.MemoryWeightMode.HEAVY) for i in range(8)]
+    touched = [0 for _ in arenas]
+
+    for i, arena in enumerate(arenas):
+      car = arena.add_car(rs.Team.BLUE)
+      arena.reset_kickoff(seed=999)
+      arena.set_ball_touch_callback(ball_touch_callback, [touched, i])
+
+    for arena in arenas[1:]:
+      self.compare(arena, arenas[0])
+
+    with self.assertRaises(BallTouchError):
+      for i in range(10000 // 8):
+        for arena in arenas:
+          for car in arena.get_cars():
+            update_controls(arena.ball, car)
+        rs.Arena.multi_step(arenas, 8)
+
+    # Each arena should stop on the tick that touched
+    for i, arena in enumerate(arenas):
+      self.assertEqual(arena.tick_count, touched[i] + 1)
+
+    before = [arena.tick_count for arena in arenas]
+    with self.assertRaisesRegex(RuntimeError, "Unexpected type"):
+      arenas.append(0)
+      rs.Arena.multi_step(arenas, 8)
+    self.assertEqual(before, [arena.tick_count for arena in arenas[:-1]])
+
+    before = [arena.tick_count for arena in arenas[:-1]]
+    with self.assertRaisesRegex(RuntimeError, "Duplicate arena detected"):
+      arenas[-1] = arenas[0]
+      rs.Arena.multi_step(arenas, 8)
+    self.assertEqual(before, [arena.tick_count for arena in arenas[:-1]])
 
   def test_clone(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)

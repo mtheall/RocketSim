@@ -144,6 +144,8 @@ struct PyModuleDef Module = {
 
 extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 {
+	PyEval_InitThreads ();
+
 	auto m = RocketSim::Python::PyObjectRef::steal (PyModule_Create (&Module));
 	if (!m)
 		return nullptr;
@@ -172,6 +174,7 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 	MAKE_TYPE (CarState);
 	MAKE_TYPE (DemoMode);
 	MAKE_TYPE (GameMode);
+	MAKE_TYPE (MemoryWeightMode);
 	MAKE_TYPE (MutatorConfig);
 	MAKE_TYPE (RotMat);
 	MAKE_TYPE (Team);
@@ -216,6 +219,14 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 		SET_TYPE_ATTR (RocketSim::Python::DemoMode::Type,
 		    "DISABLED",
 		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::DemoMode::DISABLED))));
+
+		// MemoryWeightMode
+		SET_TYPE_ATTR (RocketSim::Python::MemoryWeightMode::Type,
+		    "HEAVY",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (ArenaMemWeightMode::HEAVY))));
+		SET_TYPE_ATTR (RocketSim::Python::MemoryWeightMode::Type,
+		    "LIGHT",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (ArenaMemWeightMode::LIGHT))));
 
 		// CarConfig
 		SET_TYPE_ATTR (RocketSim::Python::CarConfig::Type,
