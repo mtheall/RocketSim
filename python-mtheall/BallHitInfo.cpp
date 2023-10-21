@@ -152,6 +152,7 @@ int BallHitInfo::Init (BallHitInfo *self_, PyObject *args_, PyObject *kwds_) noe
 
 	::BallHitInfo info{};
 
+	int isValid                                         = info.isValid;
 	PyObject *relativePosOnBall                         = nullptr;
 	PyObject *ballPos                                   = nullptr;
 	PyObject *extraHitVel                               = nullptr;
@@ -162,7 +163,7 @@ int BallHitInfo::Init (BallHitInfo *self_, PyObject *args_, PyObject *kwds_) noe
 	        kwds_,
 	        "|pO!O!O!KK",
 	        dict,
-	        &info.isValid,
+	        &isValid,
 	        Vec::Type,
 	        &relativePosOnBall,
 	        Vec::Type,
@@ -173,11 +174,12 @@ int BallHitInfo::Init (BallHitInfo *self_, PyObject *args_, PyObject *kwds_) noe
 	        &tickCountWhenExtraImpulseApplied))
 		return -1;
 
+	info.isValid = isValid;
+
 	if (relativePosOnBall)
 		info.relativePosOnBall = Vec::ToVec (PyCast<Vec> (relativePosOnBall));
 	if (ballPos)
 		info.ballPos = Vec::ToVec (PyCast<Vec> (ballPos));
-	;
 	if (extraHitVel)
 		info.extraHitVel = Vec::ToVec (PyCast<Vec> (extraHitVel));
 

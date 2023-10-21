@@ -63,6 +63,9 @@ struct MutatorConfig {
 
 	bool enablePhysicsRounding = true;
 
+	bool enableCarCarCollision = true;
+	bool enableCarBallCollision = true;
+
 	MutatorConfig() = default;
 
 	RSAPI void Serialize(DataStreamOut& out) const;
@@ -75,4 +78,4 @@ ballMaxSpeed, ballDrag, ballWorldFriction, ballWorldRestitution, jumpAccel, \
 jumpImmediateForce, boostAccel, boostUsedPerSecond, respawnDelay, \
 carSpawnBoostAmount, bumpCooldownTime, boostPadCooldown_Big, boostPadCooldown_Small, \
 ballHitExtraForceScale, bumpForceScale, ballRadius, unlimitedFlips, unlimitedDoubleJumps, \
-demoMode, enableTeamDemos, enablePhysicsRounding
+demoMode, enableTeamDemos, enablePhysicsRounding, enableCarCarCollision, enableCarBallCollision

@@ -66,7 +66,10 @@ void Ball::_BulletSetup(btDynamicsWorld* bulletWorld, const MutatorConfig& mutat
 
 	_rigidBody.m_rigidbodyFlags = 0;
 
-	bulletWorld->addRigidBody(&_rigidBody);
+	int mask = btBroadphaseProxy::AllFilter;
+	if (!mutatorConfig.enableCarBallCollision)
+		mask &= ~btBroadphaseProxy::CharacterFilter;
+	bulletWorld->addRigidBody(&_rigidBody, btBroadphaseProxy::DefaultFilter, mask);
 }
 
 void Ball::_FinishPhysicsTick(const MutatorConfig& mutatorConfig) {

@@ -507,6 +507,11 @@ Returns previous (callback, data))"},
 `callback` must be callable e.g. `def callback(arena: RocketSim.Arena, car: RocketSim.Car, boost_pad: RocketSim.BoostPad, data)`
 `callback` always called with keyword arguments
 Returns previous (callback, data))"},
+    {.ml_name     = "set_car_ball_collision",
+        .ml_meth  = (PyCFunction)&Arena::SetCarBallCollision,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_car_ball_collision(self, enable = True) -> None
+Set whether cars can collide with the ball)"},
     {.ml_name     = "set_car_bump_callback",
         .ml_meth  = (PyCFunction)&Arena::SetCarBumpCallback,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
@@ -514,6 +519,11 @@ Returns previous (callback, data))"},
 `callback` must be callable e.g. `def callback(arena: RocketSim.Arena, bumper: RocketSim.Car, victim: RocketSim.Car, is_demo: bool, data)`
 `callback` always called with keyword arguments
 Returns previous (callback, data))"},
+    {.ml_name     = "set_car_car_collision",
+        .ml_meth  = (PyCFunction)&Arena::SetCarCarCollision,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_car_car_collision(self, enable = True) -> None
+Set whether cars can collide with each other)"},
     {.ml_name     = "set_car_demo_callback",
         .ml_meth  = (PyCFunction)&Arena::SetCarDemoCallback,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
@@ -1284,7 +1294,7 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	static char *dict[] = {copyKwd, nullptr};
 
-	bool copyCallbacks = false;
+	int copyCallbacks = false;
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|p", dict, &copyCallbacks))
 		return nullptr;
 
@@ -1408,7 +1418,7 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 	static char *dict[] = {targetKwd, copyKwd, nullptr};
 
 	Arena *target;
-	bool copyCallbacks = false;
+	int copyCallbacks = false;
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O!|p", dict, Type, &target, &copyCallbacks))
 		return nullptr;
 
@@ -1888,6 +1898,21 @@ PyObject *Arena::SetBoostPickupCallback (Arena *self_, PyObject *args_, PyObject
 	return prev.giftObject ();
 }
 
+PyObject *Arena::SetCarBallCollision (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	static char enableKwd[] = "enable";
+
+	static char *dict[] = {enableKwd, nullptr};
+
+	int enable = true;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|p", dict, &enable))
+		return nullptr;
+
+	self_->arena->SetCarBallCollision (enable);
+
+	Py_RETURN_NONE;
+}
+
 PyObject *Arena::SetCarBumpCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	static char callbackKwd[] = "callback";
@@ -1914,6 +1939,21 @@ PyObject *Arena::SetCarBumpCallback (Arena *self_, PyObject *args_, PyObject *kw
 	PyObjectRef::assign (self_->carBumpCallbackUserData, PyTuple_GetItem (prev.borrow (), 1));
 
 	return prev.giftObject ();
+}
+
+PyObject *Arena::SetCarCarCollision (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	static char enableKwd[] = "enable";
+
+	static char *dict[] = {enableKwd, nullptr};
+
+	int enable = true;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|p", dict, &enable))
+		return nullptr;
+
+	self_->arena->SetCarCarCollision (enable);
+
+	Py_RETURN_NONE;
 }
 
 PyObject *Arena::SetCarDemoCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept

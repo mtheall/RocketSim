@@ -17,6 +17,9 @@ RSAPI void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
 		carMassChanged = mutatorConfig.carMass != this->_mutatorConfig.carMass,
 		gravityChanged = mutatorConfig.gravity != this->_mutatorConfig.gravity;
 
+	bool prevCarBallCollision = this->_mutatorConfig.enableCarBallCollision;
+	bool prevCarCarCollision = this->_mutatorConfig.enableCarCarCollision;
+
 	this->_mutatorConfig = mutatorConfig;
 
 	_bulletWorld.setGravity(mutatorConfig.gravity * UU_TO_BT);
@@ -44,6 +47,12 @@ RSAPI void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
 	ball->_rigidBody.setFriction(mutatorConfig.ballWorldFriction);
 	ball->_rigidBody.setRestitution(mutatorConfig.ballWorldRestitution);
 	ball->_rigidBody.setDamping(mutatorConfig.ballDrag, 0);
+
+	if (prevCarBallCollision != this->_mutatorConfig.enableCarBallCollision)
+		SetCarBallCollision (this->_mutatorConfig.enableCarBallCollision);
+
+	if (prevCarCarCollision != this->_mutatorConfig.enableCarCarCollision)
+		SetCarCarCollision (this->_mutatorConfig.enableCarCarCollision);
 }
 
 Car* Arena::AddCar(Team team, const CarConfig& config) {
@@ -886,4 +895,27 @@ void Arena::_SetupArenaCollisionShapes() {
 			Vec(ARENA_EXTENT_X, 0, ARENA_HEIGHT / 2) * UU_TO_BT
 		);
 	}
+}
+
+void Arena::SetCarCarCollision(bool enable)
+{
+	_mutatorConfig.enableCarCarCollision = enable;
+
+	int mask = btBroadphaseProxy::AllFilter;
+	if (!enable)
+		mask &= ~btBroadphaseProxy::CharacterFilter;
+
+	for (auto &car : _cars)
+		car->_rigidBody.getBroadphaseHandle ()->m_collisionFilterMask = mask;
+}
+
+void Arena::SetCarBallCollision(bool enable)
+{
+	_mutatorConfig.enableCarBallCollision = enable;
+
+	int mask = btBroadphaseProxy::AllFilter;
+	if (!enable)
+		mask &= ~btBroadphaseProxy::CharacterFilter;
+
+	ball->_rigidBody.getBroadphaseHandle ()->m_collisionFilterMask = mask;
 }

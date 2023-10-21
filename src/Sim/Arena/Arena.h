@@ -201,6 +201,9 @@ public:
 		return _memWeightMode;
 	}
 
+	void SetCarCarCollision(bool enable);
+	void SetCarBallCollision(bool enable);
+
 private:
 	// Whether to stop
 	bool _stop = false;

@@ -639,7 +639,9 @@ struct Arena
 	static PyObject *ResetKickoff (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetBallTouchCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetBoostPickupCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *SetCarBallCollision(Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetCarBumpCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *SetCarCarCollision(Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetCarDemoCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetGoalScoreCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetMutatorConfig (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;

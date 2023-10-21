@@ -130,6 +130,21 @@ PyMemberDef MutatorConfig::Members[] = {
         .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, respawnDelay),
         .flags  = 0,
         .doc    = "Respawn delay"},
+    {.name      = "enable_physics_rounding",
+        .type   = TypeHelper<decltype (::MutatorConfig::enablePhysicsRounding)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, enablePhysicsRounding),
+        .flags  = 0,
+        .doc    = "Enable physics rounding"},
+    {.name      = "enable_car_car_collision",
+        .type   = TypeHelper<decltype (::MutatorConfig::enableCarCarCollision)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, enableCarCarCollision),
+        .flags  = 0,
+        .doc    = "Enable car-car collision"},
+    {.name      = "enable_car_ball_collision",
+        .type   = TypeHelper<decltype (::MutatorConfig::enableCarBallCollision)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, enableCarBallCollision),
+        .flags  = 0,
+        .doc    = "Enable car-ball collision"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -190,8 +205,13 @@ __init__(self,
 	ball_hit_extra_force_scale: float = 1.0,
 	bump_force_scale: float = 1.0,
 	ball_radius: float = 91.25,
+	unlimited_flips: bool = False,
+	unlimited_double_jumps: bool = False,
 	demo_mode: int = RocketSim.DemoMode.NORMAL,
-	enable_team_demos: bool = False))"},
+	enable_team_demos: bool = False,
+	enable_physics_rounding: bool = True,
+	enable_car_car_collision: bool = True,
+	enable_car_ball_collision: bool = True))"},
     {0, nullptr},
 };
 
@@ -271,8 +291,13 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	static char ballHitExtraForceScaleKwd[] = "ball_hit_extra_force_scale";
 	static char bumpForceScaleKwd[]         = "bump_force_scale";
 	static char ballRadiusKwd[]             = "ball_radius";
+	static char unlimitedFlipsKwd[]         = "unlimited_flips";
+	static char unlimitedDoubleJumpsKwd[]   = "unlimited_double_jumps";
 	static char demoModeKwd[]               = "demo_mode";
 	static char enableTeamDemosKwd[]        = "enable_team_demos";
+	static char enablePhysicsRoundingKwd[]  = "enable_physics_rounding";
+	static char enableCarCarCollisionKwd[]  = "enable_car_car_collision";
+	static char enableCarBallCollisionKwd[] = "enable_car_ball_collision";
 
 	static char *dict[] = {gravityKwd,
 	    carMassKwd,
@@ -295,17 +320,30 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	    ballHitExtraForceScaleKwd,
 	    bumpForceScaleKwd,
 	    ballRadiusKwd,
+	    unlimitedFlipsKwd,
+	    unlimitedDoubleJumpsKwd,
 	    demoModeKwd,
 	    enableTeamDemosKwd,
+	    enablePhysicsRoundingKwd,
+	    enableCarCarCollisionKwd,
+	    enableCarBallCollisionKwd,
 	    nullptr};
 
 	::MutatorConfig config{};
 
 	PyObject *gravity = nullptr; // borrowed reference
 	int demoMode      = static_cast<int> (config.demoMode);
+
+	int unlimitedFlips         = config.unlimitedFlips;
+	int unlimitedDoubleJumps   = config.unlimitedDoubleJumps;
+	int enableTeamDemos        = config.enableTeamDemos;
+	int enablePhysicsRounding  = config.enablePhysicsRounding;
+	int enableCarCarCollision  = config.enableCarCarCollision;
+	int enableCarBallCollision = config.enableCarBallCollision;
+
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!ffffffffffffffffffffip",
+	        "|O!ffffffffffffffffffffppipppp",
 	        dict,
 	        Vec::Type,
 	        &gravity,
@@ -329,8 +367,13 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	        &config.ballHitExtraForceScale,
 	        &config.bumpForceScale,
 	        &config.ballRadius,
+	        &unlimitedFlips,
+	        &unlimitedDoubleJumps,
 	        &demoMode,
-	        &config.enableTeamDemos))
+	        &enableTeamDemos,
+	        &enablePhysicsRounding,
+	        &enableCarCarCollision,
+	        &enableCarBallCollision))
 		return -1;
 
 	config.demoMode = static_cast<::DemoMode> (demoMode);
@@ -344,6 +387,13 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 
 	if (gravity)
 		config.gravity = Vec::ToVec (PyCast<Vec> (gravity));
+
+	config.unlimitedFlips         = unlimitedFlips;
+	config.unlimitedDoubleJumps   = unlimitedDoubleJumps;
+	config.enableTeamDemos        = enableTeamDemos;
+	config.enablePhysicsRounding  = enablePhysicsRounding;
+	config.enableCarCarCollision  = enableCarCarCollision;
+	config.enableCarBallCollision = enableCarBallCollision;
 
 	if (!InitFromMutatorConfig (self_, config))
 		return -1;
@@ -454,12 +504,32 @@ PyObject *MutatorConfig::Pickle (MutatorConfig *self_) noexcept
 	    !DictSetValue (dict.borrow (), "ball_radius", PyFloat_FromDouble (config.ballRadius)))
 		return nullptr;
 
+	if (config.unlimitedFlips != model.unlimitedFlips &&
+	    !DictSetValue (dict.borrow (), "unlimited_flips", PyBool_FromLong (config.unlimitedFlips)))
+		return nullptr;
+
+	if (config.unlimitedDoubleJumps != model.unlimitedDoubleJumps &&
+	    !DictSetValue (dict.borrow (), "unlimited_double_jumps", PyBool_FromLong (config.unlimitedDoubleJumps)))
+		return nullptr;
+
 	if (config.demoMode != model.demoMode &&
 	    !DictSetValue (dict.borrow (), "demo_mode", PyLong_FromLong (static_cast<long> (config.demoMode))))
 		return nullptr;
 
 	if (config.enableTeamDemos != model.enableTeamDemos &&
 	    !DictSetValue (dict.borrow (), "enable_team_demos", PyBool_FromLong (config.enableTeamDemos)))
+		return nullptr;
+
+	if (config.enablePhysicsRounding != model.enablePhysicsRounding &&
+	    !DictSetValue (dict.borrow (), "enable_physics_rounding", PyBool_FromLong (config.enablePhysicsRounding)))
+		return nullptr;
+
+	if (config.enableCarCarCollision != model.enableCarCarCollision &&
+	    !DictSetValue (dict.borrow (), "enable_car_car_collision", PyBool_FromLong (config.enableCarCarCollision)))
+		return nullptr;
+
+	if (config.enableCarBallCollision != model.enableCarBallCollision &&
+	    !DictSetValue (dict.borrow (), "enable_car_ball_collision", PyBool_FromLong (config.enableCarBallCollision)))
 		return nullptr;
 
 	return dict.gift ();

@@ -238,7 +238,10 @@ void Car::_BulletSetup(btDynamicsWorld* bulletWorld, const MutatorConfig& mutato
 	_rigidBody.m_rigidbodyFlags = 0;
 
 	// Add rigidbody to world
-	bulletWorld->addRigidBody(&_rigidBody);
+	int mask = btBroadphaseProxy::AllFilter;
+	if (!mutatorConfig.enableCarCarCollision)
+		mask &= ~btBroadphaseProxy::CharacterFilter;
+	bulletWorld->addRigidBody(&_rigidBody, btBroadphaseProxy::CharacterFilter, mask);
 
 	{ // Set up actual vehicle stuff
 		_bulletVehicleRaycaster = btDefaultVehicleRaycaster(bulletWorld);

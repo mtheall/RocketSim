@@ -317,7 +317,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    lastRelDodgeTorqueKwd,
 	    jumpTimeKwd,
 	    flipTimeKwd,
-		isFlippingKwd,
+	    isFlippingKwd,
 	    isJumpingKwd,
 	    airTimeSinceJumpKwd,
 	    boostKwd,
@@ -348,6 +348,17 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	PyObject *worldContactNormal = nullptr;
 	PyObject *ballHitInfo        = nullptr;
 
+	int isOnGround      = state.isOnGround;
+	int hasJumped       = state.hasJumped;
+	int hasDoubleJumped = state.hasDoubleJumped;
+	int hasFlipped      = state.hasFlipped;
+	int isFlipping      = state.isFlipping;
+	int isJumping       = state.isJumping;
+	int isSupersonic    = state.isSupersonic;
+	int isAutoFlipping  = state.isAutoFlipping;
+	int hasWorldContact = state.worldContact.hasContact;
+	int isDemoed        = state.isDemoed;
+
 	unsigned long carContactID = state.carContact.otherCarID;
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
@@ -361,30 +372,30 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        &vel,
 	        Vec::Type,
 	        &angVel,
-	        &state.isOnGround,
-	        &state.hasJumped,
-	        &state.hasDoubleJumped,
-	        &state.hasFlipped,
+	        &isOnGround,
+	        &hasJumped,
+	        &hasDoubleJumped,
+	        &hasFlipped,
 	        Vec::Type,
 	        &lastRelDodgeTorque,
 	        &state.jumpTime,
 	        &state.flipTime,
-			&state.isFlipping,
-	        &state.isJumping,
+	        &isFlipping,
+	        &isJumping,
 	        &state.airTimeSinceJump,
 	        &state.boost,
 	        &state.timeSpentBoosting,
-	        &state.isSupersonic,
+	        &isSupersonic,
 	        &state.supersonicTime,
 	        &state.handbrakeVal,
-	        &state.isAutoFlipping,
+	        &isAutoFlipping,
 	        &state.autoFlipTimer,
-	        &state.worldContact.hasContact,
+	        &hasWorldContact,
 	        Vec::Type,
 	        &worldContactNormal,
 	        &carContactID,
 	        &state.carContact.cooldownTimer,
-	        &state.isDemoed,
+	        &isDemoed,
 	        &state.demoRespawnTimer,
 	        BallHitInfo::Type,
 	        &ballHitInfo,
@@ -415,6 +426,17 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	if (lastControls)
 		state.lastControls = CarControls::ToCarControls (PyCast<CarControls> (lastControls));
+
+	state.isOnGround              = isOnGround;
+	state.hasJumped               = hasJumped;
+	state.hasDoubleJumped         = hasDoubleJumped;
+	state.hasFlipped              = hasFlipped;
+	state.isFlipping              = isFlipping;
+	state.isJumping               = isJumping;
+	state.isSupersonic            = isSupersonic;
+	state.isAutoFlipping          = isAutoFlipping;
+	state.worldContact.hasContact = hasWorldContact;
+	state.isDemoed                = isDemoed;
 
 	state.carContact.otherCarID = carContactID;
 

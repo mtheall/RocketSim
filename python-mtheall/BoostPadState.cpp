@@ -108,10 +108,12 @@ int BoostPadState::Init (BoostPadState *self_, PyObject *args_, PyObject *kwds_)
 
 	::BoostPadState state{};
 
+	int isActive                  = state.isActive;
 	unsigned long prevLockedCarID = state.prevLockedCarID;
-	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|pfk", dict, &state.isActive, &state.cooldown, &prevLockedCarID))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|pfk", dict, &isActive, &state.cooldown, &prevLockedCarID))
 		return -1;
 
+	state.isActive        = isActive;
 	state.prevLockedCarID = prevLockedCarID;
 
 	if (!InitFromBoostPadState (self_, state))
