@@ -47,7 +47,7 @@ std::tuple<float, float> extractKey (std::uint32_t key_) noexcept
 	return std::make_tuple (x, y);
 }
 
-std::array<std::uint32_t, 34> const indexMapping = {
+std::array<std::uint32_t, 34> const soccarIndexMapping = {
     // clang-format off
     makeKey (    0, -4240),
     makeKey (-1792, -4184),
@@ -86,22 +86,69 @@ std::array<std::uint32_t, 34> const indexMapping = {
     // clang-format on
 };
 
-std::unordered_map<std::uint64_t, unsigned> const boostMapping = [] {
+std::array<std::uint32_t, 20> const hoopsIndexMapping = {
+    // clang-format off
+    makeKey (-2176, -2944),
+    makeKey ( 2176, -2944),
+    makeKey (    0, -2816),
+    makeKey (-1280, -2304),
+    makeKey ( 1280, -2304),
+    makeKey (-1536, -1024),
+    makeKey ( 1536, -1024),
+    makeKey (- 512, - 512),
+    makeKey (  512, - 512),
+    makeKey (-2432,     0),
+    makeKey ( 2432,     0),
+    makeKey (- 512,   512),
+    makeKey (  512,   512),
+    makeKey (-1536,  1024),
+    makeKey ( 1536,  1024),
+    makeKey (-1280,  2304),
+    makeKey ( 1280,  2304),
+    makeKey (    0,  2816),
+    makeKey (-2176,  2944),
+    makeKey ( 2175,  2944), // truncated from (2175.99, 2944)
+    // clang-format on
+};
+
+template <std::size_t Size>
+std::unordered_map<std::uint64_t, unsigned> buildBoostMapping (
+    std::array<std::uint32_t, Size> const &indexMapping_) noexcept
+{
 	std::unordered_map<std::uint64_t, unsigned> result;
 
-	for (unsigned i = 0; i < indexMapping.size (); ++i)
-		result.emplace (indexMapping[i], i);
+	for (unsigned i = 0; i < indexMapping_.size (); ++i)
+		result.emplace (indexMapping_[i], i);
 
 	return result;
-}();
+};
 
-int getBoostPadIndex (::BoostPad const *pad_) noexcept
+auto const soccarBoostMapping = buildBoostMapping (soccarIndexMapping);
+auto const hoopsBoostMapping  = buildBoostMapping (hoopsIndexMapping);
+
+int getBoostPadIndex (::BoostPad const *pad_, std::unordered_map<std::uint64_t, unsigned> const &map_) noexcept
 {
-	auto const it = boostMapping.find (makeKey (pad_->pos.x, pad_->pos.y));
-	if (it == std::end (boostMapping))
+	auto const it = map_.find (makeKey (pad_->pos.x, pad_->pos.y));
+	if (it == std::end (map_))
 		return -1;
 
 	return it->second;
+}
+
+std::pair<std::uint32_t const *, std::size_t> getIndexMapping (::GameMode gameMode_) noexcept
+{
+	if (gameMode_ == ::GameMode::HOOPS)
+		return {hoopsIndexMapping.data (), hoopsIndexMapping.size ()};
+
+	return {soccarIndexMapping.data (), soccarIndexMapping.size ()};
+}
+
+std::unordered_map<std::uint64_t, unsigned> const &getBoostMapping (::GameMode gameMode_) noexcept
+{
+	if (gameMode_ == ::GameMode::HOOPS)
+		return hoopsBoostMapping;
+
+	return soccarBoostMapping;
 }
 
 bool ensureBoostPadByIndex (RocketSim::Python::Arena *arena_) noexcept
@@ -117,9 +164,10 @@ bool ensureBoostPadByIndex (RocketSim::Python::Arena *arena_) noexcept
 		return false;
 	}
 
+	auto const &boostMapping = getBoostMapping (arena_->arena->gameMode);
 	for (auto const &[ptr, pad] : *arena_->boostPads)
 	{
-		auto const index = getBoostPadIndex (ptr);
+		auto const index = getBoostPadIndex (ptr, boostMapping);
 		if (index < 0 || static_cast<unsigned> (index) > arena_->boostPads->size ())
 		{
 			delete arena_->boostPadsByIndex;
@@ -811,13 +859,14 @@ PyObject *Arena::Pickle (Arena *self_) noexcept
 		if (!pads)
 			return nullptr;
 
+		auto const &boostMapping = getBoostMapping (self_->arena->gameMode);
 		for (auto const &[ptr, pad] : *self_->boostPads)
 		{
 			auto entry = BoostPadState::NewFromBoostPadState (pad->pad->GetState ());
 			if (!entry)
 				return nullptr;
 
-			auto const index = getBoostPadIndex (ptr);
+			auto const index = getBoostPadIndex (ptr, boostMapping);
 			if (index < 0 || index >= PyList_Size (pads.borrow ()))
 				continue;
 
@@ -1031,9 +1080,18 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	        &goalScoreCallbackUserData))
 		return nullptr;
 
-	if (static_cast<::GameMode> (gameMode) != ::GameMode::SOCCAR &&
-	    static_cast<::GameMode> (gameMode) != ::GameMode::THE_VOID)
+	switch (static_cast<::GameMode> (gameMode))
+	{
+	case ::GameMode::SOCCAR:
+	case ::GameMode::HOOPS:
+	case ::GameMode::HEATSEEKER:
+	case ::GameMode::SNOWDAY:
+	case ::GameMode::THE_VOID:
+		break;
+
+	default:
 		return PyErr_Format (PyExc_ValueError, "Invalid game mode '%d'", gameMode);
+	}
 
 	if (static_cast<::ArenaMemWeightMode> (memoryWeightMode) != ::ArenaMemWeightMode::LIGHT &&
 	    static_cast<::ArenaMemWeightMode> (memoryWeightMode) != ::ArenaMemWeightMode::HEAVY)
@@ -1112,8 +1170,15 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 			carMap[car->car->id] = car;
 		}
 
+		auto const &[indexMapping, indexMappingSize] = getIndexMapping (arena->gameMode);
+
 		auto padMap        = std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
 		auto const numPads = PyList_Size (pads);
+
+		if (numPads != indexMappingSize)
+			return PyErr_Format (
+			    PyExc_KeyError, "Internal mapping error: expected %zu boost pads, got %zu", indexMappingSize, numPads);
+
 		for (unsigned i = 0; i < numPads; ++i)
 		{
 			auto pad = PyRef<BoostPad>::steal (BoostPad::New ());
@@ -1124,7 +1189,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 			for (auto const p : arena->GetBoostPads ())
 			{
-				if (p->pos.x == x && p->pos.y == y)
+				if (std::abs (p->pos.x - x) < 1e-4 && std::abs (p->pos.y - y) < 1e-4)
 				{
 					pad->arena = arena;
 					pad->pad   = p;
@@ -1698,11 +1763,12 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 		if (!boostPadState)
 			return nullptr;
 
+		auto const &boostMapping = getBoostMapping (self_->arena->gameMode);
 		for (unsigned i = 0; i < numBoostPads; ++i)
 		{
 			auto const &pad = boostPads[i];
 
-			auto const idx = getBoostPadIndex (pad);
+			auto const idx = getBoostPadIndex (pad, boostMapping);
 			if (idx < 0)
 				continue; // shouldn't happen
 

@@ -1159,13 +1159,6 @@ class TestArena(FuzzyTestCase):
     arena = rs.Arena(rs.GameMode.SNOWDAY)
 
   def test_boost_pad_order(self):
-    arena = rs.Arena(rs.GameMode.THE_VOID)
-    self.assertEqual(len(arena.get_boost_pads()), 0)
-
-    arena = rs.Arena(rs.GameMode.SOCCAR)
-    arena_pads = arena.get_boost_pads()
-    self.assertEqual(len(arena_pads), 34)
-
     SOCCAR_BOOST_PADS = [
       (    0.0, -4240.0),
       (-1792.0, -4184.0),
@@ -1203,9 +1196,44 @@ class TestArena(FuzzyTestCase):
       (    0.0,  4240.0),
     ]
 
-    for pad, pos in zip(arena_pads, SOCCAR_BOOST_PADS):
-      pad_pos = pad.get_pos()
-      self.assertEqual ((pad_pos.x, pad_pos.y), pos)
+    HOOPS_BOOST_PADS = [
+      (-2176.0,  -2944.0),
+      ( 2176.0,  -2944.0),
+      (    0.0,  -2816.0),
+      (-1280.0,  -2304.0),
+      ( 1280.0,  -2304.0),
+      (-1536.0,  -1024.0),
+      ( 1536.0,  -1024.0),
+      (- 512.0,  - 512.0),
+      (  512.0,  - 512.0),
+      (-2432.0,      0.0),
+      ( 2432.0,      0.0),
+      (- 512.0,    512.0),
+      (  512.0,    512.0),
+      (-1536.0,   1024.0),
+      ( 1536.0,   1024.0),
+      (-1280.0,   2304.0),
+      ( 1280.0,   2304.0),
+      (    0.0,   2816.0),
+      (-2176.0,   2944.0),
+      ( 2175.99,  2944.0),
+    ]
+
+    for mode, locations in (
+      (rs.GameMode.SOCCAR, SOCCAR_BOOST_PADS),
+      (rs.GameMode.HOOPS, HOOPS_BOOST_PADS),
+      (rs.GameMode.HEATSEEKER, SOCCAR_BOOST_PADS),
+      (rs.GameMode.SNOWDAY, SOCCAR_BOOST_PADS),
+      (rs.GameMode.THE_VOID, [])
+    ):
+      arena = rs.Arena(mode)
+      arena_pads = arena.get_boost_pads()
+      self.assertEqual(len(arena_pads), len(locations))
+
+      for pad, pos in zip(arena_pads, locations):
+        pad_pos = pad.get_pos()
+        self.assertAlmostEqual (pad_pos.x, pos[0], 4)
+        self.assertAlmostEqual (pad_pos.y, pos[1], 4)
 
   def test_car_order(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)
@@ -1420,17 +1448,18 @@ class TestArena(FuzzyTestCase):
     self.compare(arena, clone)
 
   def test_pickle(self):
-    arena = rs.Arena(rs.GameMode.SOCCAR)
-    for i in range(4):
-      random_car(arena, rs.Team.BLUE)
-      random_car(arena, rs.Team.ORANGE)
+    for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
+      arena = rs.Arena(mode)
+      for i in range(4):
+        random_car(arena, rs.Team.BLUE)
+        random_car(arena, rs.Team.ORANGE)
 
-    for i in range(1000):
-      for car in arena.get_cars():
-        target_chase(arena.ball.get_state().pos, car)
-      arena.step(7)
+      for i in range(1000):
+        for car in arena.get_cars():
+          target_chase(arena.ball.get_state().pos, car)
+        arena.step(7)
 
-    self.compare(arena, pickled(arena))
+      self.compare(arena, pickled(arena))
 
   def test_copy(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)

@@ -140,5 +140,9 @@ class TestRegression(unittest.TestCase):
     arena.step(8)
     gym_state = arena.get_gym_state()
 
+  def test_hoops_boost_pads(self):
+    arena = rs.Arena(rs.GameMode.HOOPS)
+    arena.get_boost_pads()
+
 if __name__ == "__main__":
   unittest.main()
