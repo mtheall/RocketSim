@@ -184,15 +184,16 @@ PyType_Slot MutatorConfig::Slots[] = {
     {Py_tp_getset, &MutatorConfig::GetSet},
     {Py_tp_doc, (void *)R"(Mutator config
 __init__(self,
+	game_mode: RocketSim.GameMode = RocketSim.GameMode.SOCCAR,
 	gravity: RocketSim.Vec = RocketSim.Vec(z = -650.0),
 	car_mass: float = 180.0,
 	car_world_friction: float = 0.3,
 	car_world_restitution: float = 0.3,
-	ball_mass: float = 30.0,
+	ball_mass: float = <dependent on game_mode>,
 	ball_max_speed: float = 6000.0,
 	ball_drag: float = 0.03,
-	ball_world_friction: float = 0.35,
-	ball_world_restitution: float = 0.6,
+	ball_world_friction: float = <dependent on game_mode>,
+	ball_world_restitution: float = <dependent on game_mode>,
 	jump_accel: float = 4375.0 / 3.0,
 	jump_immediate_force: float = 875.0 / 3.0,
 	boost_accel: float = 21.2,
@@ -204,7 +205,7 @@ __init__(self,
 	car_spawn_boost_amount: float = 100.0 / 3.0,
 	ball_hit_extra_force_scale: float = 1.0,
 	bump_force_scale: float = 1.0,
-	ball_radius: float = 91.25,
+	ball_radius: float = <dependent on game_mode>,
 	unlimited_flips: bool = False,
 	unlimited_double_jumps: bool = False,
 	demo_mode: int = RocketSim.DemoMode.NORMAL,
@@ -262,7 +263,7 @@ PyObject *MutatorConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject 
 	if (!self)
 		return nullptr;
 
-	new (&self->config)::MutatorConfig{};
+	new (&self->config)::MutatorConfig{::GameMode::SOCCAR};
 	self->gravity = nullptr;
 
 	return self.giftObject ();
@@ -270,6 +271,7 @@ PyObject *MutatorConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject 
 
 int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
+	static char gameModeKwd[]               = "game_mode";
 	static char gravityKwd[]                = "gravity";
 	static char carMassKwd[]                = "car_mass";
 	static char carWorldFrictionKwd[]       = "car_world_friction";
@@ -299,7 +301,8 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	static char enableCarCarCollisionKwd[]  = "enable_car_car_collision";
 	static char enableCarBallCollisionKwd[] = "enable_car_ball_collision";
 
-	static char *dict[] = {gravityKwd,
+	static char *dict[] = {gameModeKwd,
+	    gravityKwd,
 	    carMassKwd,
 	    carWorldFrictionKwd,
 	    carWorldRestitutionKwd,
@@ -329,76 +332,114 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	    enableCarBallCollisionKwd,
 	    nullptr};
 
-	::MutatorConfig config{};
+	int gameMode = static_cast<int> (::GameMode::SOCCAR);
 
-	PyObject *gravity = nullptr; // borrowed reference
-	int demoMode      = static_cast<int> (config.demoMode);
-
-	int unlimitedFlips         = config.unlimitedFlips;
-	int unlimitedDoubleJumps   = config.unlimitedDoubleJumps;
-	int enableTeamDemos        = config.enableTeamDemos;
-	int enablePhysicsRounding  = config.enablePhysicsRounding;
-	int enableCarCarCollision  = config.enableCarCarCollision;
-	int enableCarBallCollision = config.enableCarBallCollision;
-
-	if (!PyArg_ParseTupleAndKeywords (args_,
-	        kwds_,
-	        "|O!ffffffffffffffffffffppipppp",
-	        dict,
-	        Vec::Type,
-	        &gravity,
-	        &config.carMass,
-	        &config.carWorldFriction,
-	        &config.carWorldRestitution,
-	        &config.ballMass,
-	        &config.ballMaxSpeed,
-	        &config.ballDrag,
-	        &config.ballWorldFriction,
-	        &config.ballWorldRestitution,
-	        &config.jumpAccel,
-	        &config.jumpImmediateForce,
-	        &config.boostAccel,
-	        &config.boostUsedPerSecond,
-	        &config.respawnDelay,
-	        &config.bumpCooldownTime,
-	        &config.boostPadCooldown_Big,
-	        &config.boostPadCooldown_Small,
-	        &config.carSpawnBoostAmount,
-	        &config.ballHitExtraForceScale,
-	        &config.bumpForceScale,
-	        &config.ballRadius,
-	        &unlimitedFlips,
-	        &unlimitedDoubleJumps,
-	        &demoMode,
-	        &enableTeamDemos,
-	        &enablePhysicsRounding,
-	        &enableCarCarCollision,
-	        &enableCarBallCollision))
-		return -1;
-
-	config.demoMode = static_cast<::DemoMode> (demoMode);
-
-	if (config.demoMode != ::DemoMode::NORMAL && config.demoMode != ::DemoMode::ON_CONTACT &&
-	    config.demoMode != ::DemoMode::DISABLED)
+	// first pass to get game mode, second pass to fill in if not
+	for (int i = 0; i < 2; ++i)
 	{
-		PyErr_Format (PyExc_ValueError, "Invalid demo mode '%d'", demoMode);
-		return -1;
+		switch (static_cast<::GameMode> (gameMode))
+		{
+		case ::GameMode::SOCCAR:
+		case ::GameMode::HOOPS:
+		case ::GameMode::HEATSEEKER:
+		case ::GameMode::SNOWDAY:
+		case ::GameMode::THE_VOID:
+			break;
+
+		default:
+			PyErr_Format (PyExc_ValueError, "Invalid game mode '%d'", gameMode);
+			return -1;
+		}
+
+		::MutatorConfig config{static_cast<::GameMode> (gameMode)};
+
+		PyObject *gravity = nullptr; // borrowed reference
+		int demoMode      = static_cast<int> (config.demoMode);
+
+		int unlimitedFlips         = config.unlimitedFlips;
+		int unlimitedDoubleJumps   = config.unlimitedDoubleJumps;
+		int enableTeamDemos        = config.enableTeamDemos;
+		int enablePhysicsRounding  = config.enablePhysicsRounding;
+		int enableCarCarCollision  = config.enableCarCarCollision;
+		int enableCarBallCollision = config.enableCarBallCollision;
+
+		if (!PyArg_ParseTupleAndKeywords (args_,
+		        kwds_,
+		        "|iO!ffffffffffffffffffffppipppp",
+		        dict,
+		        &gameMode,
+		        Vec::Type,
+		        &gravity,
+		        &config.carMass,
+		        &config.carWorldFriction,
+		        &config.carWorldRestitution,
+		        &config.ballMass,
+		        &config.ballMaxSpeed,
+		        &config.ballDrag,
+		        &config.ballWorldFriction,
+		        &config.ballWorldRestitution,
+		        &config.jumpAccel,
+		        &config.jumpImmediateForce,
+		        &config.boostAccel,
+		        &config.boostUsedPerSecond,
+		        &config.respawnDelay,
+		        &config.bumpCooldownTime,
+		        &config.boostPadCooldown_Big,
+		        &config.boostPadCooldown_Small,
+		        &config.carSpawnBoostAmount,
+		        &config.ballHitExtraForceScale,
+		        &config.bumpForceScale,
+		        &config.ballRadius,
+		        &unlimitedFlips,
+		        &unlimitedDoubleJumps,
+		        &demoMode,
+		        &enableTeamDemos,
+		        &enablePhysicsRounding,
+		        &enableCarCarCollision,
+		        &enableCarBallCollision))
+			return -1;
+
+		// try again with parsed game mode
+		if (i == 0 && static_cast<::GameMode> (gameMode) != ::GameMode::SOCCAR)
+			continue;
+
+		config.demoMode = static_cast<::DemoMode> (demoMode);
+
+		switch (config.demoMode)
+		{
+		case ::DemoMode::NORMAL:
+		case ::DemoMode::ON_CONTACT:
+		case ::DemoMode::DISABLED:
+			break;
+
+		default:
+			PyErr_Format (PyExc_ValueError, "Invalid demo mode '%d'", demoMode);
+			return -1;
+		}
+
+		if (gravity)
+			config.gravity = Vec::ToVec (PyCast<Vec> (gravity));
+
+		config.unlimitedFlips         = unlimitedFlips;
+		config.unlimitedDoubleJumps   = unlimitedDoubleJumps;
+		config.enableTeamDemos        = enableTeamDemos;
+		config.enablePhysicsRounding  = enablePhysicsRounding;
+		config.enableCarCarCollision  = enableCarCarCollision;
+		config.enableCarBallCollision = enableCarBallCollision;
+
+		if (!InitFromMutatorConfig (self_, config))
+			return -1;
+
+		return 0;
 	}
 
-	if (gravity)
-		config.gravity = Vec::ToVec (PyCast<Vec> (gravity));
-
-	config.unlimitedFlips         = unlimitedFlips;
-	config.unlimitedDoubleJumps   = unlimitedDoubleJumps;
-	config.enableTeamDemos        = enableTeamDemos;
-	config.enablePhysicsRounding  = enablePhysicsRounding;
-	config.enableCarCarCollision  = enableCarCarCollision;
-	config.enableCarBallCollision = enableCarBallCollision;
-
-	if (!InitFromMutatorConfig (self_, config))
-		return -1;
-
-	return 0;
+#ifdef __GNUC__
+	__builtin_unreachable ();
+#elif defined(_MSC_VER)
+	__assume (false);
+#else
+	std::abort ();
+#endif
 }
 
 void MutatorConfig::Dealloc (MutatorConfig *self_) noexcept
@@ -417,7 +458,7 @@ PyObject *MutatorConfig::Pickle (MutatorConfig *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::MutatorConfig const model{};
+	::MutatorConfig const model{::GameMode::SOCCAR};
 	auto const config = ToMutatorConfig (self_);
 
 	if (config.gravity != model.gravity && !DictSetValue (dict.borrow (), "gravity", PyNewRef (self_->gravity)))

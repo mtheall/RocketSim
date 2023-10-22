@@ -198,6 +198,15 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 		    "SOCCAR",
 		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::SOCCAR))));
 		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
+		    "HOOPS",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::HOOPS))));
+		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
+		    "HEATSEEKER",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::HEATSEEKER))));
+		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
+		    "SNOWDAY",
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::SNOWDAY))));
+		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
 		    "THE_VOID",
 		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::THE_VOID))));
 

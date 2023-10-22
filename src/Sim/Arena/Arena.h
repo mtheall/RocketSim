@@ -17,19 +17,11 @@
 #include "../../../libsrc/bullet3-3.24/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h"
 
-enum class GameMode : byte {
-	SOCCAR,
-
-	// No goals, boosts, or arena - cars/ball will fall infinitely, ball is frozen until touched
-	THE_VOID, 
-	// More coming soon!
-};
-
 // Mode of speed/memory optimization for the arena
 // Will affect whether high memory consumption is used to slightly increase speed or not
 enum class ArenaMemWeightMode : byte {
 	HEAVY, // ~11MB per arena
-	LIGHT
+	LIGHT // ~0.8MB per arena
 };
 
 using BallTouchEventFn   = void(*)(class Arena* arena, Car *car, void* userInfo);
@@ -171,16 +163,20 @@ public:
 
 	// NOTE: Passed shape pointer will be freed when arena is deconstructed
 	template <class T>
-	void _AddStaticCollisionShape(size_t rbIndex, size_t meshListIndex, T* shape, T* meshList, btVector3 posBT = btVector3(0, 0, 0)) {
-		static_assert(std::is_base_of<btCollisionShape, T>::value);
+	void _AddStaticCollisionShape(
+		size_t rbIndex, size_t meshListIndex, T* shape, T* meshList, btVector3 posBT = btVector3(0, 0, 0), 
+		bool doubleIgnoreCollide = false, bool noRayCollisions = false) {
 
+		static_assert(std::is_base_of<btCollisionShape, T>::value);
 		meshList[meshListIndex] = *shape;
-	
+
 		assert(rbIndex < _worldCollisionRBAmount);
 		btRigidBody& shapeRB = _worldCollisionRBs[rbIndex];
 		shapeRB = btRigidBody(0, NULL, &meshList[meshListIndex]);
 		shapeRB.setWorldTransform(btTransform(btMatrix3x3::getIdentity(), posBT));
 		shapeRB.setUserPointer(this);
+		shapeRB.m_doubleIgnoreCollide = doubleIgnoreCollide;
+		shapeRB.m_noRayCollisions = noRayCollisions;
 		_bulletWorld.addRigidBody(&shapeRB);
 	}
 

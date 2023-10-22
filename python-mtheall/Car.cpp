@@ -392,7 +392,7 @@ PyObject *Car::Respawn (Car *self_, PyObject *args_, PyObject *kwds_) noexcept
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|if", dict, &seed))
 		return nullptr;
 
-	self_->car->Respawn (seed, boost);
+	self_->car->Respawn (self_->arena->gameMode, seed, boost);
 
 	Py_RETURN_NONE;
 }

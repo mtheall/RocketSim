@@ -98,7 +98,10 @@ class FuzzyTestCase(unittest.TestCase):
 class TestGameMode(FuzzyTestCase):
   def test_values(self):
     self.assertEqual(rs.GameMode.SOCCAR, 0)
-    self.assertEqual(rs.GameMode.THE_VOID, 1)
+    self.assertEqual(rs.GameMode.HOOPS, 1)
+    self.assertEqual(rs.GameMode.HEATSEEKER, 2)
+    self.assertEqual(rs.GameMode.SNOWDAY, 3)
+    self.assertEqual(rs.GameMode.THE_VOID, 4)
 
 class TestTeam(FuzzyTestCase):
   def test_values(self):
@@ -347,10 +350,16 @@ class TestBallHitInfo(FuzzyTestCase):
 
 class TestBallState(FuzzyTestCase):
   def compare(self, state_a, state_b):
-    self.assertAlmostEqual(state_a.pos,       state_b.pos, 3)
-    self.assertAlmostEqual(state_a.vel,       state_b.vel, 3)
-    self.assertEqual(state_a.ang_vel,         state_b.ang_vel)
-    self.assertEqual(state_a.last_hit_car_id, state_b.last_hit_car_id)
+    self.assertAlmostEqual(state_a.pos,                 state_b.pos, 3)
+    self.assertEqual(state_a.rot_mat.forward,           state_b.rot_mat.forward)
+    self.assertEqual(state_a.rot_mat.right,             state_b.rot_mat.right)
+    self.assertEqual(state_a.rot_mat.up,                state_b.rot_mat.up)
+    self.assertAlmostEqual(state_a.vel,                 state_b.vel, 3)
+    self.assertEqual(state_a.ang_vel,                   state_b.ang_vel)
+    self.assertEqual(state_a.heatseeker_target_dir,     state_b.heatseeker_target_dir)
+    self.assertEqual(state_a.heatseeker_target_speed,   state_b.heatseeker_target_speed)
+    self.assertEqual(state_a.heatseeker_time_since_hit, state_b.heatseeker_time_since_hit)
+    self.assertEqual(state_a.last_hit_car_id,           state_b.last_hit_car_id)
 
   def compare_direct(self, state, pos, vel, ang_vel, car_id):
     self.assertEqual(state.pos, pos)
@@ -996,7 +1005,11 @@ class TestMutatorConfig(FuzzyTestCase):
     self.assertEqual(config_a.enable_car_ball_collision,  config_b.enable_car_ball_collision)
 
   def test_basic(self):
-    pass
+    config = rs.MutatorConfig(rs.GameMode.SOCCAR)
+    config = rs.MutatorConfig(rs.GameMode.HOOPS)
+    config = rs.MutatorConfig(rs.GameMode.HEATSEEKER)
+    config = rs.MutatorConfig(rs.GameMode.SNOWDAY)
+    config = rs.MutatorConfig(rs.GameMode.THE_VOID)
 
   def test_pickle(self):
     config_a = rs.MutatorConfig(
@@ -1139,6 +1152,11 @@ class TestArena(FuzzyTestCase):
   def test_basic(self):
     arena = rs.Arena(rs.GameMode.THE_VOID, rs.MemoryWeightMode.LIGHT)
     arena = rs.Arena(rs.GameMode.THE_VOID, rs.MemoryWeightMode.HEAVY)
+
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+    arena = rs.Arena(rs.GameMode.HOOPS)
+    arena = rs.Arena(rs.GameMode.HEATSEEKER)
+    arena = rs.Arena(rs.GameMode.SNOWDAY)
 
   def test_boost_pad_order(self):
     arena = rs.Arena(rs.GameMode.THE_VOID)

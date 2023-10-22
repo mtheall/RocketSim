@@ -82,8 +82,7 @@ RocketSim = Extension(
     ("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION"),
     ("PY_ARRAY_UNIQUE_SYMBOL", "RocketSim_ARRAY_API"),
     ("NO_IMPORT_ARRAY", "1"),
-    ("RS_DONT_LOG", "1"),
-    ("RS_MERGE_ARENA_MESHES", "1")
+    ("RS_DONT_LOG", "1")
   ]
 )
 

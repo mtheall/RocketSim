@@ -1,5 +1,6 @@
 #pragma once
 #include "../../RLConst.h"
+#include "../GameMode.h"
 
 #include "../../DataStream/DataStreamIn.h"
 #include "../../DataStream/DataStreamOut.h"
@@ -23,15 +24,15 @@ struct MutatorConfig {
 
 		carWorldRestitution = RLConst::CARWORLD_COLLISION_RESTITUTION,
 
-		ballMass = RLConst::BALL_MASS_BT,
+		ballMass,
 		ballMaxSpeed = RLConst::BALL_MAX_SPEED,
 		ballDrag = RLConst::BALL_DRAG,
 
 		// Friction between car and world (arena)
-		ballWorldFriction = RLConst::BALL_FRICTION,
+		ballWorldFriction,
 
 		// Restitution between ball and world (arena)
-		ballWorldRestitution = RLConst::BALL_RESTITUTION,
+		ballWorldRestitution,
 
 		jumpAccel = RLConst::JUMP_ACCEL,
 		jumpImmediateForce = RLConst::JUMP_IMMEDIATE_FORCE,
@@ -52,7 +53,7 @@ struct MutatorConfig {
 		bumpForceScale = 1;
 
 	float
-		ballRadius = RLConst::BALL_COLLISION_RADIUS_NORMAL;
+		ballRadius;
 
 	bool 
 		unlimitedFlips = false,
@@ -66,7 +67,7 @@ struct MutatorConfig {
 	bool enableCarCarCollision = true;
 	bool enableCarBallCollision = true;
 
-	MutatorConfig() = default;
+	MutatorConfig(GameMode gameMode);
 
 	RSAPI void Serialize(DataStreamOut& out) const;
 	RSAPI void Deserialize(DataStreamIn& in);

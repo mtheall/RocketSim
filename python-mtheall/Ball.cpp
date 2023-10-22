@@ -79,12 +79,12 @@ PyObject *Ball::GetRot (Ball *self_) noexcept
 	if (!tuple)
 		return nullptr;
 
-	auto rot = self_->ball->_rigidBody.getOrientation();
+	auto rot = self_->ball->_rigidBody.getOrientation ();
 
-    PyTuple_SetItem (tuple.borrow (), 0, PyFloat_FromDouble (rot.getX ()));
-    PyTuple_SetItem (tuple.borrow (), 1, PyFloat_FromDouble (rot.getY ()));
-    PyTuple_SetItem (tuple.borrow (), 2, PyFloat_FromDouble (rot.getZ ()));
-    PyTuple_SetItem (tuple.borrow (), 3, PyFloat_FromDouble (rot.getW ()));
+	PyTuple_SetItem (tuple.borrow (), 0, PyFloat_FromDouble (rot.getX ()));
+	PyTuple_SetItem (tuple.borrow (), 1, PyFloat_FromDouble (rot.getY ()));
+	PyTuple_SetItem (tuple.borrow (), 2, PyFloat_FromDouble (rot.getZ ()));
+	PyTuple_SetItem (tuple.borrow (), 3, PyFloat_FromDouble (rot.getW ()));
 
 	return tuple.giftObject ();
 }

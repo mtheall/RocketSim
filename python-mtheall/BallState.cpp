@@ -13,6 +13,24 @@ PyMemberDef BallState::Members[] = {
         .offset = offsetof (BallState, state) + offsetof (::BallState, lastHitCarID),
         .flags  = 0,
         .doc    = "Last hit car id"},
+    {.name      = "heatseeker_target_dir",
+        .type   = TypeHelper<decltype (::BallState::HeatseekerInfo::yTargetDir)>::type,
+        .offset = offsetof (BallState, state) + offsetof (::BallState, hsInfo) +
+                  offsetof (::BallState::HeatseekerInfo, yTargetDir),
+        .flags = 0,
+        .doc   = "Heatseeker target direction"},
+    {.name      = "heatseeker_target_speed",
+        .type   = TypeHelper<decltype (::BallState::HeatseekerInfo::curTargetSpeed)>::type,
+        .offset = offsetof (BallState, state) + offsetof (::BallState, hsInfo) +
+                  offsetof (::BallState::HeatseekerInfo, curTargetSpeed),
+        .flags = 0,
+        .doc   = "Heatseeker target speed"},
+    {.name      = "heatseeker_time_since_hit",
+        .type   = TypeHelper<decltype (::BallState::HeatseekerInfo::timeSinceHit)>::type,
+        .offset = offsetof (BallState, state) + offsetof (::BallState, hsInfo) +
+                  offsetof (::BallState::HeatseekerInfo, timeSinceHit),
+        .flags = 0,
+        .doc   = "Heatseeker time since hit"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -34,6 +52,7 @@ Deep copy)"},
 
 PyGetSetDef BallState::GetSet[] = {
     GETSET_ENTRY (BallState, pos, "Position"),
+    GETSET_ENTRY (BallState, rot_mat, "Rotation matrix"),
     GETSET_ENTRY (BallState, vel, "Velocity"),
     GETSET_ENTRY (BallState, ang_vel, "Angular velocity"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
@@ -49,8 +68,12 @@ PyType_Slot BallState::Slots[] = {
     {Py_tp_doc, (void *)R"(Ball state
 __init__(self,
 	pos: RocketSim.Vec = RocketSim.Vec(z = 93.15),
+	rot_mat: RocketSim.RotMat = RocketSim.RotMat(),
 	vel: RocketSim.Vec = RocketSim.Vec(),
 	ang_vel: RocketSim.Vec = RocketSim.Vec(),
+	heatseeker_target_dir: float = 0.0,
+	heatseeker_target_speed: float = 2900.0,
+	heatseeker_time_since_hit: float = 0.0,
 	last_hit_car_id: int = 0))"},
     {0, nullptr},
 };
@@ -75,13 +98,15 @@ PyRef<BallState> BallState::NewFromBallState (::BallState const &state_) noexcep
 bool BallState::InitFromBallState (BallState *const self_, ::BallState const &state_) noexcept
 {
 	auto pos    = Vec::NewFromVec (state_.pos);
+	auto rotMat = RotMat::NewFromRotMat (state_.rotMat);
 	auto vel    = Vec::NewFromVec (state_.vel);
 	auto angVel = Vec::NewFromVec (state_.angVel);
 
-	if (!pos || !vel || !angVel)
+	if (!pos || !rotMat || !vel || !angVel)
 		return false;
 
 	PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
+	PyRef<RotMat>::assign (self_->rotMat, rotMat.borrowObject ());
 	PyRef<Vec>::assign (self_->vel, vel.borrowObject ());
 	PyRef<Vec>::assign (self_->angVel, angVel.borrowObject ());
 
@@ -95,6 +120,7 @@ bool BallState::InitFromBallState (BallState *const self_, ::BallState const &st
 	auto state = self_->state;
 
 	state.pos    = Vec::ToVec (self_->pos);
+	state.rotMat = RotMat::ToRotMat (self_->rotMat);
 	state.vel    = Vec::ToVec (self_->vel);
 	state.angVel = Vec::ToVec (self_->angVel);
 
@@ -112,6 +138,7 @@ PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 	new (&self->state)::BallState ();
 
 	self->pos    = nullptr;
+	self->rotMat = nullptr;
 	self->vel    = nullptr;
 	self->angVel = nullptr;
 
@@ -120,28 +147,59 @@ PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 
 int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	static char posKwd[]          = "pos";
-	static char velKwd[]          = "vel";
-	static char angVelKwd[]       = "ang_vel";
-	static char lastHitCarIDKwd[] = "last_hit_car_id";
+	static char posKwd[]                    = "pos";
+	static char rotMatKwd[]                 = "rot_mat";
+	static char velKwd[]                    = "vel";
+	static char angVelKwd[]                 = "ang_vel";
+	static char heatseekerTargetDirKwd[]    = "heatseeker_target_dir";
+	static char heatseekerTargetSpeedKwd[]  = "heatseeker_target_speed";
+	static char heatseekerTimeSinceHitKwd[] = "heatseeker_time_since_hit";
+	static char lastHitCarIDKwd[]           = "last_hit_car_id";
 
-	static char *dict[] = {posKwd, velKwd, angVelKwd, lastHitCarIDKwd, nullptr};
+	static char *dict[] = {posKwd,
+	    rotMatKwd,
+	    velKwd,
+	    angVelKwd,
+	    heatseekerTargetDirKwd,
+	    heatseekerTargetSpeedKwd,
+	    heatseekerTimeSinceHitKwd,
+	    lastHitCarIDKwd,
+	    nullptr};
 
 	PyObject *pos       = nullptr; // borrowed references
+	PyObject *rotMat    = nullptr; // borrowed references
 	PyObject *vel       = nullptr;
 	PyObject *angVel    = nullptr;
 	unsigned long carId = 0;
-	if (!PyArg_ParseTupleAndKeywords (
-	        args_, kwds_, "|O!O!O!k", dict, Vec::Type, &pos, Vec::Type, &vel, Vec::Type, &angVel, &carId))
-		return -1;
 
 	::BallState state{};
+
+	if (!PyArg_ParseTupleAndKeywords (args_,
+	        kwds_,
+	        "|O!O!O!O!fffk",
+	        dict,
+	        Vec::Type,
+	        &pos,
+	        RotMat::Type,
+	        &rotMat,
+	        Vec::Type,
+	        &vel,
+	        Vec::Type,
+	        &angVel,
+	        &state.hsInfo.yTargetDir,
+	        &state.hsInfo.curTargetSpeed,
+	        &state.hsInfo.timeSinceHit,
+	        &carId))
+		return -1;
+
 	if (pos)
-		state.pos = Vec::ToVec (reinterpret_cast<Vec *> (pos));
+		state.pos = Vec::ToVec (PyCast<Vec> (pos));
+	if (rotMat)
+		state.rotMat = RotMat::ToRotMat (PyCast<RotMat> (rotMat));
 	if (vel)
-		state.vel = Vec::ToVec (reinterpret_cast<Vec *> (vel));
+		state.vel = Vec::ToVec (PyCast<Vec> (vel));
 	if (angVel)
-		state.angVel = Vec::ToVec (reinterpret_cast<Vec *> (angVel));
+		state.angVel = Vec::ToVec (PyCast<Vec> (angVel));
 
 	state.lastHitCarID = carId;
 
@@ -154,6 +212,7 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 void BallState::Dealloc (BallState *self_) noexcept
 {
 	Py_XDECREF (self_->pos);
+	Py_XDECREF (self_->rotMat);
 	Py_XDECREF (self_->vel);
 	Py_XDECREF (self_->angVel);
 
@@ -175,11 +234,30 @@ PyObject *BallState::Pickle (BallState *self_) noexcept
 	if (Vec::ToVec (self_->pos) != model.pos && !DictSetValue (dict.borrow (), "pos", PyNewRef (self_->pos)))
 		return nullptr;
 
+	if ((state.rotMat.forward != model.rotMat.forward || state.rotMat.right != model.rotMat.right ||
+	        state.rotMat.up != model.rotMat.up) &&
+	    !DictSetValue (dict.borrow (), "rot_mat", PyNewRef (self_->rotMat)))
+		return nullptr;
+
 	if (Vec::ToVec (self_->vel) != model.vel && !DictSetValue (dict.borrow (), "vel", PyNewRef (self_->vel)))
 		return nullptr;
 
 	if (Vec::ToVec (self_->angVel) != model.angVel &&
 	    !DictSetValue (dict.borrow (), "ang_vel", PyNewRef (self_->angVel)))
+		return nullptr;
+
+	if (state.hsInfo.yTargetDir != model.hsInfo.yTargetDir &&
+	    !DictSetValue (dict.borrow (), "heatseeker_target_dir", PyLong_FromUnsignedLong (state.hsInfo.yTargetDir)))
+		return nullptr;
+
+	if (state.hsInfo.curTargetSpeed != model.hsInfo.curTargetSpeed &&
+	    !DictSetValue (
+	        dict.borrow (), "heatseeker_target_speed", PyLong_FromUnsignedLong (state.hsInfo.curTargetSpeed)))
+		return nullptr;
+
+	if (state.hsInfo.timeSinceHit != model.hsInfo.timeSinceHit &&
+	    !DictSetValue (
+	        dict.borrow (), "heatseeker_time_since_hit", PyLong_FromUnsignedLong (state.hsInfo.timeSinceHit)))
 		return nullptr;
 
 	if (state.lastHitCarID != model.lastHitCarID &&
@@ -208,6 +286,7 @@ PyObject *BallState::Copy (BallState *self_) noexcept
 		return nullptr;
 
 	PyRef<Vec>::assign (state->pos, reinterpret_cast<PyObject *> (self_->pos));
+	PyRef<RotMat>::assign (state->rotMat, reinterpret_cast<PyObject *> (self_->rotMat));
 	PyRef<Vec>::assign (state->vel, reinterpret_cast<PyObject *> (self_->vel));
 	PyRef<Vec>::assign (state->angVel, reinterpret_cast<PyObject *> (self_->angVel));
 
@@ -224,6 +303,10 @@ PyObject *BallState::DeepCopy (BallState *self_, PyObject *memo_) noexcept
 
 	PyRef<Vec>::assign (state->pos, PyDeepCopy (self_->pos, memo_));
 	if (!state->pos)
+		return nullptr;
+
+	PyRef<RotMat>::assign (state->rotMat, PyDeepCopy (self_->rotMat, memo_));
+	if (!state->rotMat)
 		return nullptr;
 
 	PyRef<Vec>::assign (state->vel, PyDeepCopy (self_->vel, memo_));
@@ -262,6 +345,30 @@ int BallState::Setpos (BallState *self_, PyObject *value_, void *) noexcept
 		return 0;
 
 	PyRef<Vec>::assign (self_->pos, value_);
+
+	return 0;
+}
+
+PyObject *BallState::Getrot_mat (BallState *self_, void *) noexcept
+{
+	return PyRef<RotMat>::incRef (self_->rotMat).giftObject ();
+}
+
+int BallState::Setrot_mat (BallState *self_, PyObject *value_, void *) noexcept
+{
+	if (!value_)
+	{
+		PyErr_SetString (PyExc_TypeError, "can't delete 'rot_mat' attribute of 'RocketSim.BallState' objects");
+		return -1;
+	}
+
+	if (!Py_IS_TYPE (value_, RotMat::Type))
+	{
+		PyErr_SetString (PyExc_TypeError, "attribute value type must be RocketSim.RotMat");
+		return -1;
+	}
+
+	PyRef<RotMat>::assign (self_->rotMat, value_);
 
 	return 0;
 }

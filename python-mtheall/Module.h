@@ -262,6 +262,7 @@ struct BallState
 	::BallState state;
 
 	Vec *pos;
+	RotMat *rotMat;
 	Vec *vel;
 	Vec *angVel;
 
@@ -285,6 +286,7 @@ struct BallState
 	static PyObject *DeepCopy (BallState *self_, PyObject *memo_) noexcept;
 
 	GETSET_DECLARE (BallState, pos)
+	GETSET_DECLARE (BallState, rot_mat)
 	GETSET_DECLARE (BallState, vel)
 	GETSET_DECLARE (BallState, ang_vel)
 };
@@ -563,8 +565,8 @@ struct MutatorConfig
 	static PyType_Slot Slots[];
 	static PyType_Spec Spec;
 
-	static PyRef<MutatorConfig> NewFromMutatorConfig (::MutatorConfig const &config_ = {}) noexcept;
-	static bool InitFromMutatorConfig (MutatorConfig *self_, ::MutatorConfig const &config_ = {}) noexcept;
+	static PyRef<MutatorConfig> NewFromMutatorConfig (::MutatorConfig const &config_ = {::GameMode::SOCCAR}) noexcept;
+	static bool InitFromMutatorConfig (MutatorConfig *self_, ::MutatorConfig const &config_ = {::GameMode::SOCCAR}) noexcept;
 	static ::MutatorConfig ToMutatorConfig (MutatorConfig *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;

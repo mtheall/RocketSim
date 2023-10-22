@@ -14,11 +14,24 @@ struct BallState {
 	// Position in world space
 	Vec pos = { 0, 0, RLConst::BALL_REST_Z };
 
+	RotMat rotMat = RotMat::GetIdentity();
+
 	// Linear velocity
 	Vec vel = { 0, 0, 0 };
 	 
 	// Angular velocity (axis-angle)
 	Vec angVel = { 0, 0, 0 };
+
+	struct HeatseekerInfo {
+		// Which net the ball should seek towards
+		// When 0, no net
+		float yTargetDir = 0;
+
+		float curTargetSpeed = RLConst::Heatseeker::INITIAL_TARGET_SPEED;
+		float timeSinceHit = 0;
+	};
+
+	HeatseekerInfo hsInfo;
 
 	std::uint32_t lastHitCarID = 0;
 
@@ -29,7 +42,8 @@ struct BallState {
 };
 
 #define BALLSTATE_SERIALIZATION_FIELDS \
-pos, vel, angVel
+pos, rotMat, vel, angVel, \
+hsInfo.yTargetDir, hsInfo.curTargetSpeed, hsInfo.timeSinceHit
 
 class Ball {
 public:
@@ -39,7 +53,7 @@ public:
 	RSAPI void SetState(const BallState& state);
 
 	btRigidBody _rigidBody;
-	btSphereShape _collisionShape;
+	btCollisionShape* _collisionShape;
 
 	// For construction by Arena
 	static Ball* _AllocBall() { return new Ball(); }
@@ -47,23 +61,32 @@ public:
 	// For removal by Arena
 	static void _DestroyBall(Ball* ball) { delete ball; }
 
-	void _BulletSetup(class btDynamicsWorld* bulletWorld, const MutatorConfig& mutatorConfig);
+	void _BulletSetup(GameMode gameMode, class btDynamicsWorld* bulletWorld, const MutatorConfig& mutatorConfig);
 
+	bool groundStickApplied = false;
 	Vec _velocityImpulseCache = { 0,0,0 };
 	void _FinishPhysicsTick(const MutatorConfig& mutatorConfig);
 
+	RSAPI bool IsSphere() const;
+
 	// Returns radius in BulletPhysics units
-	float GetRadiusBullet() const;
+	RSAPI float GetRadiusBullet() const;
 
 	// Returns radius in Unreal Engine units (uu)
 	float GetRadius() const {
 		return GetRadiusBullet() * BT_TO_UU;
 	}
 
+	void _PreTickUpdate(GameMode gameMode, float tickTime);
+	void _OnHit(GameMode gameMode, struct Car* car);
+	void _OnWorldCollision(GameMode gameMode, Vec normal, float tickTime);
+		
 	Ball(const Ball& other) = delete;
 	Ball& operator=(const Ball& other) = delete;
 
-	~Ball() {}
+	~Ball() {
+		delete _collisionShape;
+	}
 
 private:
 	Ball() {}
