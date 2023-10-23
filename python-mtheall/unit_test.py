@@ -1143,7 +1143,6 @@ class TestArena(FuzzyTestCase):
     pads_a = arena_a.get_boost_pads()
     pads_b = arena_b.get_boost_pads()
     self.assertEqual(len(pads_a), len(pads_b))
-    self.assertGreater(len(pads_a), 0)
 
     for pad_a, pad_b in zip(pads_a, pads_b):
       self.assertIsNot(pad_a, pad_b)
@@ -1417,35 +1416,39 @@ class TestArena(FuzzyTestCase):
     self.assertTrue(bumped[0])
 
   def test_clone(self):
-    arena = rs.Arena(rs.GameMode.SOCCAR)
+    for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
+      arena = rs.Arena(mode)
 
-    for i in range(4):
-      random_car(arena, rs.Team.BLUE)
-      random_car(arena, rs.Team.ORANGE)
+      for i in range(4):
+        random_car(arena, rs.Team.BLUE)
+        random_car(arena, rs.Team.ORANGE)
 
-    for i in range(1000):
-      for car in arena.get_cars():
-        target_chase(arena.ball.get_state().pos, car)
-      arena.step(7)
+      # state setting for the void gets out of hand quickly
+      for i in range(10 if mode == rs.GameMode.THE_VOID else 1000):
+        for car in arena.get_cars():
+          target_chase(arena.ball.get_state().pos, car)
+        arena.step(7)
 
-    self.compare(arena, arena.clone())
+      self.compare(arena, arena.clone())
 
   def test_clone_into(self):
-    arena = rs.Arena(rs.GameMode.SOCCAR)
+    for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
+      arena = rs.Arena(mode)
 
-    for i in range(4):
-      random_car(arena, rs.Team.BLUE)
-      random_car(arena, rs.Team.ORANGE)
+      for i in range(4):
+        random_car(arena, rs.Team.BLUE)
+        random_car(arena, rs.Team.ORANGE)
 
-    clone = arena.clone()
+      clone = arena.clone()
 
-    for i in range(1000):
-      for car in arena.get_cars():
-        target_chase(arena.ball.get_state().pos, car)
-      arena.step(7)
+      # state setting for the void gets out of hand quickly
+      for i in range(10 if mode == rs.GameMode.THE_VOID else 1000):
+        for car in arena.get_cars():
+          target_chase(arena.ball.get_state().pos, car)
+        arena.step(7)
 
-    arena.clone_into(clone)
-    self.compare(arena, clone)
+      arena.clone_into(clone)
+      self.compare(arena, clone)
 
   def test_pickle(self):
     for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
@@ -1454,7 +1457,8 @@ class TestArena(FuzzyTestCase):
         random_car(arena, rs.Team.BLUE)
         random_car(arena, rs.Team.ORANGE)
 
-      for i in range(1000):
+      # state setting for the void gets out of hand quickly
+      for i in range(10 if mode == rs.GameMode.THE_VOID else 1000):
         for car in arena.get_cars():
           target_chase(arena.ball.get_state().pos, car)
         arena.step(7)
@@ -1462,30 +1466,34 @@ class TestArena(FuzzyTestCase):
       self.compare(arena, pickled(arena))
 
   def test_copy(self):
-    arena = rs.Arena(rs.GameMode.SOCCAR)
-    for i in range(4):
-      random_car(arena, rs.Team.BLUE)
-      random_car(arena, rs.Team.ORANGE)
+    for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
+      arena = rs.Arena(mode)
+      for i in range(4):
+        random_car(arena, rs.Team.BLUE)
+        random_car(arena, rs.Team.ORANGE)
 
-    for i in range(1000):
-      for car in arena.get_cars():
-        target_chase(arena.ball.get_state().pos, car)
-      arena.step(7)
+      # state setting for the void gets out of hand quickly
+      for i in range(10 if mode == rs.GameMode.THE_VOID else 1000):
+        for car in arena.get_cars():
+          target_chase(arena.ball.get_state().pos, car)
+        arena.step(7)
 
-    self.compare(arena, copy.copy(arena))
+      self.compare(arena, copy.copy(arena))
 
   def test_deep_copy(self):
-    arena = rs.Arena(rs.GameMode.SOCCAR)
-    for i in range(4):
-      random_car(arena, rs.Team.BLUE)
-      random_car(arena, rs.Team.ORANGE)
+    for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
+      arena = rs.Arena(mode)
+      for i in range(4):
+        random_car(arena, rs.Team.BLUE)
+        random_car(arena, rs.Team.ORANGE)
 
-    for i in range(1000):
-      for car in arena.get_cars():
-        target_chase(arena.ball.get_state().pos, car)
-      arena.step(7)
+      # state setting for the void gets out of hand quickly
+      for i in range(10 if mode == rs.GameMode.THE_VOID else 1000):
+        for car in arena.get_cars():
+          target_chase(arena.ball.get_state().pos, car)
+        arena.step(7)
 
-    self.compare(arena, copy.deepcopy(arena))
+      self.compare(arena, copy.deepcopy(arena))
 
   def test_get_car_from_id(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)

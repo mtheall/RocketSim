@@ -1170,52 +1170,57 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 			carMap[car->car->id] = car;
 		}
 
-		auto const &[indexMapping, indexMappingSize] = getIndexMapping (arena->gameMode);
-
-		auto padMap        = std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
-		auto const numPads = PyList_Size (pads);
-
-		if (numPads != indexMappingSize)
-			return PyErr_Format (
-			    PyExc_KeyError, "Internal mapping error: expected %zu boost pads, got %zu", indexMappingSize, numPads);
-
-		for (unsigned i = 0; i < numPads; ++i)
+		auto padMap = std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
+		if (pads)
 		{
-			auto pad = PyRef<BoostPad>::steal (BoostPad::New ());
-			if (!pad)
-				return nullptr;
+			auto const &[indexMapping, indexMappingSize] = getIndexMapping (arena->gameMode);
 
-			auto const [x, y] = extractKey (indexMapping[i]);
+			auto const numPads = PyList_Size (pads);
 
-			for (auto const p : arena->GetBoostPads ())
+			if (numPads != indexMappingSize)
+				return PyErr_Format (PyExc_KeyError,
+				    "Internal mapping error: expected %zu boost pads, got %zu",
+				    indexMappingSize,
+				    numPads);
+
+			for (unsigned i = 0; i < numPads; ++i)
 			{
-				if (std::abs (p->pos.x - x) < 1e-4 && std::abs (p->pos.y - y) < 1e-4)
+				auto pad = PyRef<BoostPad>::steal (BoostPad::New ());
+				if (!pad)
+					return nullptr;
+
+				auto const [x, y] = extractKey (indexMapping[i]);
+
+				for (auto const p : arena->GetBoostPads ())
 				{
-					pad->arena = arena;
-					pad->pad   = p;
-					break;
+					if (static_cast<int> (p->pos.x) == x && static_cast<int> (p->pos.y) == y)
+					{
+						pad->arena = arena;
+						pad->pad   = p;
+						break;
+					}
 				}
+
+				if (!pad->pad)
+				{
+					PyErr_SetString (PyExc_RuntimeError, "Failed to enumerate all boost pads");
+					return nullptr;
+				}
+
+				auto state = PyList_GetItem (pads, i);
+				if (!state)
+					return nullptr;
+
+				if (!Py_IS_TYPE (state, BoostPadState::Type))
+				{
+					PyErr_SetString (PyExc_RuntimeError, "Unexpected type");
+					return nullptr;
+				}
+
+				pad->pad->SetState (BoostPadState::ToBoostPadState (PyCast<BoostPadState> (state)));
+
+				padMap[pad->pad] = pad;
 			}
-
-			if (!pad->pad)
-			{
-				PyErr_SetString (PyExc_RuntimeError, "Failed to enumerate all boost pads");
-				return nullptr;
-			}
-
-			auto state = PyList_GetItem (pads, i);
-			if (!state)
-				return nullptr;
-
-			if (!Py_IS_TYPE (state, BoostPadState::Type))
-			{
-				PyErr_SetString (PyExc_RuntimeError, "Unexpected type");
-				return nullptr;
-			}
-
-			pad->pad->SetState (BoostPadState::ToBoostPadState (PyCast<BoostPadState> (state)));
-
-			padMap[pad->pad] = pad;
 		}
 
 		auto ball = PyRef<Ball>::steal (Ball::New ());
@@ -1260,11 +1265,12 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 		if (self_->ballTouchCallback != Py_None)
 			self_->arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, self_);
-		self_->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, self_);
+
+		self_->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, self_);
 
 		if (self_->arena->gameMode != ::GameMode::THE_VOID)
 		{
-			self_->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, self_);
+			self_->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, self_);
 			self_->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, self_);
 		}
 
@@ -1462,11 +1468,12 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 		if (clone->ballTouchCallback != Py_None)
 			clone->arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, clone.borrow ());
-		clone->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, clone.borrow ());
+
+		clone->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, clone.borrow ());
 
 		if (clone->arena->gameMode != ::GameMode::THE_VOID)
 		{
-			clone->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, clone.borrow ());
+			clone->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, clone.borrow ());
 			clone->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, clone.borrow ());
 		}
 
@@ -1613,11 +1620,11 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 	else
 		target->arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, target);
 
-	target->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, target);
+	target->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, target);
 
 	if (target->arena->gameMode != ::GameMode::THE_VOID)
 	{
-		target->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, target);
+		target->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, target);
 		target->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, target);
 	}
 

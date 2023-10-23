@@ -135,7 +135,7 @@ PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 	if (!self)
 		return nullptr;
 
-	new (&self->state)::BallState ();
+	new (&self->state)::BallState{};
 
 	self->pos    = nullptr;
 	self->rotMat = nullptr;
@@ -247,17 +247,15 @@ PyObject *BallState::Pickle (BallState *self_) noexcept
 		return nullptr;
 
 	if (state.hsInfo.yTargetDir != model.hsInfo.yTargetDir &&
-	    !DictSetValue (dict.borrow (), "heatseeker_target_dir", PyLong_FromUnsignedLong (state.hsInfo.yTargetDir)))
+	    !DictSetValue (dict.borrow (), "heatseeker_target_dir", PyFloat_FromDouble (state.hsInfo.yTargetDir)))
 		return nullptr;
 
 	if (state.hsInfo.curTargetSpeed != model.hsInfo.curTargetSpeed &&
-	    !DictSetValue (
-	        dict.borrow (), "heatseeker_target_speed", PyLong_FromUnsignedLong (state.hsInfo.curTargetSpeed)))
+	    !DictSetValue (dict.borrow (), "heatseeker_target_speed", PyFloat_FromDouble (state.hsInfo.curTargetSpeed)))
 		return nullptr;
 
 	if (state.hsInfo.timeSinceHit != model.hsInfo.timeSinceHit &&
-	    !DictSetValue (
-	        dict.borrow (), "heatseeker_time_since_hit", PyLong_FromUnsignedLong (state.hsInfo.timeSinceHit)))
+	    !DictSetValue (dict.borrow (), "heatseeker_time_since_hit", PyFloat_FromDouble (state.hsInfo.timeSinceHit)))
 		return nullptr;
 
 	if (state.lastHitCarID != model.lastHitCarID &&
