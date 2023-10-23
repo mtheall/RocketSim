@@ -1415,6 +1415,20 @@ class TestArena(FuzzyTestCase):
 
     self.assertTrue(bumped[0])
 
+  def test_ball_prediction(self):
+    for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
+      arena = rs.Arena(mode)
+
+      ball_state = arena.ball.get_state()
+      ball_state.vel = rs.Vec(x=500.0, y=500.0, z=500.0)
+      arena.ball.set_state(ball_state)
+
+      pred = arena.get_ball_prediction()
+      self.assertEqual(len(pred), 60)
+
+      pred = arena.get_ball_prediction(num_ticks=240, tick_skip=0)
+      self.assertEqual(len(pred), 240)
+
   def test_clone(self):
     for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
       arena = rs.Arena(mode)

@@ -7,6 +7,7 @@
 
 #include "Math/Math.h"
 #include "Sim/Arena/Arena.h"
+#include "Sim/BallPredTracker/BallPredTracker.h"
 #include "Sim/Car/Car.h"
 
 #include <map>
@@ -591,6 +592,8 @@ struct Arena
 	std::map<std::uint32_t, PyRef<Car>> *cars;
 	std::unordered_map<::BoostPad *, PyRef<BoostPad>> *boostPads;
 	std::vector<PyRef<BoostPad>> *boostPadsByIndex;
+	::BallPredTracker *ballPrediction;
+
 	Ball *ball;
 	PyObject *ballTouchCallback;
 	PyObject *ballTouchCallbackUserData;
@@ -631,6 +634,7 @@ struct Arena
 	static PyObject *AddCar (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *GetBallPrediction (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *GetBoostPads (Arena *self_) noexcept;
 	static PyObject *GetCarFromId (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *GetCars (Arena *self_) noexcept;
