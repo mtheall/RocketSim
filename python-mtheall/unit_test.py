@@ -477,7 +477,7 @@ class TestBoostPad(FuzzyTestCase):
     self.assertEqual(pad_a.is_big,    pad_b.is_big)
 
     TestBoostPadState.compare(self, pad_a.get_state(), pad_b.get_state())
-    
+
   def test_create(self):
     with self.assertRaises(TypeError):
       rs.BoostPad()
@@ -1592,41 +1592,6 @@ class TestArena(FuzzyTestCase):
     self.assertNotEqual(sum(ball_rot), 0)
 
   def test_get_gym_state(self):
-    arena = rs.Arena(rs.GameMode.SOCCAR)
-    car1  = arena.add_car(rs.Team.BLUE, rs.CarConfig.DOMINUS)
-    car2  = arena.add_car(rs.Team.ORANGE, rs.CarConfig(rs.CarConfig.DOMINUS))
-
-    for i in range(100):
-      for j in range(10):
-        random_car(arena)
-      while len(arena.get_cars()) > 0:
-        arena.remove_car(arena.get_cars()[0])
-
-    for i in range(100):
-      for j in range(10):
-        random_car(arena)
-      for car in arena.get_cars():
-        arena.remove_car(car)
-
-    x = glm.vec3(1, 0, 0)
-    y = glm.vec3(0, 1, 0)
-    z = glm.vec3(0, 0, 1)
-
-    arena = rs.Arena(rs.GameMode.SOCCAR)
-    car1  = arena.add_car(rs.Team.BLUE)
-    car2  = arena.add_car(rs.Team.ORANGE)
-    ball  = arena.ball
-
-    arena.reset_kickoff()
-
-    self.assertNotEqual(car1.id, car2.id)
-    self.assertEqual(car1.team, rs.Team.BLUE)
-    self.assertEqual(car2.team, rs.Team.ORANGE)
-
-    inv_mtx = glm.mat3(-1,  0,  0,
-                        0, -1,  0,
-                        0,  0,  1)
-
     def load_mat3(mat: np.ndarray) -> glm.mat3:
       return glm.mat3(*mat)
 
@@ -1672,135 +1637,173 @@ class TestArena(FuzzyTestCase):
 
       return True
 
-    for i in range(10000):
-      with self.subTest(i=i):
-        target_chase(ball.get_state().pos, car1)
-        target_chase(ball.get_state().pos, car2)
+    for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):
+      arena = rs.Arena(mode)
+      car1  = arena.add_car(rs.Team.BLUE, rs.CarConfig.DOMINUS)
+      car2  = arena.add_car(rs.Team.ORANGE, rs.CarConfig(rs.CarConfig.DOMINUS))
 
-        prev_tick = arena.tick_count
-        arena.step(4)
-        state = arena.get_gym_state()
+      for i in range(100):
+        for j in range(10):
+          random_car(arena)
+        while len(arena.get_cars()) > 0:
+          arena.remove_car(arena.get_cars()[0])
 
-        ball_state = ball.get_state()
-
-        self.assertEqual(state[0][0], arena.game_mode)
-        if state[0][1]: # possibly multiple cars hit ball on same tick
-          car      = arena.get_car_from_id(int(state[0][1]))
-          hit_info = car.get_state().ball_hit_info
-          self.assertTrue(hit_info.is_valid)
-
-          for c in arena.get_cars():
-            info = c.get_state().ball_hit_info
-            if c is car or not info.is_valid:
-              continue
-            self.assertGreaterEqual(hit_info.tick_count_when_hit, info.tick_count_when_hit)
-        self.assertEqual(state[0][2], arena.blue_score)
-        self.assertEqual(state[0][3], arena.orange_score)
-
-        # validate last ball-car hit
-        if int(state[0][1]):
-          last_hit = arena.get_car_from_id(int(state[0][1])).get_state().ball_hit_info
-          self.assertTrue(last_hit.is_valid)
-
-          for car in arena.get_cars():
-            car_hit = car.get_state().ball_hit_info
-            if not car_hit.is_valid:
-              continue
-            self.assertLessEqual(car_hit.tick_count_when_hit, last_hit.tick_count_when_hit)
-        else:
-          for car in arena.get_cars():
-            car_hit = car.get_state().ball_hit_info
-            if not car_hit.is_valid:
-              continue
-            self.assertLessEqual(car_hit.tick_count_when_hit, prev_tick)
-
-        gym_state = state[2][0]
-        self.assertEqual(gym_state[0:3], ball_state.pos.as_numpy())
-        #self.assertEqual(gym_state[3:7], ball_state.quat.as_numpy())
-        self.assertEqual(gym_state[7:10], ball_state.vel.as_numpy())
-        self.assertEqual(gym_state[10:13], ball_state.ang_vel.as_numpy())
-        #self.assertEqual(gym_state[13:22].reshape(3, 3), ball_state.rot_mat.as_numpy())
-        #self.assertEqual(gym_state[22:25], ball_state.pyr.as_numpy())
-
-        gym_state = state[2][1]
-        self.assertEqual(gym_state[0:3], invert_vector(ball_state.pos.as_numpy()))
-        #self.assertEqual(gym_state[3:7], ball_state.quat.as_numpy())
-        self.assertEqual(gym_state[7:10], invert_vector(ball_state.vel.as_numpy()))
-        self.assertEqual(gym_state[10:13], ball_state.ang_vel.as_numpy())
-        #self.assertEqual(gym_state[13:22].reshape(3, 3), ball_state.rot_mat.as_numpy())
-        #self.assertEqual(gym_state[22:25], ball_state.pyr.as_numpy())
-
-        cars = arena.get_cars()
-        self.assertEqual(len(cars), len(state[3:]))
-
-        # ensure each gym state car is in the arena
-        for s in state[3:]:
-          self.assertIsNotNone(arena.get_car_from_id(int(s[0][0]), None))
-
-        # ensure each arena car is in the gym state
+      for i in range(100):
+        for j in range(10):
+          random_car(arena)
         for car in arena.get_cars():
-          self.assertTrue(car.id in [x[0][0] for x in state[3:]])
+          arena.remove_car(car)
 
-        for i in range(3, len(state)):
-          gym_state = state[i]
-          car       = arena.get_car_from_id(int(gym_state[0][0]))
-          car_state = car.get_state()
+      x = glm.vec3(1, 0, 0)
+      y = glm.vec3(0, 1, 0)
+      z = glm.vec3(0, 0, 1)
 
-          for j in range(2):
-            self.assertEqual(car.id, gym_state[j][0])
-            self.assertEqual(car.team, gym_state[j][1])
-            self.assertEqual(car.goals, gym_state[j][2])
-            #self.assertEqual(car.saves, gym_state[j][3])
-            #self.assertEqual(car.shots, gym_state[j][4])
-            self.assertEqual(car.demos, gym_state[j][5])
-            self.assertEqual(car.boost_pickups, gym_state[j][6])
-            self.assertEqual(car_state.is_demoed, gym_state[j][7])
-            self.assertEqual(car_state.is_on_ground, gym_state[j][8])
-            if car_state.ball_hit_info.is_valid:
-              self.assertEqual(car_state.ball_hit_info.tick_count_when_hit >= prev_tick, gym_state[j][9])
-            else:
-              self.assertFalse(gym_state[j][9])
-            self.assertEqual(car_state.boost, gym_state[j][10])
+      arena = rs.Arena(rs.GameMode.SOCCAR)
+      car1  = arena.add_car(rs.Team.BLUE)
+      car2  = arena.add_car(rs.Team.ORANGE)
+      ball  = arena.ball
 
-          car_dir_x = glm.vec3(car_state.rot_mat.forward.as_numpy())
-          car_dir_y = glm.vec3(car_state.rot_mat.right.as_numpy())
-          car_dir_z = glm.vec3(car_state.rot_mat.up.as_numpy())
+      arena.reset_kickoff()
 
-          gym_state = state[i][0]
-          self.assertEqual(gym_state[11:14], car_state.pos.as_numpy())
-          self.assertEqual(gym_state[18:21], car_state.vel.as_numpy())
-          self.assertEqual(gym_state[21:24], car_state.ang_vel.as_numpy())
+      self.assertNotEqual(car1.id, car2.id)
+      self.assertEqual(car1.team, rs.Team.BLUE)
+      self.assertEqual(car2.team, rs.Team.ORANGE)
 
-          if not car_state.is_demoed:
-            self.assertEqual(gym_state[24:33].reshape(3, 3), car_state.rot_mat.as_numpy())
+      inv_mtx = glm.mat3(-1,  0,  0,
+                          0, -1,  0,
+                          0,  0,  1)
 
-            m   = load_mat3(gym_state[24:33])
-            q   = glm.quat_cast(m)
-            pyr = gym_state[33:36]
-            compare_quat(gym_state[14:18], np.array(q))
-            self.assertAlmostEqual(np.array(m), pyr_to_mat3(pyr), 4)
-            self.assertTrue(check_pyr(pyr))
+      for i in range(10000):
+        with self.subTest(i=i):
+          target_chase(ball.get_state().pos, car1)
+          target_chase(ball.get_state().pos, car2)
 
-            self.assertAlmostEqual(glm.dot(car_dir_x, m * x), 1.0, 5)
-            self.assertAlmostEqual(glm.dot(car_dir_y, m * y), 1.0, 5)
-            self.assertAlmostEqual(glm.dot(car_dir_z, m * z), 1.0, 5)
-            self.assertAlmostEqual(glm.dot(car_dir_x, q * x), 1.0, 5)
-            self.assertAlmostEqual(glm.dot(car_dir_y, q * y), 1.0, 5)
-            self.assertAlmostEqual(glm.dot(car_dir_z, q * z), 1.0, 5)
-            self.assertAlmostEqual(np.array(car_dir_x), np.array(m * x), 5)
-            self.assertAlmostEqual(np.array(car_dir_y), np.array(m * y), 5)
-            self.assertAlmostEqual(np.array(car_dir_z), np.array(m * z), 5)
-            self.assertAlmostEqual(np.array(car_dir_x), np.array(q * x), 5)
-            self.assertAlmostEqual(np.array(car_dir_y), np.array(q * y), 5)
-            self.assertAlmostEqual(np.array(car_dir_z), np.array(q * z), 5)
+          prev_tick = arena.tick_count
+          arena.step(4)
+          state = arena.get_gym_state()
 
-          # check inversion
-          gym_state = state[i][1]
-          self.assertEqual(gym_state[11:14], invert_vector(car_state.pos.as_numpy()))
-          self.assertEqual(gym_state[18:21], invert_vector(car_state.vel.as_numpy()))
-          self.assertEqual(gym_state[21:24], car_state.ang_vel.as_numpy())
+          ball_state = ball.get_state()
 
-          if not car_state.is_demoed:
+          self.assertEqual(state[0][0], arena.game_mode)
+          if state[0][1]: # possibly multiple cars hit ball on same tick
+            car      = arena.get_car_from_id(int(state[0][1]))
+            hit_info = car.get_state().ball_hit_info
+            self.assertTrue(hit_info.is_valid)
+
+            for c in arena.get_cars():
+              info = c.get_state().ball_hit_info
+              if c is car or not info.is_valid:
+                continue
+              self.assertGreaterEqual(hit_info.tick_count_when_hit, info.tick_count_when_hit)
+          self.assertEqual(state[0][2], arena.blue_score)
+          self.assertEqual(state[0][3], arena.orange_score)
+
+          # validate last ball-car hit
+          if int(state[0][1]):
+            last_hit = arena.get_car_from_id(int(state[0][1])).get_state().ball_hit_info
+            self.assertTrue(last_hit.is_valid)
+
+            for car in arena.get_cars():
+              car_hit = car.get_state().ball_hit_info
+              if not car_hit.is_valid:
+                continue
+              self.assertLessEqual(car_hit.tick_count_when_hit, last_hit.tick_count_when_hit)
+          else:
+            for car in arena.get_cars():
+              car_hit = car.get_state().ball_hit_info
+              if not car_hit.is_valid:
+                continue
+              self.assertLessEqual(car_hit.tick_count_when_hit, prev_tick)
+
+          gym_state = state[2][0]
+          self.assertEqual(gym_state[0:3], ball_state.pos.as_numpy())
+          #self.assertEqual(gym_state[3:7], ball_state.quat.as_numpy())
+          self.assertEqual(gym_state[7:10], ball_state.vel.as_numpy())
+          self.assertEqual(gym_state[10:13], ball_state.ang_vel.as_numpy())
+          self.assertEqual(gym_state[13:22].reshape(3, 3), ball_state.rot_mat.as_numpy())
+          #self.assertEqual(gym_state[22:25], ball_state.pyr.as_numpy())
+
+          gym_state = state[2][1]
+          self.assertEqual(gym_state[0:3], invert_vector(ball_state.pos.as_numpy()))
+          #self.assertEqual(gym_state[3:7], ball_state.quat.as_numpy())
+          self.assertEqual(gym_state[7:10], invert_vector(ball_state.vel.as_numpy()))
+          self.assertEqual(gym_state[10:13], ball_state.ang_vel.as_numpy())
+          self.assertEqual(invert_mat3(load_mat3(gym_state[13:22])).transpose(), ball_state.rot_mat.as_numpy())
+          #self.assertEqual(gym_state[22:25], ball_state.pyr.as_numpy())
+
+          cars = arena.get_cars()
+          self.assertEqual(len(cars), len(state[3:]))
+
+          # ensure each gym state car is in the arena
+          for s in state[3:]:
+            self.assertIsNotNone(arena.get_car_from_id(int(s[0][0]), None))
+
+          # ensure each arena car is in the gym state
+          for car in arena.get_cars():
+            self.assertTrue(car.id in [x[0][0] for x in state[3:]])
+
+          for i in range(3, len(state)):
+            gym_state = state[i]
+            car       = arena.get_car_from_id(int(gym_state[0][0]))
+            car_state = car.get_state()
+
+            for j in range(2):
+              self.assertEqual(car.id, gym_state[j][0])
+              self.assertEqual(car.team, gym_state[j][1])
+              self.assertEqual(car.goals, gym_state[j][2])
+              #self.assertEqual(car.saves, gym_state[j][3])
+              #self.assertEqual(car.shots, gym_state[j][4])
+              self.assertEqual(car.demos, gym_state[j][5])
+              self.assertEqual(car.boost_pickups, gym_state[j][6])
+              self.assertEqual(car_state.is_demoed, gym_state[j][7])
+              self.assertEqual(car_state.is_on_ground, gym_state[j][8])
+              if car_state.ball_hit_info.is_valid:
+                self.assertEqual(car_state.ball_hit_info.tick_count_when_hit >= prev_tick, gym_state[j][9])
+              else:
+                self.assertFalse(gym_state[j][9])
+              self.assertEqual(car_state.boost, gym_state[j][10])
+
+            car_dir_x = glm.vec3(car_state.rot_mat.forward.as_numpy())
+            car_dir_y = glm.vec3(car_state.rot_mat.right.as_numpy())
+            car_dir_z = glm.vec3(car_state.rot_mat.up.as_numpy())
+
+            gym_state = state[i][0]
+            self.assertEqual(gym_state[11:14], car_state.pos.as_numpy())
+            self.assertEqual(gym_state[18:21], car_state.vel.as_numpy())
+            self.assertEqual(gym_state[21:24], car_state.ang_vel.as_numpy())
+
+            if not car_state.is_demoed:
+              self.assertEqual(gym_state[24:33].reshape(3, 3), car_state.rot_mat.as_numpy())
+
+              m   = load_mat3(gym_state[24:33])
+              q   = glm.quat_cast(m)
+              pyr = gym_state[33:36]
+              compare_quat(gym_state[14:18], np.array(q))
+              self.assertAlmostEqual(np.array(m), pyr_to_mat3(pyr), 4)
+              self.assertTrue(check_pyr(pyr))
+
+              self.assertAlmostEqual(glm.dot(car_dir_x, m * x), 1.0, 5)
+              self.assertAlmostEqual(glm.dot(car_dir_y, m * y), 1.0, 5)
+              self.assertAlmostEqual(glm.dot(car_dir_z, m * z), 1.0, 5)
+              self.assertAlmostEqual(glm.dot(car_dir_x, q * x), 1.0, 5)
+              self.assertAlmostEqual(glm.dot(car_dir_y, q * y), 1.0, 5)
+              self.assertAlmostEqual(glm.dot(car_dir_z, q * z), 1.0, 5)
+              self.assertAlmostEqual(np.array(car_dir_x), np.array(m * x), 5)
+              self.assertAlmostEqual(np.array(car_dir_y), np.array(m * y), 5)
+              self.assertAlmostEqual(np.array(car_dir_z), np.array(m * z), 5)
+              self.assertAlmostEqual(np.array(car_dir_x), np.array(q * x), 5)
+              self.assertAlmostEqual(np.array(car_dir_y), np.array(q * y), 5)
+              self.assertAlmostEqual(np.array(car_dir_z), np.array(q * z), 5)
+
+            # check inversion
+            gym_state = state[i][1]
+            self.assertEqual(gym_state[11:14], invert_vector(car_state.pos.as_numpy()))
+            self.assertEqual(gym_state[18:21], invert_vector(car_state.vel.as_numpy()))
+            self.assertEqual(gym_state[21:24], car_state.ang_vel.as_numpy())
+
+            if car_state.is_demoed:
+              continue
+
             compare_quat(gym_state[14:18], invert_quat(q))
             self.assertEqual(np.array(load_mat3(gym_state[24:33])), invert_mat3(m))
 
@@ -1824,8 +1827,9 @@ class TestArena(FuzzyTestCase):
             self.assertAlmostEqual(invert_vector(np.array(car_dir_y)), np.array(q * y), 5)
             self.assertAlmostEqual(invert_vector(np.array(car_dir_z)), np.array(q * z), 5)
 
-    # we definitely should have hit the ball at least once with our actor
-    self.assertNotEqual(state[0][1], 0)
+      if mode != rs.GameMode.THE_VOID:
+        # we definitely should have hit the ball at least once with our actor
+        self.assertNotEqual(state[0][1], 0)
 
 if __name__ == "__main__":
   unittest.main()

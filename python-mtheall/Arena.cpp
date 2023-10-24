@@ -1794,26 +1794,6 @@ PyObject *Arena::GetBoostPads (Arena *self_) noexcept
 
 PyObject *Arena::GetGymState (Arena *self_) noexcept
 {
-	switch (self_->arena->gameMode)
-	{
-	case ::GameMode::SOCCAR:
-	case ::GameMode::HEATSEEKER:
-	case ::GameMode::SNOWDAY:
-		break;
-
-	default:
-	{
-		auto const id = static_cast<int> (self_->arena->gameMode);
-		if (id >= 0 && id < std::extent_v<decltype (GAMEMODE_STRS)>)
-			PyErr_Format (PyExc_RuntimeError,
-			    "Gym state not supported in game mode %s",
-			    GAMEMODE_STRS[static_cast<int> (self_->arena->gameMode)]);
-		else
-			PyErr_Format (PyExc_RuntimeError, "Gym state not supported in game mode %d", id);
-		return nullptr;
-	}
-	}
-
 	auto tuple = PyObjectRef::steal (PyTuple_New (3 + self_->cars->size ()));
 	if (!tuple)
 		return nullptr;
