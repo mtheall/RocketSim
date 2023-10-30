@@ -33,6 +33,7 @@ void Car::SetState(const CarState& state) {
 	_velocityImpulseCache = { 0, 0, 0 };
 
 	_internalState = state;
+	_internalState.updateCounter = 0;
 }
 
 void Car::Demolish(float respawnDelay) {
@@ -203,6 +204,8 @@ void Car::_FinishPhysicsTick(const MutatorConfig& mutatorConfig) {
 		_rigidBody.m_angularVelocity =
 			Math::RoundVec(_rigidBody.m_angularVelocity, 0.00001);
 	}
+
+	_internalState.updateCounter++;
 }
 
 void Car::_BulletSetup(GameMode gameMode, btDynamicsWorld* bulletWorld, const MutatorConfig& mutatorConfig) {
@@ -764,12 +767,17 @@ void Car::_UpdateAutoFlip(float tickTime, const MutatorConfig& mutatorConfig, bo
 		_internalState.worldContact.contactNormal.z > CAR_AUTOFLIP_NORMZ_THRESH
 		) {
 
+		// TODO: Slow :(
 		Angle angles = Angle::FromRotMat(_internalState.rotMat);
-		_internalState.autoFlipTimer = CAR_AUTOFLIP_TIME * (abs(angles.roll) / M_PI);
-		_internalState.autoFlipTorqueScale = (angles.roll > 0) ? 1 : -1;
-		_internalState.isAutoFlipping = true;
 
-		_rigidBody.applyCentralImpulse(-GetUpDir() * CAR_AUTOFLIP_IMPULSE * UU_TO_BT * CAR_MASS_BT);
+		float absRoll = abs(angles.roll);
+		if (absRoll > CAR_AUTOFLIP_ROLL_THRESH) {
+			_internalState.autoFlipTimer = CAR_AUTOFLIP_TIME * (absRoll / M_PI);
+			_internalState.autoFlipTorqueScale = (angles.roll > 0) ? 1 : -1;
+			_internalState.isAutoFlipping = true;
+
+			_rigidBody.applyCentralImpulse(-GetUpDir() * CAR_AUTOFLIP_IMPULSE * UU_TO_BT * CAR_MASS_BT);
+		}
 	}
 
 	if (_internalState.isAutoFlipping) {

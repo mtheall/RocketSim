@@ -76,7 +76,7 @@ std::array<std::uint32_t, 34> const soccarIndexMapping = {
     makeKey (-3584,  2484),
     makeKey ( 3584,  2484),
     makeKey (    0,  2816),
-    makeKey (- 940,  3310),
+    makeKey (- 940,  3308),
     makeKey (  940,  3308),
     makeKey (-3072,  4096),
     makeKey ( 3072,  4096),

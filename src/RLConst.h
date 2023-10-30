@@ -37,6 +37,7 @@ namespace RLConst {
 		BALL_DRAG = 0.03f, // Net-velocity drag multiplier
 		BALL_FRICTION = 0.35f,
 		BALL_RESTITUTION = 0.6f, // Bounce factor
+		BALL_HOOPS_Z_VEL = 1000, // Z impulse applied to hoops ball on kickoff
 
 		CAR_MAX_SPEED = 2300.f,
 		BALL_MAX_SPEED = 6000.f,
@@ -112,6 +113,7 @@ namespace RLConst {
 		CAR_AUTOFLIP_TORQUE = 50,
 		CAR_AUTOFLIP_TIME = 0.4f,
 		CAR_AUTOFLIP_NORMZ_THRESH = M_SQRT1_2,
+		CAR_AUTOFLIP_ROLL_THRESH = 2.8f,
 
 		CAR_AUTOROLL_FORCE = 100,
 		CAR_AUTOROLL_TORQUE = 80,
@@ -228,7 +230,7 @@ namespace RLConst {
 			{-3584.f,	2484.f,		70.f },
 			{3584.f,	2484.f,		70.f },
 			{0.f,		2816.f,		70.f },
-			{-940.f,	3310.f,		70.f },
+			{-940.f,	3308.f,		70.f },
 			{940.f,		3308.f,		70.f },
 			{-1792.f,	4184.f,		70.f },
 			{1792.f,	4184.f,		70.f },
