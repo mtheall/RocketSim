@@ -1727,7 +1727,7 @@ class TestArena(FuzzyTestCase):
           self.assertEqual(gym_state[0:3], invert_vector(ball_state.pos.as_numpy()))
           #self.assertEqual(gym_state[3:7], ball_state.quat.as_numpy())
           self.assertEqual(gym_state[7:10], invert_vector(ball_state.vel.as_numpy()))
-          self.assertEqual(gym_state[10:13], ball_state.ang_vel.as_numpy())
+          self.assertEqual(gym_state[10:13], invert_vector(ball_state.ang_vel.as_numpy()))
           self.assertEqual(invert_mat3(load_mat3(gym_state[13:22])).transpose(), ball_state.rot_mat.as_numpy())
           #self.assertEqual(gym_state[22:25], ball_state.pyr.as_numpy())
 
@@ -1799,7 +1799,7 @@ class TestArena(FuzzyTestCase):
             gym_state = state[i][1]
             self.assertEqual(gym_state[11:14], invert_vector(car_state.pos.as_numpy()))
             self.assertEqual(gym_state[18:21], invert_vector(car_state.vel.as_numpy()))
-            self.assertEqual(gym_state[21:24], car_state.ang_vel.as_numpy())
+            self.assertEqual(gym_state[21:24], invert_vector(car_state.ang_vel.as_numpy()))
 
             if car_state.is_demoed:
               continue

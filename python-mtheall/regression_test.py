@@ -144,5 +144,60 @@ class TestRegression(unittest.TestCase):
     arena = rs.Arena(rs.GameMode.HOOPS)
     arena.get_boost_pads()
 
+  def test_gym_state_inverse(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+
+    car_a = arena.add_car(rs.Team.BLUE)
+    car_b = arena.add_car(rs.Team.ORANGE)
+
+    # cars should spawn mirror of each other
+    arena.reset_kickoff()
+
+    for i in range(100):
+      controls = rs.CarControls(throttle=1.0, yaw=1.0, pitch=1.0, roll=1.0, jump=True)
+      car_a.set_controls(controls)
+      car_b.set_controls(controls)
+      arena.step()
+
+      gym_state = arena.get_gym_state()
+
+      # pos
+      self.assertTrue(abs(gym_state[3][0][11] - gym_state[4][1][11]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][12] - gym_state[4][1][12]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][13] - gym_state[4][1][13]) < 1e-3)
+
+      # quat
+      q1 = gym_state[3][0][14:18]
+      q2 = gym_state[4][1][14:18]
+      t1 = np.amax(np.absolute(q1 + q2))
+      t2 = np.amax(np.absolute(q1 - q2))
+      self.assertTrue(min(t1, t2) < 1e-6)
+
+      # vel
+      self.assertTrue(abs(gym_state[3][0][18] - gym_state[4][1][18]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][19] - gym_state[4][1][19]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][20] - gym_state[4][1][20]) < 1e-3)
+
+      # ang_vel
+      self.assertTrue(abs(gym_state[3][0][21] - gym_state[4][1][21]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][22] - gym_state[4][1][22]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][23] - gym_state[4][1][23]) < 1e-3)
+
+      # mat3
+      self.assertTrue(abs(gym_state[3][0][24] - gym_state[4][1][24]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][25] - gym_state[4][1][25]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][26] - gym_state[4][1][26]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][27] - gym_state[4][1][27]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][28] - gym_state[4][1][28]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][29] - gym_state[4][1][29]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][30] - gym_state[4][1][30]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][31] - gym_state[4][1][31]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][32] - gym_state[4][1][32]) < 1e-3)
+
+      # pyr
+      self.assertTrue(abs(gym_state[3][0][33] - gym_state[4][1][33]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][34] - gym_state[4][1][34]) < 1e-3)
+      self.assertTrue(abs(gym_state[3][0][35] - gym_state[4][1][35]) < 1e-3)
+
 if __name__ == "__main__":
   unittest.main()

@@ -200,17 +200,10 @@ void assign (RocketSim::Python::PyArrayRef &array_, unsigned row_, unsigned col_
 	array_ (row_, col_ + 2) = value_.z ();
 }
 
-void assign (RocketSim::Python::PyArrayRef &array_,
-    unsigned col_,
-    btVector3 const &value_,
-    bool angular_ = false) noexcept
+void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btVector3 const &value_) noexcept
 {
 	assign (array_, 0, col_, value_);
-
-	if (!angular_)
-		assign (array_, 1, col_, btVector3 (-value_.x (), -value_.y (), value_.z ()));
-	else
-		assign (array_, 1, col_, value_);
+	assign (array_, 1, col_, btVector3 (-value_.x (), -value_.y (), value_.z ()));
 }
 
 void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btQuaternion const &value_) noexcept
@@ -257,13 +250,13 @@ void assign (RocketSim::Python::PyArrayRef &array_,
 	{
 		assign (array_, col_ + 0, btVector3 (state_->pos));
 		assign (array_, col_ + 7, btVector3 (state_->vel));
-		assign (array_, col_ + 10, btVector3 (state_->angVel), true);
+		assign (array_, col_ + 10, btVector3 (state_->angVel));
 	}
 	else
 	{
 		assign (array_, col_ + 0, rigidBody_.getWorldTransform ().getOrigin () * BT_TO_UU);
 		assign (array_, col_ + 7, rigidBody_.getLinearVelocity () * BT_TO_UU);
-		assign (array_, col_ + 10, rigidBody_.getAngularVelocity (), true);
+		assign (array_, col_ + 10, rigidBody_.getAngularVelocity ());
 	}
 
 	assign (array_, col_ + 3, rigidBody_.getOrientation ());
