@@ -244,6 +244,8 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 	self_->boostPickups = boostPickups;
 
 	self_->car->SetState (CarState::ToCarState (PyCast<CarState> (state)));
+	self_->car->_internalState.updateCounter = PyCast<CarState> (state)->state.updateCounter;
+
 	self_->car->controls = CarControls::ToCarControls (PyCast<CarControls> (controls));
 
 	Py_RETURN_NONE;

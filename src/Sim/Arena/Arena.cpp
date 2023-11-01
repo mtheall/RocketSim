@@ -654,12 +654,14 @@ Arena* Arena::Clone(bool copyCallbacks) {
 	}
 	
 	newArena->ball->SetState(this->ball->GetState());
+	newArena->ball->_internalState.updateCounter = this->ball->_internalState.updateCounter;
 	newArena->ball->_velocityImpulseCache = this->ball->_velocityImpulseCache;
 
 	for (Car* car : this->_cars) {
 		Car* newCar = newArena->AddCar(car->team, car->config);
 		
 		newCar->SetState(car->GetState());
+		newCar->_internalState.updateCounter = car->_internalState.updateCounter;
 		newCar->id = car->id;
 		newCar->controls = car->controls;
 		newCar->_velocityImpulseCache = car->_velocityImpulseCache;

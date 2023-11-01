@@ -360,6 +360,7 @@ class TestBallState(FuzzyTestCase):
     self.assertEqual(state_a.heatseeker_target_speed,   state_b.heatseeker_target_speed)
     self.assertEqual(state_a.heatseeker_time_since_hit, state_b.heatseeker_time_since_hit)
     self.assertEqual(state_a.last_hit_car_id,           state_b.last_hit_car_id)
+    self.assertEqual(state_a.update_counter,            state_b.update_counter)
 
   def compare_direct(self, state, pos, vel, ang_vel, car_id):
     self.assertEqual(state.pos, pos)
@@ -377,7 +378,8 @@ class TestBallState(FuzzyTestCase):
       pos             = random_vec(),
       vel             = random_vec(),
       ang_vel         = random_vec(),
-      last_hit_car_id = random_int()
+      last_hit_car_id = random_int(),
+      update_counter  = random_int()
     )
 
     state_b = copy.copy(state_a)
@@ -393,7 +395,8 @@ class TestBallState(FuzzyTestCase):
       pos             = random_vec(),
       vel             = random_vec(),
       ang_vel         = random_vec(),
-      last_hit_car_id = random_int()
+      last_hit_car_id = random_int(),
+      update_counter  = random_int()
     )
 
     state_b = copy.deepcopy(state_a)
@@ -409,7 +412,8 @@ class TestBallState(FuzzyTestCase):
       pos             = random_vec(),
       vel             = random_vec(),
       ang_vel         = random_vec(),
-      last_hit_car_id = random_int()
+      last_hit_car_id = random_int(),
+      update_counter  = random_int()
     )
 
     state_b = pickled(state_a)
@@ -745,6 +749,7 @@ class TestCarState(FuzzyTestCase):
     self.assertEqual(state_a.car_contact_cooldown_timer, state_b.car_contact_cooldown_timer)
     self.assertEqual(state_a.is_demoed,                  state_b.is_demoed)
     self.assertEqual(state_a.demo_respawn_timer,         state_b.demo_respawn_timer)
+    self.assertEqual(state_a.update_counter,             state_b.update_counter)
 
     TestBallHitInfo.compare(self, state_a.ball_hit_info, state_b.ball_hit_info)
     TestCarControls.compare(self, state_a.last_controls, state_b.last_controls)
@@ -798,7 +803,8 @@ class TestCarState(FuzzyTestCase):
         boost     = random_bool(),
         jump      = random_bool(),
         handbrake = random_bool()
-      )
+      ),
+      update_counter = random_int()
     )
 
     state_b = pickled(state_a)
@@ -851,7 +857,8 @@ class TestCarState(FuzzyTestCase):
         boost     = random_bool(),
         jump      = random_bool(),
         handbrake = random_bool()
-      )
+      ),
+      update_counter = random_int()
     )
 
     state_b = copy.copy(state_a)
@@ -911,7 +918,8 @@ class TestCarState(FuzzyTestCase):
         boost     = random_bool(),
         jump      = random_bool(),
         handbrake = random_bool()
-      )
+      ),
+      update_counter = random_int()
     )
 
     state_b = copy.deepcopy(state_a)

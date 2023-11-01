@@ -8,6 +8,11 @@ namespace RocketSim::Python
 PyTypeObject *CarState::Type = nullptr;
 
 PyMemberDef CarState::Members[] = {
+    {.name      = "update_counter",
+        .type   = TypeHelper<decltype (::CarState::updateCounter)>::type,
+        .offset = offsetof (CarState, state) + offsetof (::CarState, updateCounter),
+        .flags  = 0,
+        .doc    = "Update counter (ticks since last state set)"},
     {.name      = "is_on_ground",
         .type   = TypeHelper<decltype (::CarState::isOnGround)>::type,
         .offset = offsetof (CarState, state) + offsetof (::CarState, isOnGround),
@@ -186,7 +191,8 @@ __init__(self
 	is_demoed: bool = False,
 	demo_respawn_timer: float = 0.0,
 	ball_hit_info: RocketSim.BallHitInfo = RocketSim.BallHitInfo(),
-	last_controls: RocketSim.CarControls = RocketSim.CarControls()))"},
+	last_controls: RocketSim.CarControls = RocketSim.CarControls(),
+	update_counter: int = 0))"},
     {0, nullptr},
 };
 
@@ -305,6 +311,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char demoRespawnTimerKwd[]        = "demo_respawn_timer";
 	static char ballHitInfoKwd[]             = "ball_hit_info";
 	static char lastControlsKwd[]            = "last_controls";
+	static char updateCounterKwd[]           = "update_counter";
 
 	static char *dict[] = {posKwd,
 	    rotMatKwd,
@@ -335,6 +342,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    demoRespawnTimerKwd,
 	    ballHitInfoKwd,
 	    lastControlsKwd,
+	    updateCounterKwd,
 	    nullptr};
 
 	::CarState state{};
@@ -359,10 +367,11 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	int hasWorldContact = state.worldContact.hasContact;
 	int isDemoed        = state.isDemoed;
 
-	unsigned long carContactID = state.carContact.otherCarID;
+	unsigned long carContactID       = state.carContact.otherCarID;
+	unsigned long long updateCounter = state.updateCounter;
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!ppppO!ffppfffpffpfpO!kfpfO!O!",
+	        "|O!O!O!O!ppppO!ffppfffpffpfpO!kfpfO!O!K",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -400,7 +409,8 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        BallHitInfo::Type,
 	        &ballHitInfo,
 	        CarControls::Type,
-	        &lastControls))
+	        &lastControls,
+	        &updateCounter))
 		return -1;
 
 	if (pos)
@@ -437,6 +447,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	state.isAutoFlipping          = isAutoFlipping;
 	state.worldContact.hasContact = hasWorldContact;
 	state.isDemoed                = isDemoed;
+	state.updateCounter           = updateCounter;
 
 	state.carContact.otherCarID = carContactID;
 
@@ -471,6 +482,10 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 
 	::CarState const model{};
 	auto const state = ToCarState (self_);
+
+	if (state.updateCounter != model.updateCounter &&
+	    !DictSetValue (dict.borrow (), "update_counter", PyLong_FromUnsignedLongLong (state.updateCounter)))
+		return nullptr;
 
 	if (state.pos != model.pos && !DictSetValue (dict.borrow (), "pos", PyNewRef (self_->pos)))
 		return nullptr;

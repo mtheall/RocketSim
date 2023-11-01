@@ -1153,7 +1153,10 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		arena->tickCount = tickCount;
 
 		if (ballState)
+		{
 			arena->ball->SetState (BallState::ToBallState (PyCast<BallState> (ballState)));
+			arena->ball->_internalState.updateCounter = PyCast<BallState> (ballState)->state.updateCounter;
+		}
 
 		auto carMap        = std::map<std::uint32_t, PyRef<Car>>{};
 		auto const numCars = PyList_Size (cars);
@@ -1559,6 +1562,7 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 	// everything is 1-to-1, now we can start setting states
 
 	target->ball->ball->SetState (self_->ball->ball->GetState ());
+	target->ball->ball->_internalState.updateCounter = self_->ball->ball->_internalState.updateCounter;
 
 	if (self_->boostPadsByIndex)
 	{
@@ -1581,6 +1585,8 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 		auto carB = (it2++)->second;
 
 		carB->car->SetState (carA->car->GetState ());
+		carB->car->_internalState.updateCounter = carA->car->_internalState.updateCounter;
+
 		carB->car->controls = carA->car->controls;
 
 		carB->goals        = carA->goals;
@@ -2566,7 +2572,7 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void 
 
 	auto const gil = GIL{};
 
-	auto const team = PyObjectRef::steal (PyLong_FromLong (static_cast<int> (scoringTeam_)));
+	auto const team = PyObjectRef::steal (PyLong_FromLong (static_cast<long> (scoringTeam_)));
 	if (!team)
 	{
 		saveException (self);

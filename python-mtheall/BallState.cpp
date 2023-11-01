@@ -8,6 +8,11 @@ namespace RocketSim::Python
 PyTypeObject *BallState::Type = nullptr;
 
 PyMemberDef BallState::Members[] = {
+    {.name      = "update_counter",
+        .type   = TypeHelper<decltype (::BallState::updateCounter)>::type,
+        .offset = offsetof (BallState, state) + offsetof (::BallState, updateCounter),
+        .flags  = 0,
+        .doc    = "Update counter (ticks since last state set)"},
     {.name      = "last_hit_car_id",
         .type   = TypeHelper<decltype (::BallState::lastHitCarID)>::type,
         .offset = offsetof (BallState, state) + offsetof (::BallState, lastHitCarID),
@@ -74,7 +79,8 @@ __init__(self,
 	heatseeker_target_dir: float = 0.0,
 	heatseeker_target_speed: float = 2900.0,
 	heatseeker_time_since_hit: float = 0.0,
-	last_hit_car_id: int = 0))"},
+	last_hit_car_id: int = 0,
+	update_counter: int = 0))"},
     {0, nullptr},
 };
 
@@ -155,6 +161,7 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	static char heatseekerTargetSpeedKwd[]  = "heatseeker_target_speed";
 	static char heatseekerTimeSinceHitKwd[] = "heatseeker_time_since_hit";
 	static char lastHitCarIDKwd[]           = "last_hit_car_id";
+	static char updateCounterKwd[]          = "update_counter";
 
 	static char *dict[] = {posKwd,
 	    rotMatKwd,
@@ -164,19 +171,22 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	    heatseekerTargetSpeedKwd,
 	    heatseekerTimeSinceHitKwd,
 	    lastHitCarIDKwd,
+	    updateCounterKwd,
 	    nullptr};
-
-	PyObject *pos       = nullptr; // borrowed references
-	PyObject *rotMat    = nullptr; // borrowed references
-	PyObject *vel       = nullptr;
-	PyObject *angVel    = nullptr;
-	unsigned long carId = 0;
 
 	::BallState state{};
 
+	PyObject *pos    = nullptr; // borrowed references
+	PyObject *rotMat = nullptr; // borrowed references
+	PyObject *vel    = nullptr;
+	PyObject *angVel = nullptr;
+
+	unsigned long carId              = state.lastHitCarID;
+	unsigned long long updateCounter = state.updateCounter;
+
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!fffk",
+	        "|O!O!O!O!fffkK",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -189,7 +199,8 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	        &state.hsInfo.yTargetDir,
 	        &state.hsInfo.curTargetSpeed,
 	        &state.hsInfo.timeSinceHit,
-	        &carId))
+	        &carId,
+	        &updateCounter))
 		return -1;
 
 	if (pos)
@@ -201,7 +212,8 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	if (angVel)
 		state.angVel = Vec::ToVec (PyCast<Vec> (angVel));
 
-	state.lastHitCarID = carId;
+	state.lastHitCarID  = carId;
+	state.updateCounter = updateCounter;
 
 	if (!InitFromBallState (self_, state))
 		return -1;
@@ -230,6 +242,10 @@ PyObject *BallState::Pickle (BallState *self_) noexcept
 
 	::BallState const model{};
 	auto const state = ToBallState (self_);
+
+	if (state.updateCounter != model.updateCounter &&
+	    !DictSetValue (dict.borrow (), "update_counter", PyLong_FromUnsignedLongLong (state.updateCounter)))
+		return nullptr;
 
 	if (Vec::ToVec (self_->pos) != model.pos && !DictSetValue (dict.borrow (), "pos", PyNewRef (self_->pos)))
 		return nullptr;
