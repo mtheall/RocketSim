@@ -5,6 +5,7 @@
 
 #include "../../../libsrc/bullet3-3.24/BulletDynamics/Dynamics/btDynamicsWorld.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btConvexHullShape.h"
+#include "../CollisionMasks.h"
 
 bool BallState::Matches(const BallState& other, float marginPos, float marginVel, float marginAngVel) const {
 	return
@@ -103,7 +104,7 @@ void Ball::_BulletSetup(GameMode gameMode, btDynamicsWorld* bulletWorld, const M
 	int mask = btBroadphaseProxy::AllFilter;
 	if (!mutatorConfig.enableCarBallCollision)
 		mask &= ~btBroadphaseProxy::CharacterFilter;
-	bulletWorld->addRigidBody(&_rigidBody, btBroadphaseProxy::DefaultFilter, mask);
+	bulletWorld->addRigidBody(&_rigidBody, btBroadphaseProxy::DefaultFilter | CollisionMasks::HOOPS_NET, mask);
 }
 
 void Ball::_FinishPhysicsTick(const MutatorConfig& mutatorConfig) {

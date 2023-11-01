@@ -15,9 +15,6 @@ np.set_printoptions(formatter={"float": lambda x: f"{x: .6f}"}, linewidth=100)
 def pickled(v):
   return pickle.loads(pickle.dumps(v))
 
-def clamp(v: float, a: float, b: float) -> float:
-  return max(min(v, b), a)
-
 def random_bool() -> bool:
   return random.randint(0, 1) == 1
 
@@ -49,11 +46,11 @@ def target_chase(target_pos: rs.Vec, car: rs.Car):
   car_fwd    = glm.vec3(*car.get_state().rot_mat.forward.as_tuple())
   target_dir = glm.normalize(target_pos - car_pos)
 
-  steer = math.acos(clamp(glm.dot(car_fwd, target_dir), -1.0, 1.0))
+  steer = math.acos(np.clip(glm.dot(car_fwd, target_dir), -1.0, 1.0))
   if glm.cross(car_fwd, target_dir).z < 0.0:
     steer = -steer
 
-  steer = clamp(steer, -1.0, 1.0)
+  steer = np.clip(steer, -1.0, 1.0)
 
   car.set_controls(rs.CarControls(throttle=1.0, steer=steer, boost=True, handbrake=abs(steer)==1.0))
 

@@ -2,8 +2,25 @@
 
 import RocketSim as rs
 
+import glm
+import math
 import numpy as np
 import unittest
+
+# simple actor that drives straight toward a target
+def target_chase(target_pos: rs.Vec, car: rs.Car):
+  target_pos = glm.vec3(*target_pos.as_tuple())
+  car_pos    = glm.vec3(*car.get_state().pos.as_tuple())
+  car_fwd    = glm.vec3(*car.get_state().rot_mat.forward.as_tuple())
+  target_dir = glm.normalize(target_pos - car_pos)
+
+  steer = math.acos(np.clip(glm.dot(car_fwd, target_dir), -1.0, 1.0))
+  if glm.cross(car_fwd, target_dir).z < 0.0:
+    steer = -steer
+
+  steer = np.clip(steer, -1.0, 1.0)
+
+  car.set_controls(rs.CarControls(throttle=1.0, steer=steer, boost=True, handbrake=abs(steer)==1.0))
 
 class TestRegression(unittest.TestCase):
   def test_multiple_demos_one_tick(self):
@@ -202,6 +219,29 @@ class TestRegression(unittest.TestCase):
       if not np.amax(np.absolute(state_a[33:36] - state_b[33:36])) < 1e-3:
         print(arena.tick_count, state_a[33:36], state_b[33:36])
       self.assertTrue(np.amax(np.absolute(state_a[33:36] - state_b[33:36])) < 1e-3)
+
+  def test_hoops_car_collision(self):
+    arena = rs.Arena(rs.GameMode.HOOPS)
+
+    car_a = arena.add_car(rs.Team.BLUE)
+    car_b = arena.add_car(rs.Team.ORANGE)
+
+    bumped = [False]
+    def car_bump_callback(arena: rs.Arena, bumper: rs.Car, victim: rs.Car, is_demo: bool, data):
+      data[0] = True
+      arena.stop()
+
+    arena.set_car_bump_callback(car_bump_callback, bumped)
+
+    for i in range(1000):
+      target_chase(car_a.get_state().pos, car_b)
+      target_chase(car_b.get_state().pos, car_a)
+      arena.step()
+
+      if bumped[0]:
+        break
+
+    self.assertTrue(bumped[0])
 
 if __name__ == "__main__":
   unittest.main()
