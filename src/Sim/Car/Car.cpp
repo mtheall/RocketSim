@@ -105,9 +105,9 @@ void Car::_PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig&
 	float forwardSpeed_UU = _bulletVehicle.getForwardSpeed() * BT_TO_UU;
 	_UpdateWheels(tickTime, mutatorConfig, numWheelsInContact, forwardSpeed_UU);
 
-	if (numWheelsInContact == 0) {
-		_UpdateAirControl(tickTime, mutatorConfig);
-	} else if (numWheelsInContact >= 3) {
+	if (numWheelsInContact < 3) {
+		_UpdateAirTorque(tickTime, mutatorConfig, numWheelsInContact == 0);
+	} else {
 		_internalState.isFlipping = false;
 	}
 
@@ -554,7 +554,7 @@ void Car::_UpdateJump(float tickTime, const MutatorConfig& mutatorConfig, bool j
 	}
 }
 
-void Car::_UpdateAirControl(float tickTime, const MutatorConfig& mutatorConfig) {
+void Car::_UpdateAirTorque(float tickTime, const MutatorConfig& mutatorConfig, bool updateAirControl) {
 	using namespace RLConst;
 
 	btVector3
@@ -583,7 +583,7 @@ void Car::_UpdateAirControl(float tickTime, const MutatorConfig& mutatorConfig) 
 			relDodgeTorque.y() *= pitchScale;
 
 			btVector3 dodgeTorque = relDodgeTorque * btVector3(FLIP_TORQUE_X, FLIP_TORQUE_Y, 0);
-			_rigidBody.m_angularVelocity += _rigidBody.m_worldTransform.m_basis * dodgeTorque * tickTime;
+			_rigidBody.applyTorque(_rigidBody.m_invInertiaTensorWorld.inverse() * _rigidBody.m_worldTransform.m_basis * dodgeTorque);
 		} else {
 			// Stall, allow air control
 			doAirControl = true;
@@ -593,11 +593,12 @@ void Car::_UpdateAirControl(float tickTime, const MutatorConfig& mutatorConfig) 
 	}
 
 	doAirControl &= !_internalState.isAutoFlipping;
+	doAirControl &= updateAirControl;
 	if (doAirControl) {
-		// Net torque to apply to the car
-		btVector3 torque;
 
 		float pitchTorqueScale = 1;
+
+		btVector3 torque;
 		if (controls.pitch || controls.yaw || controls.roll) {
 
 			if (_internalState.isFlipping) {
@@ -606,7 +607,7 @@ void Car::_UpdateAirControl(float tickTime, const MutatorConfig& mutatorConfig) 
 				// Extra pitch lock after flip has finished
 				if (_internalState.flipTime < FLIP_TORQUE_TIME + FLIP_PITCHLOCK_EXTRA_TIME)
 					pitchTorqueScale = 0;
-			}	
+			}
 
 			// TODO: Use actual dot product operator functions (?)
 			torque = (controls.pitch * dirPitch_right * pitchTorqueScale * CAR_AIR_CONTROL_TORQUE.x) +
@@ -628,8 +629,7 @@ void Car::_UpdateAirControl(float tickTime, const MutatorConfig& mutatorConfig) 
 			(dirYaw_up * dampYaw) +
 			(dirPitch_right * dampPitch) +
 			(dirRoll_forward * dampRoll);
-
-		_rigidBody.m_angularVelocity += (torque - damping) * CAR_TORQUE_SCALE * tickTime;
+		_rigidBody.applyTorque(_rigidBody.m_invInertiaTensorWorld.inverse() * (torque - damping) * CAR_TORQUE_SCALE);
 	}
 
 	if (controls.throttle != 0)
