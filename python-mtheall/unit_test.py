@@ -937,6 +937,9 @@ class TestCar(FuzzyTestCase):
     self.assertEqual(car_a.goals,         car_b.goals)
     self.assertEqual(car_a.demos,         car_b.demos)
     self.assertEqual(car_a.boost_pickups, car_b.boost_pickups)
+    self.assertEqual(car_a.shots,         car_b.shots)
+    self.assertEqual(car_a.saves,         car_b.saves)
+    self.assertEqual(car_a.assists,       car_b.assists)
 
     TestCarState.compare(self, car_a.get_state(), car_b.get_state())
     TestCarConfig.compare(self, car_a.get_config(), car_b.get_config())
@@ -1596,6 +1599,154 @@ class TestArena(FuzzyTestCase):
     ball_rot = arena.ball.get_rot()
     self.assertNotEqual(sum(ball_rot), 0)
 
+  def test_shot_event(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+
+    car = arena.add_car(rs.Team.BLUE)
+
+    ball_state = arena.ball.get_state()
+    ball_state.pos = rs.Vec(0.0, 4000.0, ball_state.pos.z)
+    arena.ball.set_state(ball_state)
+
+    car_state = car.get_state()
+    car_state.pos     = rs.Vec(0.0, 3000.0, car_state.pos.z)
+    car_state.vel     = rs.Vec(0.0, 1000.0, 0.0)
+    car_state.ang_vel = rs.Vec(0.0, 0.0, 0.0)
+
+    car_state.rot_mat.forward = rs.Vec( 0.0, 1.0, 0.0)
+    car_state.rot_mat.right   = rs.Vec(-1.0, 0.0, 0.0)
+    car_state.rot_mat.up      = rs.Vec( 0.0, 0.0, 1.0)
+
+    car.set_state(car_state)
+
+    shot = [False]
+    def handle_shot_event(arena: rs.Arena, shooter: rs.Car, passer: rs.Car, data):
+      data.assertIs(shooter, car)
+      data.assertIsNone(passer)
+      shot[0] = True
+      arena.stop()
+
+    arena.set_shot_event_callback(handle_shot_event, self)
+
+    for i in range(1000):
+      target_chase(arena.ball.get_state().pos, car)
+      arena.step(1)
+
+      if shot[0]:
+        break
+
+    self.assertTrue(shot[0])
+    self.assertEqual(car.shots, 1)
+
+  def test_save_event(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+
+    car1 = arena.add_car(rs.Team.BLUE)
+    car2 = arena.add_car(rs.Team.ORANGE)
+
+    ball_state = arena.ball.get_state()
+    ball_state.pos = rs.Vec(0.0, 4000.0, ball_state.pos.z)
+    arena.ball.set_state(ball_state)
+
+    car_state = car1.get_state()
+    car_state.pos     = rs.Vec(0.0, 3000.0, car_state.pos.z)
+    car_state.vel     = rs.Vec(0.0, 1000.0, 0.0)
+    car_state.ang_vel = rs.Vec(0.0, 0.0, 0.0)
+
+    car_state.rot_mat.forward = rs.Vec( 0.0, 1.0, 0.0)
+    car_state.rot_mat.right   = rs.Vec(-1.0, 0.0, 0.0)
+    car_state.rot_mat.up      = rs.Vec( 0.0, 0.0, 1.0)
+
+    car1.set_state(car_state)
+
+    car_state = car2.get_state()
+    car_state.pos     = rs.Vec(0.0, 5000.0, car_state.pos.z)
+    car_state.vel     = rs.Vec(0.0, 0.0, 0.0)
+    car_state.ang_vel = rs.Vec(0.0, 0.0, 0.0)
+
+    car_state.rot_mat.forward = rs.Vec(0.0, -1.0, 0.0)
+    car_state.rot_mat.right   = rs.Vec(1.0,  0.0, 0.0)
+    car_state.rot_mat.up      = rs.Vec(0.0,  0.0, 1.0)
+
+    car2.set_state(car_state)
+    car2.set_controls(rs.CarControls(jump=True))
+
+    saved = [False]
+    def handle_save_event(arena: rs.Arena, saver: rs.Car, data):
+      data.assertIs(saver, car2)
+      saved[0] = True
+      arena.stop()
+
+    arena.set_save_event_callback(handle_save_event, self)
+
+    for i in range(1000):
+      target_chase(arena.ball.get_state().pos, car1)
+      arena.step(1)
+
+      if saved[0]:
+        break
+
+    self.assertTrue(saved[0])
+    self.assertEqual(car1.shots, 1)
+    self.assertEqual(car2.saves, 1)
+
+  def test_goal_event(self):
+    arena = rs.Arena(rs.GameMode.SOCCAR)
+
+    car1 = arena.add_car(rs.Team.BLUE)
+    car2 = arena.add_car(rs.Team.BLUE)
+
+    ball_state = arena.ball.get_state()
+    ball_state.pos = rs.Vec(0.0, 4000.0, ball_state.pos.z)
+    arena.ball.set_state(ball_state)
+
+    car_state = car1.get_state()
+    car_state.pos     = rs.Vec(0.0, 3800.0, car_state.pos.z)
+    car_state.vel     = rs.Vec(0.0, 0.0, 0.0)
+    car_state.ang_vel = rs.Vec(0.0, 0.0, 0.0)
+
+    car_state.rot_mat.forward = rs.Vec( 0.0, 1.0, 0.0)
+    car_state.rot_mat.right   = rs.Vec(-1.0, 0.0, 0.0)
+    car_state.rot_mat.up      = rs.Vec( 0.0, 0.0, 1.0)
+
+    car1.set_state(car_state)
+
+    car_state = car2.get_state()
+    car_state.pos     = rs.Vec(-100.0, 5120.0, car_state.pos.z)
+    car_state.vel     = rs.Vec(0.0, 0.0, 0.0)
+    car_state.ang_vel = rs.Vec(0.0, 0.0, 0.0)
+
+    car_state.rot_mat.forward = rs.Vec(1.0, 0.0, 0.0)
+    car_state.rot_mat.right   = rs.Vec(0.0, 1.0, 0.0)
+    car_state.rot_mat.up      = rs.Vec(0.0, 0.0, 1.0)
+
+    car2.set_state(car_state)
+
+    goal = [False]
+    def handle_goal_event(arena: rs.Arena, shooter: rs.Car, passer: rs.Car, data):
+      data.assertIs(shooter, car2)
+      data.assertIs(passer, car1)
+      goal[0] = True
+      arena.stop()
+
+    arena.set_goal_event_callback(handle_goal_event, self)
+
+    for i in range(1000):
+      target_chase(arena.ball.get_state().pos, car1)
+
+      if i > 20:
+        car2.set_controls(rs.CarControls(jump=True))
+
+      arena.step(1)
+
+      if goal[0]:
+        break
+
+    self.assertTrue(goal[0])
+    self.assertEqual(car1.assists, 1)
+    self.assertEqual(car2.goals, 1)
+    self.assertEqual(arena.blue_score, 1)
+
   def test_get_gym_state(self):
     def load_mat3(mat: np.ndarray) -> glm.mat3:
       return glm.mat3(*mat)
@@ -1756,8 +1907,8 @@ class TestArena(FuzzyTestCase):
               self.assertEqual(car.id, gym_state[j][0])
               self.assertEqual(car.team, gym_state[j][1])
               self.assertEqual(car.goals, gym_state[j][2])
-              #self.assertEqual(car.saves, gym_state[j][3])
-              #self.assertEqual(car.shots, gym_state[j][4])
+              self.assertEqual(car.saves, gym_state[j][3])
+              self.assertEqual(car.shots, gym_state[j][4])
               self.assertEqual(car.demos, gym_state[j][5])
               self.assertEqual(car.boost_pickups, gym_state[j][6])
               self.assertEqual(car_state.is_demoed, gym_state[j][7])

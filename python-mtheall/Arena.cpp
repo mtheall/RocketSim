@@ -380,6 +380,13 @@ public:
 			}
 		}
 
+		// update game tracker events
+		for (auto &arena : arenas_)
+		{
+			if (arena->gameEvent)
+				arena->gameEvent->Update (arena->arena.get ());
+		}
+
 		return true;
 	}
 
@@ -584,6 +591,27 @@ Returns previous (callback, data))"},
 `callback` must be callable e.g. `def callback(arena: RocketSim.Arena, scoring_team: int, data)`
 `callback` always called with keyword arguments
 Returns previous (callback, data))"},
+    {.ml_name     = "set_shot_event_callback",
+        .ml_meth  = (PyCFunction)&Arena::SetShotEventCallback,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_shot_event_callback(self, callback, data = None) -> tuple
+`callback` must be callable e.g. `def callback(arena: RocketSim.Arena, shooter: RocketSim.Car, passer: RocketSim.Car, data)`
+`callback` always called with keyword arguments
+Returns previous (callback, data))"},
+    {.ml_name     = "set_goal_event_callback",
+        .ml_meth  = (PyCFunction)&Arena::SetGoalEventCallback,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_goal_event_callback(self, callback, data = None) -> tuple
+`callback` must be callable e.g. `def callback(arena: RocketSim.Arena, scorer: RocketSim.Car, passer: RocketSim.Car, data)`
+`callback` always called with keyword arguments
+Returns previous (callback, data))"},
+    {.ml_name     = "set_save_event_callback",
+        .ml_meth  = (PyCFunction)&Arena::SetSaveEventCallback,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc   = R"(set_save_event_callback(self, callback, data = None) -> tuple
+`callback` must be callable e.g. `def callback(arena: RocketSim.Arena, saver: RocketSim.Car, data)`
+`callback` always called with keyword arguments
+Returns previous (callback, data))"},
     {.ml_name     = "set_mutator_config",
         .ml_meth  = (PyCFunction)&Arena::SetMutatorConfig,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
@@ -655,6 +683,7 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	self->boostPads                   = new (std::nothrow) std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
 	self->boostPadsByIndex            = nullptr;
 	self->ballPrediction              = nullptr;
+	self->gameEvent                   = nullptr;
 	self->ball                        = nullptr;
 	self->ballTouchCallback           = nullptr;
 	self->ballTouchCallbackUserData   = nullptr;
@@ -666,6 +695,12 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	self->carDemoCallbackUserData     = nullptr;
 	self->goalScoreCallback           = nullptr;
 	self->goalScoreCallbackUserData   = nullptr;
+	self->shotEventCallback           = nullptr;
+	self->shotEventCallbackUserData   = nullptr;
+	self->goalEventCallback           = nullptr;
+	self->goalEventCallbackUserData   = nullptr;
+	self->saveEventCallback           = nullptr;
+	self->saveEventCallbackUserData   = nullptr;
 	self->blueScore                   = 0;
 	self->orangeScore                 = 0;
 	self->lastGoalTick                = 0;
@@ -702,17 +737,31 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|iif", dict, &gameMode, &memoryWeightMode, &tickRate))
 		return -1;
 
-	switch (static_cast<::GameMode> (gameMode))
+	try
 	{
-	case ::GameMode::SOCCAR:
-	case ::GameMode::HOOPS:
-	case ::GameMode::HEATSEEKER:
-	case ::GameMode::SNOWDAY:
-	case ::GameMode::THE_VOID:
-		break;
+		switch (static_cast<::GameMode> (gameMode))
+		{
+		case ::GameMode::SOCCAR:
+		case ::GameMode::HOOPS:
+		case ::GameMode::SNOWDAY:
+			self_->gameEvent = new ::GameEventTracker{};
+			self_->gameEvent->SetShotCallback (&Arena::HandleShotEventCallback, self_);
+			self_->gameEvent->SetGoalCallback (&Arena::HandleGoalEventCallback, self_);
+			self_->gameEvent->SetSaveCallback (&Arena::HandleSaveEventCallback, self_);
+			break;
 
-	default:
-		PyErr_SetString (PyExc_RuntimeError, "Invalid game mode");
+		case ::GameMode::HEATSEEKER:
+		case ::GameMode::THE_VOID:
+			break;
+
+		default:
+			PyErr_SetString (PyExc_RuntimeError, "Invalid game mode");
+			return -1;
+		}
+	}
+	catch (...)
+	{
+		PyErr_NoMemory ();
 		return -1;
 	}
 
@@ -782,6 +831,12 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		PyObjectRef::assign (self_->carDemoCallbackUserData, Py_None);
 		PyObjectRef::assign (self_->goalScoreCallback, Py_None);
 		PyObjectRef::assign (self_->goalScoreCallbackUserData, Py_None);
+		PyObjectRef::assign (self_->shotEventCallback, Py_None);
+		PyObjectRef::assign (self_->shotEventCallbackUserData, Py_None);
+		PyObjectRef::assign (self_->goalEventCallback, Py_None);
+		PyObjectRef::assign (self_->goalEventCallbackUserData, Py_None);
+		PyObjectRef::assign (self_->saveEventCallback, Py_None);
+		PyObjectRef::assign (self_->saveEventCallbackUserData, Py_None);
 
 		return 0;
 	}
@@ -800,6 +855,7 @@ void Arena::Dealloc (Arena *self_) noexcept
 	delete self_->boostPads;
 	delete self_->boostPadsByIndex;
 	delete self_->ballPrediction;
+	delete self_->gameEvent;
 	Py_XDECREF (self_->ball);
 	Py_XDECREF (self_->ballTouchCallback);
 	Py_XDECREF (self_->ballTouchCallbackUserData);
@@ -811,6 +867,12 @@ void Arena::Dealloc (Arena *self_) noexcept
 	Py_XDECREF (self_->carDemoCallbackUserData);
 	Py_XDECREF (self_->goalScoreCallback);
 	Py_XDECREF (self_->goalScoreCallbackUserData);
+	Py_XDECREF (self_->shotEventCallback);
+	Py_XDECREF (self_->shotEventCallbackUserData);
+	Py_XDECREF (self_->goalEventCallback);
+	Py_XDECREF (self_->goalEventCallbackUserData);
+	Py_XDECREF (self_->saveEventCallback);
+	Py_XDECREF (self_->saveEventCallbackUserData);
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
@@ -960,6 +1022,30 @@ PyObject *Arena::Pickle (Arena *self_) noexcept
 	    !DictSetValue (dict.borrow (), "goal_score_callback_user_data", PyNewRef (self_->goalScoreCallbackUserData)))
 		return nullptr;
 
+	if (self_->shotEventCallback != Py_None &&
+	    !DictSetValue (dict.borrow (), "shot_event_callback", PyNewRef (self_->shotEventCallback)))
+		return nullptr;
+
+	if (self_->shotEventCallbackUserData != Py_None &&
+	    !DictSetValue (dict.borrow (), "shot_event_callback_user_data", PyNewRef (self_->shotEventCallbackUserData)))
+		return nullptr;
+
+	if (self_->goalEventCallback != Py_None &&
+	    !DictSetValue (dict.borrow (), "goal_event_callback", PyNewRef (self_->goalEventCallback)))
+		return nullptr;
+
+	if (self_->goalEventCallbackUserData != Py_None &&
+	    !DictSetValue (dict.borrow (), "goal_event_callback_user_data", PyNewRef (self_->goalEventCallbackUserData)))
+		return nullptr;
+
+	if (self_->saveEventCallback != Py_None &&
+	    !DictSetValue (dict.borrow (), "save_event_callback", PyNewRef (self_->saveEventCallback)))
+		return nullptr;
+
+	if (self_->saveEventCallbackUserData != Py_None &&
+	    !DictSetValue (dict.borrow (), "save_event_callback_user_data", PyNewRef (self_->saveEventCallbackUserData)))
+		return nullptr;
+
 	return dict.gift ();
 }
 
@@ -998,6 +1084,12 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	static char carDemoCallbackUserDataKwd[]     = "car_demo_callback_user_data";
 	static char goalScoreCallbackKwd[]           = "goal_score_callback";
 	static char goalScoreCallbackUserDataKwd[]   = "goal_score_callback_user_data";
+	static char shotEventCallbackKwd[]           = "shot_score_callback";
+	static char shotEventCallbackUserDataKwd[]   = "shot_score_callback_user_data";
+	static char goalEventCallbackKwd[]           = "goal_score_callback";
+	static char goalEventCallbackUserDataKwd[]   = "goal_score_callback_user_data";
+	static char saveEventCallbackKwd[]           = "save_score_callback";
+	static char saveEventCallbackUserDataKwd[]   = "save_score_callback_user_data";
 
 	static char *dict[] = {gameModeKwd,
 	    memoryWeightModeKwd,
@@ -1022,6 +1114,12 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	    carDemoCallbackUserDataKwd,
 	    goalScoreCallbackKwd,
 	    goalScoreCallbackUserDataKwd,
+	    shotEventCallbackKwd,
+	    shotEventCallbackUserDataKwd,
+	    goalEventCallbackKwd,
+	    goalEventCallbackUserDataKwd,
+	    saveEventCallbackKwd,
+	    saveEventCallbackUserDataKwd,
 	    nullptr};
 
 	PyObject *mutatorConfig               = nullptr; // borrowed references
@@ -1038,6 +1136,12 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	PyObject *carDemoCallbackUserData     = nullptr;
 	PyObject *goalScoreCallback           = nullptr;
 	PyObject *goalScoreCallbackUserData   = nullptr;
+	PyObject *shotEventCallback           = nullptr;
+	PyObject *shotEventCallbackUserData   = nullptr;
+	PyObject *goalEventCallback           = nullptr;
+	PyObject *goalEventCallbackUserData   = nullptr;
+	PyObject *saveEventCallback           = nullptr;
+	PyObject *saveEventCallbackUserData   = nullptr;
 	unsigned long long tickCount          = 0;
 	unsigned long long lastGoalTick       = 0;
 	unsigned long long lastGymStateTick   = 0;
@@ -1049,7 +1153,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	int memoryWeightMode                  = static_cast<int> (::ArenaMemWeightMode::HEAVY);
 	if (!PyArg_ParseTupleAndKeywords (dummy.borrow (),
 	        dict_,
-	        "|iikO!fKO!O!O!IIKKOOOOOOOO",
+	        "|iikO!fKO!O!O!IIKKOOOOOOOOOOOOOO",
 	        dict,
 	        &gameMode,
 	        &memoryWeightMode,
@@ -1077,7 +1181,13 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	        &carDemoCallback,
 	        &carDemoCallbackUserData,
 	        &goalScoreCallback,
-	        &goalScoreCallbackUserData))
+	        &goalScoreCallbackUserData,
+	        &shotEventCallback,
+	        &shotEventCallbackUserData,
+	        &goalEventCallback,
+	        &goalEventCallbackUserData,
+	        &saveEventCallback,
+	        &saveEventCallbackUserData))
 		return nullptr;
 
 	switch (static_cast<::GameMode> (gameMode))
@@ -1125,6 +1235,24 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	if (goalScoreCallback && goalScoreCallback != Py_None && !PyCallable_Check (goalScoreCallback))
 	{
 		PyErr_SetString (PyExc_ValueError, "Invalid goal score callback");
+		return nullptr;
+	}
+
+	if (shotEventCallback && shotEventCallback != Py_None && !PyCallable_Check (shotEventCallback))
+	{
+		PyErr_SetString (PyExc_ValueError, "Invalid shot event callback");
+		return nullptr;
+	}
+
+	if (goalEventCallback && goalEventCallback != Py_None && !PyCallable_Check (goalEventCallback))
+	{
+		PyErr_SetString (PyExc_ValueError, "Invalid goal event callback");
+		return nullptr;
+	}
+
+	if (saveEventCallback && saveEventCallback != Py_None && !PyCallable_Check (saveEventCallback))
+	{
+		PyErr_SetString (PyExc_ValueError, "Invalid save event callback");
 		return nullptr;
 	}
 
@@ -1265,6 +1393,12 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		PyObjectRef::assign (self_->carDemoCallbackUserData, carDemoCallbackUserData);
 		PyObjectRef::assign (self_->goalScoreCallback, goalScoreCallback);
 		PyObjectRef::assign (self_->goalScoreCallbackUserData, goalScoreCallbackUserData);
+		PyObjectRef::assign (self_->shotEventCallback, shotEventCallback);
+		PyObjectRef::assign (self_->shotEventCallbackUserData, shotEventCallbackUserData);
+		PyObjectRef::assign (self_->goalEventCallback, goalEventCallback);
+		PyObjectRef::assign (self_->goalEventCallbackUserData, goalEventCallbackUserData);
+		PyObjectRef::assign (self_->saveEventCallback, saveEventCallback);
+		PyObjectRef::assign (self_->saveEventCallbackUserData, saveEventCallbackUserData);
 
 		if (self_->ballTouchCallback != Py_None)
 			self_->arena->SetBallTouchCallback (&Arena::HandleBallTouchCallback, self_);
@@ -1423,12 +1557,18 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 				carRef->goals        = it->second->goals;
 				carRef->demos        = it->second->demos;
 				carRef->boostPickups = it->second->boostPickups;
+				carRef->shots        = it->second->shots;
+				carRef->saves        = it->second->saves;
+				carRef->assists      = it->second->assists;
 			}
 			else
 			{
 				carRef->goals        = 0;
 				carRef->demos        = 0;
 				carRef->boostPickups = 0;
+				carRef->shots        = 0;
+				carRef->saves        = 0;
+				carRef->assists      = 0;
 			}
 		}
 
@@ -1454,6 +1594,12 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 			PyObjectRef::assign (clone->carDemoCallbackUserData, self_->carDemoCallbackUserData);
 			PyObjectRef::assign (clone->goalScoreCallback, self_->goalScoreCallback);
 			PyObjectRef::assign (clone->goalScoreCallbackUserData, self_->goalScoreCallbackUserData);
+			PyObjectRef::assign (clone->shotEventCallback, self_->shotEventCallback);
+			PyObjectRef::assign (clone->shotEventCallbackUserData, self_->shotEventCallbackUserData);
+			PyObjectRef::assign (clone->goalEventCallback, self_->goalEventCallback);
+			PyObjectRef::assign (clone->goalEventCallbackUserData, self_->goalEventCallbackUserData);
+			PyObjectRef::assign (clone->saveEventCallback, self_->saveEventCallback);
+			PyObjectRef::assign (clone->saveEventCallbackUserData, self_->saveEventCallbackUserData);
 		}
 		else
 		{
@@ -1467,6 +1613,12 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 			PyObjectRef::assign (clone->carDemoCallbackUserData, Py_None);
 			PyObjectRef::assign (clone->goalScoreCallback, Py_None);
 			PyObjectRef::assign (clone->goalScoreCallbackUserData, Py_None);
+			PyObjectRef::assign (clone->shotEventCallback, Py_None);
+			PyObjectRef::assign (clone->shotEventCallbackUserData, Py_None);
+			PyObjectRef::assign (clone->goalEventCallback, Py_None);
+			PyObjectRef::assign (clone->goalEventCallbackUserData, Py_None);
+			PyObjectRef::assign (clone->saveEventCallback, Py_None);
+			PyObjectRef::assign (clone->saveEventCallbackUserData, Py_None);
 		}
 
 		if (clone->ballTouchCallback != Py_None)
@@ -1592,6 +1744,9 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 		carB->goals        = carA->goals;
 		carB->demos        = carA->demos;
 		carB->boostPickups = carA->boostPickups;
+		carB->shots        = carA->shots;
+		carB->saves        = carA->saves;
+		carB->assists      = carA->assists;
 	}
 
 	if (copyCallbacks)
@@ -1606,6 +1761,12 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 		PyObjectRef::assign (target->carDemoCallbackUserData, self_->carDemoCallbackUserData);
 		PyObjectRef::assign (target->goalScoreCallback, self_->goalScoreCallback);
 		PyObjectRef::assign (target->goalScoreCallbackUserData, self_->goalScoreCallbackUserData);
+		PyObjectRef::assign (target->shotEventCallback, self_->shotEventCallback);
+		PyObjectRef::assign (target->shotEventCallbackUserData, self_->shotEventCallbackUserData);
+		PyObjectRef::assign (target->goalEventCallback, self_->goalEventCallback);
+		PyObjectRef::assign (target->goalEventCallbackUserData, self_->goalEventCallbackUserData);
+		PyObjectRef::assign (target->saveEventCallback, self_->saveEventCallback);
+		PyObjectRef::assign (target->saveEventCallbackUserData, self_->saveEventCallbackUserData);
 	}
 	else
 	{
@@ -1619,6 +1780,12 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 		PyObjectRef::assign (target->carDemoCallbackUserData, Py_None);
 		PyObjectRef::assign (target->goalScoreCallback, Py_None);
 		PyObjectRef::assign (target->goalScoreCallbackUserData, Py_None);
+		PyObjectRef::assign (target->shotEventCallback, Py_None);
+		PyObjectRef::assign (target->shotEventCallbackUserData, Py_None);
+		PyObjectRef::assign (target->goalEventCallback, Py_None);
+		PyObjectRef::assign (target->goalEventCallbackUserData, Py_None);
+		PyObjectRef::assign (target->saveEventCallback, Py_None);
+		PyObjectRef::assign (target->saveEventCallbackUserData, Py_None);
 	}
 
 	if (target->ballTouchCallback == Py_None)
@@ -1885,8 +2052,8 @@ DID YOU STATE SET MULTIPLE OBJECTS IN THE SAME LOCATION?)");
 			carState (i, 0)  = car->car->id;
 			carState (i, 1)  = static_cast<int> (car->car->team);
 			carState (i, 2)  = car->goals;
-			carState (i, 3)  = 0; // todo saves
-			carState (i, 4)  = 0; // todo shots
+			carState (i, 3)  = car->saves;
+			carState (i, 4)  = car->shots;
 			carState (i, 5)  = car->demos;
 			carState (i, 6)  = car->boostPickups;
 			carState (i, 7)  = state.isDemoed;
@@ -2181,6 +2348,114 @@ PyObject *Arena::SetGoalScoreCallback (Arena *self_, PyObject *args_, PyObject *
 	return prev.giftObject ();
 }
 
+PyObject *Arena::SetShotEventCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	if (!self_->gameEvent)
+	{
+		PyErr_Format (PyExc_RuntimeError,
+		    "Cannot set a shot event callback when on %s gamemode!",
+		    GAMEMODE_STRS[static_cast<int> (self_->arena->gameMode)]);
+		return nullptr;
+	}
+
+	static char callbackKwd[] = "callback";
+	static char dataKwd[]     = "data";
+
+	static char *dict[] = {callbackKwd, dataKwd, nullptr};
+
+	PyObject *callback; // borrowed references
+	PyObject *userData = Py_None;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O|O", dict, &callback, &userData))
+		return nullptr;
+
+	if (callback != Py_None && !PyCallable_Check (callback))
+	{
+		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object or None");
+		return nullptr;
+	}
+
+	auto prev = PyObjectRef::steal (PyTuple_Pack (2, callback, userData));
+	if (!prev)
+		return nullptr;
+
+	PyObjectRef::assign (self_->shotEventCallback, PyTuple_GetItem (prev.borrow (), 0));
+	PyObjectRef::assign (self_->shotEventCallbackUserData, PyTuple_GetItem (prev.borrow (), 1));
+
+	return prev.giftObject ();
+}
+
+PyObject *Arena::SetGoalEventCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	if (!self_->gameEvent)
+	{
+		PyErr_Format (PyExc_RuntimeError,
+		    "Cannot set a goal event callback when on %s gamemode!",
+		    GAMEMODE_STRS[static_cast<int> (self_->arena->gameMode)]);
+		return nullptr;
+	}
+
+	static char callbackKwd[] = "callback";
+	static char dataKwd[]     = "data";
+
+	static char *dict[] = {callbackKwd, dataKwd, nullptr};
+
+	PyObject *callback; // borrowed references
+	PyObject *userData = Py_None;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O|O", dict, &callback, &userData))
+		return nullptr;
+
+	if (callback != Py_None && !PyCallable_Check (callback))
+	{
+		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object or None");
+		return nullptr;
+	}
+
+	auto prev = PyObjectRef::steal (PyTuple_Pack (2, callback, userData));
+	if (!prev)
+		return nullptr;
+
+	PyObjectRef::assign (self_->goalEventCallback, PyTuple_GetItem (prev.borrow (), 0));
+	PyObjectRef::assign (self_->goalEventCallbackUserData, PyTuple_GetItem (prev.borrow (), 1));
+
+	return prev.giftObject ();
+}
+
+PyObject *Arena::SetSaveEventCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
+{
+	if (!self_->gameEvent)
+	{
+		PyErr_Format (PyExc_RuntimeError,
+		    "Cannot set a save event callback when on %s gamemode!",
+		    GAMEMODE_STRS[static_cast<int> (self_->arena->gameMode)]);
+		return nullptr;
+	}
+
+	static char callbackKwd[] = "callback";
+	static char dataKwd[]     = "data";
+
+	static char *dict[] = {callbackKwd, dataKwd, nullptr};
+
+	PyObject *callback; // borrowed references
+	PyObject *userData = Py_None;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O|O", dict, &callback, &userData))
+		return nullptr;
+
+	if (callback != Py_None && !PyCallable_Check (callback))
+	{
+		PyErr_SetString (PyExc_RuntimeError, "First parameter must be a callable object or None");
+		return nullptr;
+	}
+
+	auto prev = PyObjectRef::steal (PyTuple_Pack (2, callback, userData));
+	if (!prev)
+		return nullptr;
+
+	PyObjectRef::assign (self_->saveEventCallback, PyTuple_GetItem (prev.borrow (), 0));
+	PyObjectRef::assign (self_->saveEventCallbackUserData, PyTuple_GetItem (prev.borrow (), 1));
+
+	return prev.giftObject ();
+}
+
 PyObject *Arena::SetMutatorConfig (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	static char configKwd[] = "config";
@@ -2208,12 +2483,16 @@ PyObject *Arena::Step (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	Py_BEGIN_ALLOW_THREADS;
 	self_->arena->Step (ticksToSimulate);
+	Py_END_ALLOW_THREADS;
+
+	if (self_->gameEvent)
+		self_->gameEvent->Update (self_->arena.get ());
+
 	if (self_->stepExceptionType)
 	{
 		restoreException (self_);
 		return nullptr;
 	}
-	Py_END_ALLOW_THREADS;
 
 	Py_RETURN_NONE;
 }
@@ -2317,17 +2596,21 @@ void Arena::HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userDat
 	if (self->ballTouchCallback == Py_None)
 		return;
 
-	auto it = self->cars->find (car_->id);
-	if (it == std::end (*self->cars) || !it->second)
+	auto car = PyRef<Car>::incObjectRef (Py_None);
+	if (car_)
 	{
-		auto const gil = GIL{};
+		auto it = self->cars->find (car_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			auto const gil = GIL{};
 
-		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", car_->id);
-		saveException (self);
-		return;
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", car_->id);
+			saveException (self);
+			return;
+		}
+
+		car = it->second;
 	}
-
-	auto const car = it->second;
 
 	auto const gil = GIL{};
 
@@ -2359,35 +2642,43 @@ void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad 
 	if (self->stepExceptionType)
 		return;
 
-	auto it = self->cars->find (car_->id);
-	if (it == std::end (*self->cars) || !it->second)
+	auto car = PyRef<Car>::incObjectRef (Py_None);
+	if (car_)
 	{
-		// this should never happen
-		auto const gil = GIL{};
+		auto const it = self->cars->find (car_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			// this should never happen
+			auto const gil = GIL{};
 
-		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", car_->id);
-		saveException (self);
-		return;
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", car_->id);
+			saveException (self);
+			return;
+		}
+
+		car = it->second;
+		++car->boostPickups;
 	}
 
-	auto it2 = self->boostPads->find (boostPad_);
-	if (it2 == std::end (*self->boostPads) || !it->second)
+	auto boostPad = PyRef<BoostPad>::incObjectRef (Py_None);
+	if (boostPad_)
 	{
-		// this should never happen
-		auto const gil = GIL{};
+		auto const it = self->boostPads->find (boostPad_);
+		if (it == std::end (*self->boostPads) || !it->second)
+		{
+			// this should never happen
+			auto const gil = GIL{};
 
-		PyErr_SetString (PyExc_KeyError, "Boost pad not found");
-		saveException (self);
-		return;
+			PyErr_SetString (PyExc_KeyError, "Boost pad not found");
+			saveException (self);
+			return;
+		}
+
+		boostPad = it->second;
 	}
-
-	auto car = it->second;
-	++car->boostPickups;
 
 	if (self->boostPickupCallback == Py_None)
 		return;
-
-	auto boostPad = it2->second;
 
 	auto const gil = GIL{};
 
@@ -2430,36 +2721,44 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
 	if (self->stepExceptionType)
 		return;
 
-	auto it = self->cars->find (bumper_->id);
-	if (it == std::end (*self->cars) || !it->second)
+	auto bumper = PyRef<Car>::incObjectRef (Py_None);
+	if (bumper_)
 	{
-		auto const gil = GIL{};
+		auto const it = self->cars->find (bumper_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			auto const gil = GIL{};
 
-		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", bumper_->id);
-		saveException (self);
-		return;
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", bumper_->id);
+			saveException (self);
+			return;
+		}
+
+		bumper = it->second;
+		if (isDemo_)
+			++bumper->demos;
 	}
-
-	auto bumper = it->second;
-	if (isDemo_)
-		++bumper->demos;
 
 	if (self->carBumpCallback == Py_None && !isDemo_)
 		return;
 
-	it = self->cars->find (victim_->id);
-	if (it == std::end (*self->cars) || !it->second)
+	auto victim = PyRef<Car>::incObjectRef (Py_None);
+	if (victim_)
 	{
-		auto const gil = GIL{};
+		auto const it = self->cars->find (victim_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			auto const gil = GIL{};
 
-		PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", victim_->id);
-		saveException (self);
-		return;
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", victim_->id);
+			saveException (self);
+			return;
+		}
+
+		victim = it->second;
+		if (isDemo_)
+			victim->demoState = victim->car->GetState ();
 	}
-
-	auto victim = it->second;
-	if (isDemo_)
-		victim->demoState = victim->car->GetState ();
 
 	if (self->carBumpCallback == Py_None && (!isDemo_ || self->carDemoCallback == Py_None))
 		return;
@@ -2544,25 +2843,6 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void 
 			++self->blueScore;
 		else
 			++self->orangeScore;
-
-		// find which car scored
-		Car *best = nullptr;
-		for (auto const &[id, car] : *self->cars)
-		{
-			if (scoringTeam_ != car->car->team)
-				continue;
-
-			if (!car->car->_internalState.ballHitInfo.isValid ||
-			    car->car->_internalState.ballHitInfo.tickCountWhenHit < self->lastGoalTick)
-				continue;
-
-			if (!best || best->car->_internalState.ballHitInfo.tickCountWhenHit <
-			                 car->car->_internalState.ballHitInfo.tickCountWhenHit)
-				best = car.borrow ();
-		}
-
-		if (best)
-			++best->goals;
 	}
 
 	self->lastGoalTick = self->arena->tickCount;
@@ -2590,6 +2870,188 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void 
 	    Py_BuildValue ("{sOsOsO}", "arena", self, "team", team.borrow (), "data", self->goalScoreCallbackUserData));
 
 	if (!PyObject_Call (self->goalScoreCallback, args.borrow (), kwds.borrow ()))
+	{
+		saveException (self);
+		return;
+	}
+}
+
+void Arena::HandleShotEventCallback (::Arena *arena_, ::Car *shooter_, ::Car *passer_, void *userData_) noexcept
+{
+	auto const self = reinterpret_cast<Arena *> (userData_);
+	if (self->stepExceptionType)
+		return;
+
+	auto shooter = PyRef<Car>::incObjectRef (Py_None);
+	if (shooter_)
+	{
+		auto const it = self->cars->find (shooter_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			auto const gil = GIL{};
+
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", shooter_->id);
+			saveException (self);
+			return;
+		}
+
+		shooter = it->second;
+		++shooter->shots;
+	}
+
+	if (self->shotEventCallback == Py_None)
+		return;
+
+	auto passer = PyRef<Car>::incObjectRef (Py_None);
+	if (passer_)
+	{
+		auto const it = self->cars->find (passer_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			auto const gil = GIL{};
+
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", passer_->id);
+			saveException (self);
+			return;
+		}
+
+		passer = it->second;
+	}
+
+	auto const gil = GIL{};
+
+	auto args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+	{
+		saveException (self);
+		return;
+	}
+
+	auto kwds = PyObjectRef::steal (Py_BuildValue ("{sOsOsOsO}",
+	    "arena",
+	    self,
+	    "shooter",
+	    shooter.borrow (),
+	    "passer",
+	    passer.borrow (),
+	    "data",
+	    self->shotEventCallbackUserData));
+
+	if (!PyObject_Call (self->shotEventCallback, args.borrow (), kwds.borrow ()))
+	{
+		saveException (self);
+		return;
+	}
+}
+
+void Arena::HandleGoalEventCallback (::Arena *arena_, ::Car *shooter_, ::Car *passer_, void *userData_) noexcept
+{
+	auto const self = reinterpret_cast<Arena *> (userData_);
+	if (self->stepExceptionType)
+		return;
+
+	auto shooter = PyRef<Car>::incObjectRef (Py_None);
+	if (shooter_)
+	{
+		auto const it = self->cars->find (shooter_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			auto const gil = GIL{};
+
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", shooter_->id);
+			saveException (self);
+			return;
+		}
+
+		shooter = it->second;
+		++shooter->goals;
+	}
+
+	auto passer = PyRef<Car>::incObjectRef (Py_None);
+	if (passer_)
+	{
+		auto const it = self->cars->find (passer_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			auto const gil = GIL{};
+
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", passer_->id);
+			saveException (self);
+			return;
+		}
+
+		passer = it->second;
+		++passer->assists;
+	}
+
+	if (self->goalEventCallback == Py_None)
+		return;
+
+	auto const gil = GIL{};
+
+	auto args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+	{
+		saveException (self);
+		return;
+	}
+
+	auto kwds = PyObjectRef::steal (Py_BuildValue ("{sOsOsOsO}",
+	    "arena",
+	    self,
+	    "shooter",
+	    shooter.borrow (),
+	    "passer",
+	    passer.borrow (),
+	    "data",
+	    self->goalEventCallbackUserData));
+
+	if (!PyObject_Call (self->goalEventCallback, args.borrow (), kwds.borrow ()))
+	{
+		saveException (self);
+		return;
+	}
+}
+
+void Arena::HandleSaveEventCallback (::Arena *arena_, ::Car *saver_, void *userData_) noexcept
+{
+	auto const self = reinterpret_cast<Arena *> (userData_);
+	if (self->stepExceptionType)
+		return;
+
+	auto saver = PyRef<Car>::incObjectRef (Py_None);
+	if (saver_)
+	{
+		auto const it = self->cars->find (saver_->id);
+		if (it == std::end (*self->cars) || !it->second)
+		{
+			auto const gil = GIL{};
+
+			PyErr_Format (PyExc_KeyError, "Car with id '%" PRIu32 "' not found", saver_->id);
+			saveException (self);
+			return;
+		}
+
+		saver = it->second;
+		++saver->saves;
+	}
+
+	if (self->saveEventCallback == Py_None)
+		return;
+
+	auto const gil = GIL{};
+
+	auto args = PyObjectRef::steal (PyTuple_New (0));
+	if (!args)
+	{
+		saveException (self);
+		return;
+	}
+
+	auto kwds = PyObjectRef::steal (
+	    Py_BuildValue ("{sOsOsO}", "arena", self, "saver", saver.borrow (), "data", self->saveEventCallbackUserData));
+
+	if (!PyObject_Call (self->saveEventCallback, args.borrow (), kwds.borrow ()))
 	{
 		saveException (self);
 		return;

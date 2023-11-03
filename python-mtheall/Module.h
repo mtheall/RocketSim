@@ -9,6 +9,7 @@
 #include "Sim/Arena/Arena.h"
 #include "Sim/BallPredTracker/BallPredTracker.h"
 #include "Sim/Car/Car.h"
+#include "Sim/GameEventTracker/GameEventTracker.h"
 
 #include <map>
 #include <memory>
@@ -77,8 +78,7 @@ public:
 		PyGILState_Release (m_state);
 	}
 
-	GIL () noexcept
-	: m_state (PyGILState_Ensure ())
+	GIL () noexcept : m_state (PyGILState_Ensure ())
 	{
 	}
 
@@ -88,7 +88,7 @@ private:
 
 struct GameMode
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	static PyTypeObject *Type;
 	static PyType_Slot Slots[];
@@ -97,7 +97,7 @@ struct GameMode
 
 struct Team
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	static PyTypeObject *Type;
 	static PyType_Slot Slots[];
@@ -106,7 +106,7 @@ struct Team
 
 struct DemoMode
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	static PyTypeObject *Type;
 	static PyType_Slot Slots[];
@@ -115,7 +115,7 @@ struct DemoMode
 
 struct MemoryWeightMode
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	static PyTypeObject *Type;
 	static PyType_Slot Slots[];
@@ -124,7 +124,7 @@ struct MemoryWeightMode
 
 struct Vec
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::Vec vec;
 
@@ -156,7 +156,7 @@ struct Vec
 
 struct RotMat
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	Vec *forward;
 	Vec *right;
@@ -193,7 +193,7 @@ struct RotMat
 
 struct Angle
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::Angle angle;
 
@@ -224,7 +224,7 @@ struct Angle
 
 struct BallHitInfo
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::BallHitInfo info;
 
@@ -258,7 +258,7 @@ struct BallHitInfo
 
 struct BallState
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::BallState state;
 
@@ -294,7 +294,7 @@ struct BallState
 
 struct Ball
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	std::shared_ptr<::Arena> arena;
 	::Ball *ball;
@@ -316,7 +316,7 @@ struct Ball
 
 struct BoostPadState
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::BoostPadState state;
 
@@ -341,7 +341,7 @@ struct BoostPadState
 
 struct BoostPad
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	std::shared_ptr<::Arena> arena;
 	::BoostPad *pad;
@@ -367,7 +367,7 @@ struct BoostPad
 
 struct WheelPairConfig
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::WheelPairConfig config;
 	Vec *connectionPointOffset;
@@ -406,7 +406,7 @@ struct CarConfig
 		MERC,
 	};
 
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::CarConfig config;
 
@@ -443,7 +443,7 @@ struct CarConfig
 
 struct CarControls
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::CarControls controls;
 
@@ -470,7 +470,7 @@ struct CarControls
 
 struct CarState
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::CarState state;
 
@@ -514,7 +514,7 @@ struct CarState
 
 struct Car
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::CarState demoState;
 
@@ -523,6 +523,9 @@ struct Car
 	unsigned goals;
 	unsigned demos;
 	unsigned boostPickups;
+	unsigned shots;
+	unsigned saves;
+	unsigned assists;
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];
@@ -554,7 +557,7 @@ struct Car
 
 struct MutatorConfig
 {
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	::MutatorConfig config;
 	Vec *gravity;
@@ -567,7 +570,8 @@ struct MutatorConfig
 	static PyType_Spec Spec;
 
 	static PyRef<MutatorConfig> NewFromMutatorConfig (::MutatorConfig const &config_ = {::GameMode::SOCCAR}) noexcept;
-	static bool InitFromMutatorConfig (MutatorConfig *self_, ::MutatorConfig const &config_ = {::GameMode::SOCCAR}) noexcept;
+	static bool InitFromMutatorConfig (MutatorConfig *self_,
+	    ::MutatorConfig const &config_ = {::GameMode::SOCCAR}) noexcept;
 	static ::MutatorConfig ToMutatorConfig (MutatorConfig *self_) noexcept;
 
 	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -585,7 +589,7 @@ struct Arena
 {
 	class ThreadPool;
 
-	PyObject_HEAD
+	PyObject_HEAD;
 
 	std::shared_ptr<::Arena> arena;
 	std::shared_ptr<ThreadPool> threadPool;
@@ -593,6 +597,7 @@ struct Arena
 	std::unordered_map<::BoostPad *, PyRef<BoostPad>> *boostPads;
 	std::vector<PyRef<BoostPad>> *boostPadsByIndex;
 	::BallPredTracker *ballPrediction;
+	::GameEventTracker *gameEvent;
 
 	Ball *ball;
 	PyObject *ballTouchCallback;
@@ -605,6 +610,12 @@ struct Arena
 	PyObject *carDemoCallbackUserData;
 	PyObject *goalScoreCallback;
 	PyObject *goalScoreCallbackUserData;
+	PyObject *shotEventCallback;
+	PyObject *shotEventCallbackUserData;
+	PyObject *goalEventCallback;
+	PyObject *goalEventCallbackUserData;
+	PyObject *saveEventCallback;
+	PyObject *saveEventCallbackUserData;
 
 	unsigned blueScore;
 	unsigned orangeScore;
@@ -645,11 +656,14 @@ struct Arena
 	static PyObject *ResetKickoff (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetBallTouchCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetBoostPickupCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
-	static PyObject *SetCarBallCollision(Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *SetCarBallCollision (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetCarBumpCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
-	static PyObject *SetCarCarCollision(Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *SetCarCarCollision (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetCarDemoCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetGoalScoreCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *SetShotEventCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *SetGoalEventCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static PyObject *SetSaveEventCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *SetMutatorConfig (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *Step (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *Stop (Arena *self_) noexcept;
@@ -662,6 +676,10 @@ struct Arena
 	static void
 	    HandleCarBumpCallback (::Arena *arena_, ::Car *bumper_, ::Car *victim_, bool isDemo_, void *userData_) noexcept;
 	static void HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void *userData_) noexcept;
+
+	static void HandleShotEventCallback (::Arena *arena_, ::Car *shooter_, ::Car *passer_, void *userData_) noexcept;
+	static void HandleGoalEventCallback (::Arena *arena_, ::Car *shooter_, ::Car *passer_, void *userData_) noexcept;
+	static void HandleSaveEventCallback (::Arena *arena_, ::Car *saver_, void *userData_) noexcept;
 
 	GETONLY_DECLARE (Arena, game_mode);
 	GETONLY_DECLARE (Arena, tick_count);

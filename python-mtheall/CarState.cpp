@@ -593,7 +593,6 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 	    !DictSetValue (dict.borrow (), "demo_respawn_timer", PyFloat_FromDouble (state.demoRespawnTimer)))
 		return nullptr;
 
-	::BallHitInfo const ballHitInfo{};
 	if ((state.ballHitInfo.relativePosOnBall != model.ballHitInfo.relativePosOnBall ||
 	        state.ballHitInfo.ballPos != model.ballHitInfo.ballPos ||
 	        state.ballHitInfo.extraHitVel != model.ballHitInfo.extraHitVel ||
@@ -602,11 +601,13 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 	    !DictSetValue (dict.borrow (), "ball_hit_info", PyNewRef (self_->ballHitInfo)))
 		return nullptr;
 
-	::CarControls const controls{};
-	if ((state.lastControls.throttle != controls.throttle || state.lastControls.steer != controls.steer ||
-	        state.lastControls.pitch != controls.pitch || state.lastControls.yaw != controls.yaw ||
-	        state.lastControls.roll != controls.roll || state.lastControls.boost != controls.boost ||
-	        state.lastControls.jump != controls.jump || state.lastControls.handbrake != controls.handbrake) &&
+	if ((state.lastControls.throttle != model.lastControls.throttle ||
+	        state.lastControls.steer != model.lastControls.steer ||
+	        state.lastControls.pitch != model.lastControls.pitch || state.lastControls.yaw != model.lastControls.yaw ||
+	        state.lastControls.roll != model.lastControls.roll ||
+	        state.lastControls.boost != model.lastControls.boost ||
+	        state.lastControls.jump != model.lastControls.jump ||
+	        state.lastControls.handbrake != model.lastControls.handbrake) &&
 	    !DictSetValue (dict.borrow (), "last_controls", PyNewRef (self_->lastControls)))
 		return nullptr;
 

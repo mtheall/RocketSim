@@ -780,7 +780,7 @@ void Arena::Step(int ticksToSimulate) {
 
 		if (_goalScoreCallback.func != NULL) { // Potentially fire goal score callback
 			if (IsBallScored()) {
-				_goalScoreCallback.func(this, RS_TEAM_FROM_Y(ball->_rigidBody.m_worldTransform.m_origin.y()), _goalScoreCallback.userInfo);
+				_goalScoreCallback.func(this, RS_OPPOSITE_TEAM(RS_TEAM_FROM_Y(ball->_rigidBody.m_worldTransform.m_origin.y())), _goalScoreCallback.userInfo);
 			}
 		}
 

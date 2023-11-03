@@ -20,6 +20,21 @@ PyMemberDef Car::Members[] = {
         .offset = offsetof (Car, goals),
         .flags  = 0,
         .doc    = "Goals"},
+    {.name      = "shots",
+        .type   = TypeHelper<decltype (Car::shots)>::type,
+        .offset = offsetof (Car, shots),
+        .flags  = 0,
+        .doc    = "Shots"},
+    {.name      = "saves",
+        .type   = TypeHelper<decltype (Car::saves)>::type,
+        .offset = offsetof (Car, saves),
+        .flags  = 0,
+        .doc    = "Saves"},
+    {.name      = "assists",
+        .type   = TypeHelper<decltype (Car::assists)>::type,
+        .offset = offsetof (Car, assists),
+        .flags  = 0,
+        .doc    = "Assists"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -161,6 +176,15 @@ PyObject *Car::InternalPickle (Car *self_) noexcept
 	    !DictSetValue (dict.borrow (), "boost_pickups", PyLong_FromUnsignedLong (self_->boostPickups)))
 		return nullptr;
 
+	if (self_->shots && !DictSetValue (dict.borrow (), "shots", PyLong_FromUnsignedLong (self_->shots)))
+		return nullptr;
+
+	if (self_->saves && !DictSetValue (dict.borrow (), "saves", PyLong_FromUnsignedLong (self_->saves)))
+		return nullptr;
+
+	if (self_->assists && !DictSetValue (dict.borrow (), "assists", PyLong_FromUnsignedLong (self_->assists)))
+		return nullptr;
+
 	return dict.gift ();
 }
 
@@ -178,9 +202,22 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 	static char goalsKwd[]        = "goals";
 	static char demosKwd[]        = "demos";
 	static char boostPickupsKwd[] = "boost_pickups";
+	static char shotsKwd[]        = "shots";
+	static char savesKwd[]        = "saves";
+	static char assistsKwd[]      = "assists";
 
-	static char *dict[] = {
-	    idKwd, teamKwd, stateKwd, configKwd, controlsKwd, goalsKwd, demosKwd, boostPickupsKwd, nullptr};
+	static char *dict[] = {idKwd,
+	    teamKwd,
+	    stateKwd,
+	    configKwd,
+	    controlsKwd,
+	    goalsKwd,
+	    demosKwd,
+	    boostPickupsKwd,
+	    shotsKwd,
+	    savesKwd,
+	    assistsKwd,
+	    nullptr};
 
 	PyObject *state       = nullptr; // borrowed references
 	PyObject *config      = nullptr;
@@ -189,10 +226,13 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 	unsigned goals        = 0;
 	unsigned demos        = 0;
 	unsigned boostPickups = 0;
+	unsigned shots        = 0;
+	unsigned saves        = 0;
+	unsigned assists      = 0;
 	int team              = static_cast<int> (::Team::BLUE);
 	if (!PyArg_ParseTupleAndKeywords (dummy.borrow (),
 	        dict_,
-	        "|kiO!O!O!III",
+	        "|kiO!O!O!IIIIII",
 	        dict,
 	        &id,
 	        &team,
@@ -204,7 +244,10 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 	        &controls,
 	        &goals,
 	        &demos,
-	        &boostPickups))
+	        &boostPickups,
+	        &shots,
+	        &saves,
+	        &assists))
 		return nullptr;
 
 	if (id == 0)
@@ -242,6 +285,9 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 	self_->goals        = goals;
 	self_->demos        = demos;
 	self_->boostPickups = boostPickups;
+	self_->shots        = shots;
+	self_->saves        = saves;
+	self_->assists      = assists;
 
 	self_->car->SetState (CarState::ToCarState (PyCast<CarState> (state)));
 	self_->car->_internalState.updateCounter = PyCast<CarState> (state)->state.updateCounter;
