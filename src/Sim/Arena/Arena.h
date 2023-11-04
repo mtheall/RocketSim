@@ -21,8 +21,8 @@
 // Mode of speed/memory optimization for the arena
 // Will affect whether high memory consumption is used to slightly increase speed or not
 enum class ArenaMemWeightMode : byte {
-	HEAVY, // ~11MB per arena
-	LIGHT // ~0.8MB per arena
+	HEAVY, // ~611KB per arena with 4 cars
+	LIGHT  // ~397KB per arena with 4 cars
 };
 
 using BallTouchEventFn   = void(*)(class Arena* arena, Car *car, void* userInfo);

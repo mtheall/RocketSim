@@ -445,10 +445,13 @@ Arena::Arena(GameMode gameMode, ArenaMemWeightMode memWeightMode, float tickRate
 
 		btDefaultCollisionConstructionInfo collisionConfigConstructionInfo = {};
 
+		// These take up a ton of memory normally
 		if (memWeightMode == ArenaMemWeightMode::LIGHT) {
-			// These take up a ton of memory normally
+			collisionConfigConstructionInfo.m_defaultMaxPersistentManifoldPoolSize /= 16;
+			collisionConfigConstructionInfo.m_defaultMaxCollisionAlgorithmPoolSize /= 32;
+		} else {
 			collisionConfigConstructionInfo.m_defaultMaxPersistentManifoldPoolSize /= 8;
-			collisionConfigConstructionInfo.m_defaultMaxCollisionAlgorithmPoolSize /= 8;
+			collisionConfigConstructionInfo.m_defaultMaxCollisionAlgorithmPoolSize /= 16;
 		}
 
 		_bulletWorldParams.collisionConfig.setup(collisionConfigConstructionInfo);
@@ -780,7 +783,7 @@ void Arena::Step(int ticksToSimulate) {
 
 		if (_goalScoreCallback.func != NULL) { // Potentially fire goal score callback
 			if (IsBallScored()) {
-				_goalScoreCallback.func(this, RS_OPPOSITE_TEAM(RS_TEAM_FROM_Y(ball->_rigidBody.m_worldTransform.m_origin.y())), _goalScoreCallback.userInfo);
+				_goalScoreCallback.func(this, RS_TEAM_FROM_Y(-ball->_rigidBody.m_worldTransform.m_origin.y()), _goalScoreCallback.userInfo);
 			}
 		}
 
