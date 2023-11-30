@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2019, ubuntu-22.04, macos-12]
+        os: [windows-2019, ubuntu-20.04, macos-12]
 
     steps:
       - uses: actions/checkout@v3
@@ -29,9 +29,6 @@ jobs:
         run: |
           python3 setup.py build
           python3 setup.py bdist_wheel --py-limited-api=cp34
-        env:
-          CC: gcc-12
-          CXX: g++-12
 
       - name: Install extension
         shell: bash
