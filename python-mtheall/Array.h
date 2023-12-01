@@ -4,6 +4,8 @@
 
 #include <numpy/arrayobject.h>
 
+#include <cstddef>
+
 namespace RocketSim::Python
 {
 class PyArrayRef final : public PyRef<PyArrayObject>
@@ -11,7 +13,7 @@ class PyArrayRef final : public PyRef<PyArrayObject>
 public:
 	PyArrayRef () noexcept = delete;
 
-	PyArrayRef (nullptr_t) noexcept;
+	PyArrayRef (std::nullptr_t) noexcept;
 
 	PyArrayRef (unsigned dim0_, unsigned dim1_ = 0) noexcept;
 

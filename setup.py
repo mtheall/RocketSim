@@ -88,7 +88,7 @@ RocketSim = Extension(
 
 setup(
   name = "RocketSim",
-  version = "2.0.0",
+  version = "2.0.0.post1",
   description = "This is Rocket League!",
   cmdclass = {"build_ext": build_ext_ex},
   ext_modules = [RocketSim]

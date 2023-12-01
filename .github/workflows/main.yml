@@ -23,12 +23,27 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip3 install wheel oldest-supported-numpy PyGLM
+          pip3 install wheel oldest-supported-numpy PyGLM cibuildwheel
 
       - name: Build extension
+        if: matrix.os != 'ubuntu-20.04'
         run: |
           python3 setup.py build
           python3 setup.py bdist_wheel --py-limited-api=cp34
+
+      - name: Build extension
+        if: matrix.os == 'ubuntu-20.04'
+        run: |
+          python3 setup.py sdist
+          python3 -m cibuildwheel --output-dir dist
+          for old in dist/*.whl
+          do
+            # actually cp34 since I'm using Py_LIMITED_API=0x03040000
+            new=$(echo $old | sed 's/-cp.*/-cp34-abi3-manylinux2014_x86_64.whl/g')
+            mv $old $new
+          done
+        env:
+          CIBW_BUILD: cp36-manylinux_x86_64
 
       - name: Install extension
         shell: bash
@@ -74,4 +89,24 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          path: dist/*.whl
+          name: wheels
+          path: dist/*
+
+  publish_pypi:
+    name: Publish PyPI
+    runs-on: ubuntu-latest
+    needs: build_wheels
+    environment:
+      name: pypi
+      url: https://pypi.org/p/RocketSim
+    permissions:
+      id-token: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

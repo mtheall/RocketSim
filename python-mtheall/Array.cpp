@@ -3,6 +3,7 @@
 #include "Array.h"
 
 #include <cmath>
+#include <cstddef>
 
 namespace
 {
@@ -37,7 +38,7 @@ RocketSim::Python::PyRef<PyArrayObject> makeArray (unsigned dim0_, unsigned dim1
 
 namespace RocketSim::Python
 {
-PyArrayRef::PyArrayRef (nullptr_t) noexcept : PyRef<PyArrayObject> (nullptr), m_dim0 (0), m_dim1 (0)
+PyArrayRef::PyArrayRef (std::nullptr_t) noexcept : PyRef<PyArrayObject> (nullptr), m_dim0 (0), m_dim1 (0)
 {
 }
 
