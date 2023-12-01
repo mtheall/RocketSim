@@ -1,0 +1,3 @@
+recursive-include libsrc *
+recursive-include src *
+recursive-include python-mtheall *

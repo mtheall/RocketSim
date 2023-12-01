@@ -65,7 +65,7 @@ public:
 
 	PyRef () noexcept = default;
 
-	PyRef (nullptr_t) noexcept : PyRef ()
+	PyRef (std::nullptr_t) noexcept : PyRef ()
 	{
 	}
 

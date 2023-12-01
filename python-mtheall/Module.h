@@ -16,12 +16,38 @@
 #include <unordered_map>
 #include <vector>
 
+#ifndef Py_UNREACHABLE
+#ifndef NDEBUG
+#define Py_UNREACHABLE() Py_FatalError ("Unreachable C code path reached")
+#elif defined(_MSC_VER)
+#define Py_UNREACHABLE() __assume (0)
+#else
+#define Py_UNREACHABLE() __builtin_unreachable ()
+#endif
+#endif
+
 // clang-format off
-template <typename T>
-struct TypeHelper{};
+#ifndef Py_RETURN_RICHCOMPARE
+#define Py_RETURN_RICHCOMPARE(val1, val2, op)                               \
+    do {                                                                    \
+        switch (op) {                                                       \
+        case Py_EQ: if ((val1) == (val2)) Py_RETURN_TRUE; Py_RETURN_FALSE;  \
+        case Py_NE: if ((val1) != (val2)) Py_RETURN_TRUE; Py_RETURN_FALSE;  \
+        case Py_LT: if ((val1) < (val2)) Py_RETURN_TRUE; Py_RETURN_FALSE;   \
+        case Py_GT: if ((val1) > (val2)) Py_RETURN_TRUE; Py_RETURN_FALSE;   \
+        case Py_LE: if ((val1) <= (val2)) Py_RETURN_TRUE; Py_RETURN_FALSE;  \
+        case Py_GE: if ((val1) >= (val2)) Py_RETURN_TRUE; Py_RETURN_FALSE;  \
+        default:                                                            \
+            Py_UNREACHABLE();                                               \
+        }                                                                   \
+    } while (0)
+#endif
 // clang-format on
 
 // clang-format off
+template <typename T>
+struct TypeHelper{};
+
 #define TYPE_HELPER(a_, b_) \
 	template<> struct TypeHelper<a_> { constexpr static auto type = b_; }
 
