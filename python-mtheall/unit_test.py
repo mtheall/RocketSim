@@ -1008,7 +1008,6 @@ class TestMutatorConfig(FuzzyTestCase):
     self.assertEqual(config_a.unlimited_double_jumps,     config_b.unlimited_double_jumps)
     self.assertEqual(config_a.demo_mode,                  config_b.demo_mode)
     self.assertEqual(config_a.enable_team_demos,          config_b.enable_team_demos)
-    self.assertEqual(config_a.enable_physics_rounding,    config_b.enable_physics_rounding)
     self.assertEqual(config_a.enable_car_car_collision,   config_b.enable_car_car_collision)
     self.assertEqual(config_a.enable_car_ball_collision,  config_b.enable_car_ball_collision)
 
@@ -1046,7 +1045,6 @@ class TestMutatorConfig(FuzzyTestCase):
       unlimited_double_jumps     = random_bool(),
       demo_mode                  = random.randint(0, 2),
       enable_team_demos          = random_bool(),
-      enable_physics_rounding    = random_bool(),
       enable_car_car_collision   = random_bool(),
       enable_car_ball_collision  = random_bool()
     )
@@ -1082,7 +1080,6 @@ class TestMutatorConfig(FuzzyTestCase):
       unlimited_double_jumps     = random_bool(),
       demo_mode                  = random.randint(0, 2),
       enable_team_demos          = random_bool(),
-      enable_physics_rounding    = random_bool(),
       enable_car_car_collision   = random_bool(),
       enable_car_ball_collision  = random_bool()
     )
@@ -1118,7 +1115,6 @@ class TestMutatorConfig(FuzzyTestCase):
       unlimited_double_jumps     = random_bool(),
       demo_mode                  = random.randint(0, 2),
       enable_team_demos          = random_bool(),
-      enable_physics_rounding    = random_bool(),
       enable_car_car_collision   = random_bool(),
       enable_car_ball_collision  = random_bool()
     )

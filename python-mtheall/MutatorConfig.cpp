@@ -130,11 +130,6 @@ PyMemberDef MutatorConfig::Members[] = {
         .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, respawnDelay),
         .flags  = 0,
         .doc    = "Respawn delay"},
-    {.name      = "enable_physics_rounding",
-        .type   = TypeHelper<decltype (::MutatorConfig::enablePhysicsRounding)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, enablePhysicsRounding),
-        .flags  = 0,
-        .doc    = "Enable physics rounding"},
     {.name      = "enable_car_car_collision",
         .type   = TypeHelper<decltype (::MutatorConfig::enableCarCarCollision)>::type,
         .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, enableCarCarCollision),
@@ -210,7 +205,6 @@ __init__(self,
 	unlimited_double_jumps: bool = False,
 	demo_mode: int = RocketSim.DemoMode.NORMAL,
 	enable_team_demos: bool = False,
-	enable_physics_rounding: bool = True,
 	enable_car_car_collision: bool = True,
 	enable_car_ball_collision: bool = True))"},
     {0, nullptr},
@@ -297,7 +291,6 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	static char unlimitedDoubleJumpsKwd[]   = "unlimited_double_jumps";
 	static char demoModeKwd[]               = "demo_mode";
 	static char enableTeamDemosKwd[]        = "enable_team_demos";
-	static char enablePhysicsRoundingKwd[]  = "enable_physics_rounding";
 	static char enableCarCarCollisionKwd[]  = "enable_car_car_collision";
 	static char enableCarBallCollisionKwd[] = "enable_car_ball_collision";
 
@@ -327,7 +320,6 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	    unlimitedDoubleJumpsKwd,
 	    demoModeKwd,
 	    enableTeamDemosKwd,
-	    enablePhysicsRoundingKwd,
 	    enableCarCarCollisionKwd,
 	    enableCarBallCollisionKwd,
 	    nullptr};
@@ -359,13 +351,12 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 		int unlimitedFlips         = config.unlimitedFlips;
 		int unlimitedDoubleJumps   = config.unlimitedDoubleJumps;
 		int enableTeamDemos        = config.enableTeamDemos;
-		int enablePhysicsRounding  = config.enablePhysicsRounding;
 		int enableCarCarCollision  = config.enableCarCarCollision;
 		int enableCarBallCollision = config.enableCarBallCollision;
 
 		if (!PyArg_ParseTupleAndKeywords (args_,
 		        kwds_,
-		        "|iO!ffffffffffffffffffffppipppp",
+		        "|iO!ffffffffffffffffffffppippp",
 		        dict,
 		        &gameMode,
 		        Vec::Type,
@@ -394,7 +385,6 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 		        &unlimitedDoubleJumps,
 		        &demoMode,
 		        &enableTeamDemos,
-		        &enablePhysicsRounding,
 		        &enableCarCarCollision,
 		        &enableCarBallCollision))
 			return -1;
@@ -423,7 +413,6 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 		config.unlimitedFlips         = unlimitedFlips;
 		config.unlimitedDoubleJumps   = unlimitedDoubleJumps;
 		config.enableTeamDemos        = enableTeamDemos;
-		config.enablePhysicsRounding  = enablePhysicsRounding;
 		config.enableCarCarCollision  = enableCarCarCollision;
 		config.enableCarBallCollision = enableCarBallCollision;
 
@@ -559,10 +548,6 @@ PyObject *MutatorConfig::Pickle (MutatorConfig *self_) noexcept
 
 	if (config.enableTeamDemos != model.enableTeamDemos &&
 	    !DictSetValue (dict.borrow (), "enable_team_demos", PyBool_FromLong (config.enableTeamDemos)))
-		return nullptr;
-
-	if (config.enablePhysicsRounding != model.enablePhysicsRounding &&
-	    !DictSetValue (dict.borrow (), "enable_physics_rounding", PyBool_FromLong (config.enablePhysicsRounding)))
 		return nullptr;
 
 	if (config.enableCarCarCollision != model.enableCarCarCollision &&

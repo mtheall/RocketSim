@@ -62,8 +62,6 @@ struct MutatorConfig {
 	DemoMode demoMode = DemoMode::NORMAL;
 	bool enableTeamDemos = false;
 
-	bool enablePhysicsRounding = true;
-
 	bool enableCarCarCollision = true;
 	bool enableCarBallCollision = true;
 
@@ -79,4 +77,4 @@ ballMaxSpeed, ballDrag, ballWorldFriction, ballWorldRestitution, jumpAccel, \
 jumpImmediateForce, boostAccel, boostUsedPerSecond, respawnDelay, \
 carSpawnBoostAmount, bumpCooldownTime, boostPadCooldown_Big, boostPadCooldown_Small, \
 ballHitExtraForceScale, bumpForceScale, ballRadius, unlimitedFlips, unlimitedDoubleJumps, \
-demoMode, enableTeamDemos, enablePhysicsRounding, enableCarCarCollision, enableCarBallCollision
+demoMode, enableTeamDemos, enableCarCarCollision, enableCarBallCollision
