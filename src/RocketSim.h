@@ -12,13 +12,16 @@
 
 class btBvhTriangleMeshShape;
 
-enum class RocketSimStage : byte {
-	UNINITIALIZED,
-	INITIALIZING,
-	INITIALIZED
-};
-
 namespace RocketSim {
+	enum class RocketSimStage : byte {
+		UNINITIALIZED,
+		INITIALIZING,
+		INITIALIZED
+	};
+
+	extern std::filesystem::path _collisionMeshesFolder;
+	extern std::mutex _beginInitMutex;
+
 	void Init(std::filesystem::path collisionMeshesFolder);
 	void AssertInitialized(const char* errorMsgPrefix);
 

@@ -126,7 +126,7 @@ std::unordered_map<std::uint64_t, unsigned> buildBoostMapping (
 auto const soccarBoostMapping = buildBoostMapping (soccarIndexMapping);
 auto const hoopsBoostMapping  = buildBoostMapping (hoopsIndexMapping);
 
-int getBoostPadIndex (::BoostPad const *pad_, std::unordered_map<std::uint64_t, unsigned> const &map_) noexcept
+int getBoostPadIndex (RocketSim::BoostPad const *pad_, std::unordered_map<std::uint64_t, unsigned> const &map_) noexcept
 {
 	auto const it = map_.find (makeKey (pad_->pos.x, pad_->pos.y));
 	if (it == std::end (map_))
@@ -135,17 +135,17 @@ int getBoostPadIndex (::BoostPad const *pad_, std::unordered_map<std::uint64_t, 
 	return it->second;
 }
 
-std::pair<std::uint32_t const *, std::size_t> getIndexMapping (::GameMode gameMode_) noexcept
+std::pair<std::uint32_t const *, std::size_t> getIndexMapping (RocketSim::GameMode gameMode_) noexcept
 {
-	if (gameMode_ == ::GameMode::HOOPS)
+	if (gameMode_ == RocketSim::GameMode::HOOPS)
 		return {hoopsIndexMapping.data (), hoopsIndexMapping.size ()};
 
 	return {soccarIndexMapping.data (), soccarIndexMapping.size ()};
 }
 
-std::unordered_map<std::uint64_t, unsigned> const &getBoostMapping (::GameMode gameMode_) noexcept
+std::unordered_map<std::uint64_t, unsigned> const &getBoostMapping (RocketSim::GameMode gameMode_) noexcept
 {
-	if (gameMode_ == ::GameMode::HOOPS)
+	if (gameMode_ == RocketSim::GameMode::HOOPS)
 		return hoopsBoostMapping;
 
 	return soccarBoostMapping;
@@ -244,7 +244,7 @@ void assign (RocketSim::Python::PyArrayRef &array_, unsigned col_, btMatrix3x3 c
 void assign (RocketSim::Python::PyArrayRef &array_,
     unsigned col_,
     btRigidBody &rigidBody_,
-    CarState const *state_ = nullptr) noexcept
+    RocketSim::CarState const *state_ = nullptr) noexcept
 {
 	if (state_)
 	{
@@ -348,7 +348,8 @@ public:
 				for (auto &arena : arenas_)
 				{
 					auto future =
-					    std::async (std::launch::deferred, &::Arena::Step, arena->arena.get (), ticks_).share ();
+					    std::async (std::launch::deferred, &RocketSim::Arena::Step, arena->arena.get (), ticks_)
+					        .share ();
 					m_jobs.emplace_back (future);
 					futures.emplace_back (future);
 				}
@@ -677,10 +678,10 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	if (!self)
 		return nullptr;
 
-	new (&self->arena) std::shared_ptr<::Arena>{};
+	new (&self->arena) std::shared_ptr<RocketSim::Arena>{};
 	new (&self->threadPool) std::shared_ptr<Arena::ThreadPool>{};
 	self->cars                        = new (std::nothrow) std::map<std::uint32_t, PyRef<Car>>{};
-	self->boostPads                   = new (std::nothrow) std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
+	self->boostPads                   = new (std::nothrow) std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
 	self->boostPadsByIndex            = nullptr;
 	self->ballPrediction              = nullptr;
 	self->gameEvent                   = nullptr;
@@ -724,8 +725,8 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 
 int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	int gameMode         = static_cast<int> (::GameMode::SOCCAR);
-	int memoryWeightMode = static_cast<int> (::ArenaMemWeightMode::HEAVY);
+	int gameMode         = static_cast<int> (RocketSim::GameMode::SOCCAR);
+	int memoryWeightMode = static_cast<int> (RocketSim::ArenaMemWeightMode::HEAVY);
 	float tickRate       = 120.0f;
 
 	static char gameModeKwd[]         = "game_mode";
@@ -739,19 +740,19 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	try
 	{
-		switch (static_cast<::GameMode> (gameMode))
+		switch (static_cast<RocketSim::GameMode> (gameMode))
 		{
-		case ::GameMode::SOCCAR:
-		case ::GameMode::HOOPS:
-		case ::GameMode::SNOWDAY:
-			self_->gameEvent = new ::GameEventTracker{};
+		case RocketSim::GameMode::SOCCAR:
+		case RocketSim::GameMode::HOOPS:
+		case RocketSim::GameMode::SNOWDAY:
+			self_->gameEvent = new RocketSim::GameEventTracker{};
 			self_->gameEvent->SetShotCallback (&Arena::HandleShotEventCallback, self_);
 			self_->gameEvent->SetGoalCallback (&Arena::HandleGoalEventCallback, self_);
 			self_->gameEvent->SetSaveCallback (&Arena::HandleSaveEventCallback, self_);
 			break;
 
-		case ::GameMode::HEATSEEKER:
-		case ::GameMode::THE_VOID:
+		case RocketSim::GameMode::HEATSEEKER:
+		case RocketSim::GameMode::THE_VOID:
 			break;
 
 		default:
@@ -784,14 +785,16 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	try
 	{
-		auto arena = std::shared_ptr<::Arena> (::Arena::Create (
-		    static_cast<::GameMode> (gameMode), static_cast<::ArenaMemWeightMode> (memoryWeightMode), tickRate));
+		auto arena =
+		    std::shared_ptr<RocketSim::Arena> (RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode),
+		        static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode),
+		        tickRate));
 		if (!arena)
 			throw -1;
 
 		arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, self_);
 
-		if (arena->gameMode != ::GameMode::THE_VOID)
+		if (arena->gameMode != RocketSim::GameMode::THE_VOID)
 		{
 			arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, self_);
 			arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, self_);
@@ -801,7 +804,7 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		if (!ball)
 			throw -1;
 
-		auto boostPads = std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
+		auto boostPads = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
 		for (auto const &pad : arena->GetBoostPads ())
 		{
 			auto ref = PyRef<BoostPad>::steal (BoostPad::New ());
@@ -960,7 +963,7 @@ PyObject *Arena::Pickle (Arena *self_) noexcept
 			return nullptr;
 	}
 
-	if (self_->arena->gameMode != ::GameMode::SOCCAR &&
+	if (self_->arena->gameMode != RocketSim::GameMode::SOCCAR &&
 	    !DictSetValue (dict.borrow (), "game_mode", PyLong_FromLong (static_cast<long> (self_->arena->gameMode))))
 		return nullptr;
 
@@ -1159,8 +1162,8 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	float tickTime                        = 1.0f / 120.0f;
 	unsigned blueScore                    = 0;
 	unsigned orangeScore                  = 0;
-	int gameMode                          = static_cast<int> (::GameMode::SOCCAR);
-	int memoryWeightMode                  = static_cast<int> (::ArenaMemWeightMode::HEAVY);
+	int gameMode                          = static_cast<int> (RocketSim::GameMode::SOCCAR);
+	int memoryWeightMode                  = static_cast<int> (RocketSim::ArenaMemWeightMode::HEAVY);
 	if (!PyArg_ParseTupleAndKeywords (dummy.borrow (),
 	        dict_,
 	        "|iikO!fKO!O!O!IIKKOOOOOOOOOOOOOO",
@@ -1200,21 +1203,21 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	        &saveEventCallbackUserData))
 		return nullptr;
 
-	switch (static_cast<::GameMode> (gameMode))
+	switch (static_cast<RocketSim::GameMode> (gameMode))
 	{
-	case ::GameMode::SOCCAR:
-	case ::GameMode::HOOPS:
-	case ::GameMode::HEATSEEKER:
-	case ::GameMode::SNOWDAY:
-	case ::GameMode::THE_VOID:
+	case RocketSim::GameMode::SOCCAR:
+	case RocketSim::GameMode::HOOPS:
+	case RocketSim::GameMode::HEATSEEKER:
+	case RocketSim::GameMode::SNOWDAY:
+	case RocketSim::GameMode::THE_VOID:
 		break;
 
 	default:
 		return PyErr_Format (PyExc_ValueError, "Invalid game mode '%d'", gameMode);
 	}
 
-	if (static_cast<::ArenaMemWeightMode> (memoryWeightMode) != ::ArenaMemWeightMode::LIGHT &&
-	    static_cast<::ArenaMemWeightMode> (memoryWeightMode) != ::ArenaMemWeightMode::HEAVY)
+	if (static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode) != RocketSim::ArenaMemWeightMode::LIGHT &&
+	    static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode) != RocketSim::ArenaMemWeightMode::HEAVY)
 		return PyErr_Format (PyExc_ValueError, "Invalid arena memory weight mode '%d'", memoryWeightMode);
 
 	// make sure callback are None or callable
@@ -1279,8 +1282,10 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 	try
 	{
-		auto arena = std::shared_ptr<::Arena> (::Arena::Create (
-		    static_cast<::GameMode> (gameMode), static_cast<::ArenaMemWeightMode> (memoryWeightMode), 1.0f / tickTime));
+		auto arena =
+		    std::shared_ptr<RocketSim::Arena> (RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode),
+		        static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode),
+		        1.0f / tickTime));
 		if (!arena)
 			return PyErr_NoMemory ();
 
@@ -1311,7 +1316,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 			carMap[car->car->id] = car;
 		}
 
-		auto padMap = std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
+		auto padMap = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
 		if (pads)
 		{
 			auto const &[indexMapping, indexMappingSize] = getIndexMapping (arena->gameMode);
@@ -1415,7 +1420,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 		self_->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, self_);
 
-		if (self_->arena->gameMode != ::GameMode::THE_VOID)
+		if (self_->arena->gameMode != RocketSim::GameMode::THE_VOID)
 		{
 			self_->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, self_);
 			self_->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, self_);
@@ -1463,13 +1468,13 @@ PyObject *Arena::AddCar (Arena *self_, PyObject *args_, PyObject *kwds_) noexcep
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "i|O", dict, &team, &config))
 		return nullptr;
 
-	if (team != static_cast<int> (::Team::BLUE) && team != static_cast<int> (::Team::ORANGE))
+	if (team != static_cast<int> (RocketSim::Team::BLUE) && team != static_cast<int> (RocketSim::Team::ORANGE))
 	{
 		PyErr_SetString (PyExc_RuntimeError, "Invalid team");
 		return nullptr;
 	}
 
-	::CarConfig carConfig = CAR_CONFIG_OCTANE;
+	RocketSim::CarConfig carConfig = CAR_CONFIG_OCTANE;
 	if (config && Py_IS_TYPE (config, CarConfig::Type))
 	{
 		carConfig = reinterpret_cast<CarConfig const *> (config)->config;
@@ -1488,11 +1493,11 @@ PyObject *Arena::AddCar (Arena *self_, PyObject *args_, PyObject *kwds_) noexcep
 	if (!car)
 		return nullptr;
 
-	::Car *rsCar = nullptr;
+	RocketSim::Car *rsCar = nullptr;
 
 	try
 	{
-		rsCar = self_->arena->AddCar (static_cast<::Team> (team), carConfig);
+		rsCar = self_->arena->AddCar (static_cast<RocketSim::Team> (team), carConfig);
 
 		auto &carRef = (*self_->cars)[rsCar->id];
 		if (carRef) // this probably shouldn't happen
@@ -1530,7 +1535,7 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	try
 	{
-		auto arena = std::shared_ptr<::Arena> (self_->arena->Clone (false));
+		auto arena = std::shared_ptr<RocketSim::Arena> (self_->arena->Clone (false));
 		if (!arena)
 			return PyErr_NoMemory ();
 
@@ -1538,7 +1543,7 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		if (!ball)
 			return PyErr_NoMemory ();
 
-		auto boostPads = std::unordered_map<::BoostPad *, PyRef<BoostPad>>{};
+		auto boostPads = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
 		for (auto const &pad : arena->GetBoostPads ())
 		{
 			auto ref = PyRef<BoostPad>::steal (BoostPad::New ());
@@ -1636,7 +1641,7 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 		clone->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, clone.borrow ());
 
-		if (clone->arena->gameMode != ::GameMode::THE_VOID)
+		if (clone->arena->gameMode != RocketSim::GameMode::THE_VOID)
 		{
 			clone->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, clone.borrow ());
 			clone->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, clone.borrow ());
@@ -1805,7 +1810,7 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 
 	target->arena->SetCarBumpCallback (&Arena::HandleCarBumpCallback, target);
 
-	if (target->arena->gameMode != ::GameMode::THE_VOID)
+	if (target->arena->gameMode != RocketSim::GameMode::THE_VOID)
 	{
 		target->arena->SetBoostPickupCallback (&Arena::HandleBoostPickupCallback, target);
 		target->arena->SetGoalScoreCallback (&Arena::HandleGoalScoreCallback, target);
@@ -1883,7 +1888,7 @@ PyObject *Arena::GetBallPrediction (Arena *self_, PyObject *args_, PyObject *kwd
 	{
 		try
 		{
-			self_->ballPrediction = new (std::nothrow)::BallPredTracker (self_->arena.get (), numTicks);
+			self_->ballPrediction = new (std::nothrow) RocketSim::BallPredTracker (self_->arena.get (), numTicks);
 			if (!self_->ballPrediction)
 			{
 				PyErr_NoMemory ();
@@ -2206,7 +2211,7 @@ PyObject *Arena::SetBallTouchCallback (Arena *self_, PyObject *args_, PyObject *
 
 PyObject *Arena::SetBoostPickupCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	if (self_->arena->gameMode == ::GameMode::THE_VOID)
+	if (self_->arena->gameMode == RocketSim::GameMode::THE_VOID)
 	{
 		PyErr_SetString (PyExc_RuntimeError, "Cannot set a boost pickup callback when on THE_VOID gamemode!");
 		return nullptr;
@@ -2326,7 +2331,7 @@ PyObject *Arena::SetCarDemoCallback (Arena *self_, PyObject *args_, PyObject *kw
 
 PyObject *Arena::SetGoalScoreCallback (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	if (self_->arena->gameMode == ::GameMode::THE_VOID)
+	if (self_->arena->gameMode == RocketSim::GameMode::THE_VOID)
 	{
 		PyErr_SetString (PyExc_RuntimeError, "Cannot set a goal score callback when on THE_VOID gamemode!");
 		return nullptr;
@@ -2597,7 +2602,7 @@ PyObject *Arena::MultiStep (PyObject *dummy_, PyObject *args_, PyObject *kwds_) 
 	return nullptr;
 }
 
-void Arena::HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userData_) noexcept
+void Arena::HandleBallTouchCallback (RocketSim::Arena *arena_, RocketSim::Car *car_, void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
 	if (self->stepExceptionType)
@@ -2646,7 +2651,10 @@ void Arena::HandleBallTouchCallback (::Arena *arena_, ::Car *car_, void *userDat
 	}
 }
 
-void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad *boostPad_, void *userData_) noexcept
+void Arena::HandleBoostPickupCallback (RocketSim::Arena *arena_,
+    RocketSim::Car *car_,
+    RocketSim::BoostPad *boostPad_,
+    void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
 	if (self->stepExceptionType)
@@ -2721,9 +2729,9 @@ void Arena::HandleBoostPickupCallback (::Arena *arena_, ::Car *car_, ::BoostPad 
 	}
 }
 
-void Arena::HandleCarBumpCallback (::Arena *arena_,
-    ::Car *bumper_,
-    ::Car *victim_,
+void Arena::HandleCarBumpCallback (RocketSim::Arena *arena_,
+    RocketSim::Car *bumper_,
+    RocketSim::Car *victim_,
     bool isDemo_,
     void *userData_) noexcept
 {
@@ -2840,7 +2848,7 @@ void Arena::HandleCarBumpCallback (::Arena *arena_,
 	}
 }
 
-void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void *userData_) noexcept
+void Arena::HandleGoalScoreCallback (RocketSim::Arena *arena_, RocketSim::Team scoringTeam_, void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
 	if (self->stepExceptionType)
@@ -2849,7 +2857,7 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void 
 	// avoid continuously counting goals until the ball exits goal zone
 	if (self->lastGoalTick + 1 != self->arena->tickCount)
 	{
-		if (scoringTeam_ == ::Team::BLUE)
+		if (scoringTeam_ == RocketSim::Team::BLUE)
 			++self->blueScore;
 		else
 			++self->orangeScore;
@@ -2886,7 +2894,10 @@ void Arena::HandleGoalScoreCallback (::Arena *arena_, ::Team scoringTeam_, void 
 	}
 }
 
-void Arena::HandleShotEventCallback (::Arena *arena_, ::Car *shooter_, ::Car *passer_, void *userData_) noexcept
+void Arena::HandleShotEventCallback (RocketSim::Arena *arena_,
+    RocketSim::Car *shooter_,
+    RocketSim::Car *passer_,
+    void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
 	if (self->stepExceptionType)
@@ -2954,7 +2965,10 @@ void Arena::HandleShotEventCallback (::Arena *arena_, ::Car *shooter_, ::Car *pa
 	}
 }
 
-void Arena::HandleGoalEventCallback (::Arena *arena_, ::Car *shooter_, ::Car *passer_, void *userData_) noexcept
+void Arena::HandleGoalEventCallback (RocketSim::Arena *arena_,
+    RocketSim::Car *shooter_,
+    RocketSim::Car *passer_,
+    void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
 	if (self->stepExceptionType)
@@ -3023,7 +3037,7 @@ void Arena::HandleGoalEventCallback (::Arena *arena_, ::Car *shooter_, ::Car *pa
 	}
 }
 
-void Arena::HandleSaveEventCallback (::Arena *arena_, ::Car *saver_, void *userData_) noexcept
+void Arena::HandleSaveEventCallback (RocketSim::Arena *arena_, RocketSim::Car *saver_, void *userData_) noexcept
 {
 	auto const self = reinterpret_cast<Arena *> (userData_);
 	if (self->stepExceptionType)

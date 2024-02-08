@@ -1,5 +1,4 @@
 #include "Arena.h"
-
 #include "../../RocketSim.h"
 
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h"
@@ -9,6 +8,7 @@
 
 #include <array>
 
+RS_NS_START
 RSAPI void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
 
 	bool
@@ -116,7 +116,7 @@ void Arena::SetBoostPickupCallback(BoostPickupEventFn callbackFunc, void* userIn
 
 void Arena::SetGoalScoreCallback(GoalScoreEventFn callbackFunc, void* userInfo) {
 	if (gameMode == GameMode::THE_VOID)
-		RS_ERR_CLOSE("Cannot set a goal score callback when on THE_VOID gamemode!");
+		RS_ERR_CLOSE("Cannot set a goal score callback when on THE_VOID gamemode");
 
 	_goalScoreCallback.func = callbackFunc;
 	_goalScoreCallback.userInfo = userInfo;
@@ -276,7 +276,8 @@ bool Arena::_BulletContactAddedCallback(
 		arenaInst->ball->_OnWorldCollision(arenaInst->gameMode, contactPoint.m_normalWorldOnB, arenaInst->tickTime);
 		
 		// Set as special
-		contactPoint.m_isSpecial = true;
+		if (arenaInst->gameMode != GameMode::SNOWDAY)
+			contactPoint.m_isSpecial = true;
 	}
 	
 	btAdjustInternalEdgeContacts(
@@ -327,7 +328,11 @@ void Arena::_BtCallback_OnCarBallCollision(Car* car, Ball* ball, btManifoldPoint
 	float relSpeed = RS_MIN(relVel.length(), BALL_CAR_EXTRA_IMPULSE_MAXDELTAVEL_UU);
 
 	if (relSpeed > 0) {
-		float zScale = (gameMode == GameMode::HOOPS && car->_internalState.isOnGround) ? BALL_CAR_EXTRA_IMPULSE_Z_SCALE_HOOPS_GROUND : BALL_CAR_EXTRA_IMPULSE_Z_SCALE;
+		bool extraZScale = 
+			gameMode == GameMode::HOOPS && 
+			carState.isOnGround &&
+			carState.rotMat.up.z > BALL_CAR_EXTRA_IMPULSE_Z_SCALE_HOOPS_NORMAL_Z_THRESH;
+		float zScale = extraZScale ? BALL_CAR_EXTRA_IMPULSE_Z_SCALE_HOOPS_GROUND : BALL_CAR_EXTRA_IMPULSE_Z_SCALE;
 		btVector3 hitDir = (relPos * btVector3(1, 1, zScale)).safeNormalized();
 		btVector3 forwardDirAdjustment = carForward * hitDir.dot(carForward) * (1 - BALL_CAR_EXTRA_IMPULSE_FORWARD_SCALE);
 		hitDir = (hitDir - forwardDirAdjustment).safeNormalized();
@@ -561,7 +566,7 @@ void Arena::Serialize(DataStreamOut& out) const {
 		}
 	}
 
-	if (gameMode == GameMode::SOCCAR) { // Serialize boost pads
+	if (_boostPads.size() > 0) { // Serialize boost pads
 		out.Write<uint32_t>(_boostPads.size());
 		for (auto pad : _boostPads)
 			pad->GetState().Serialize(out);
@@ -600,7 +605,7 @@ Arena* Arena::DeserializeNew(DataStreamIn& in) {
 
 #ifndef RS_MAX_SPEED
 			if (newArena->_carIDMap.count(id))
-				RS_ERR_CLOSE(ERROR_PREFIX << "Failed to load, got repeated car ID of " << id << ".");
+				RS_ERR_CLOSE(ERROR_PREFIX << "Failed to load, got repeated car ID of " << id);
 #endif
 
 			Car* newCar = newArena->DeserializeNewCar(in, team);
@@ -615,7 +620,7 @@ Arena* Arena::DeserializeNew(DataStreamIn& in) {
 	}
 
 	// Deserialize boost pads
-	if (gameMode == GameMode::SOCCAR) {
+	if (newArena->_boostPads.size() > 0) {
 		uint32_t boostPadAmount = in.Read<uint32_t>();
 
 #ifndef RS_MAX_SPEED
@@ -713,6 +718,9 @@ void Arena::Step(int ticksToSimulate) {
 #ifndef RS_NO_SUSPCOLGRID
 			{ // Add dynamic bodies to suspension grid
 				for (Car* car : _cars) {
+					if (car->_internalState.isDemoed)
+						continue;
+
 					btVector3 min, max;
 					car->_rigidBody.getAabb(min, max);
 					_suspColGrid.UpdateDynamicCollisions(min, max, false);
@@ -741,17 +749,7 @@ void Arena::Step(int ticksToSimulate) {
 
 		if (hasArenaStuff) {
 #ifndef RS_NO_SUSPCOLGRID
-			{ // Remove dynamic bodies from suspension grid
-				for (Car* car : _cars) {
-					btVector3 min, max;
-					car->_rigidBody.getAabb(min, max);
-					_suspColGrid.UpdateDynamicCollisions(min, max, true);
-				}
-
-				btVector3 min, max;
-				ball->_rigidBody.getAabb(min, max);
-				_suspColGrid.UpdateDynamicCollisions(min, max, true);
-			}	
+			_suspColGrid.ClearDynamicCollisions();
 #endif
 		}
 
@@ -928,7 +926,7 @@ bool Arena::IsBallProbablyGoingIn(float maxTime, float extraMargin, Team* goalTe
 		}
 
 	} else {
-		RS_ERR_CLOSE("Arena::IsBallProbablyGoingIn() is not supported for: " << GAMEMODE_STRS[(int)gameMode]);
+		RS_ERR_CLOSE("Arena::IsBallProbablyGoingIn() is not supported for gamemode " << GAMEMODE_STRS[(int)gameMode]);
 		return false;
 	}
 }
@@ -983,7 +981,7 @@ Arena::~Arena() {
 		Ball::_DestroyBall(ball);
 	}
 
-	if (gameMode == GameMode::SOCCAR) {
+	if (_boostPads.size() > 0) {
 		if (ownsBoostPads) {
 			// Remove all boost pads
 			for (BoostPad* boostPad : _boostPads)
@@ -1006,7 +1004,10 @@ void Arena::_SetupArenaCollisionShapes() {
 	auto collisionMeshes = RocketSim::GetArenaCollisionShapes(gameMode);
 
 	if (collisionMeshes.empty()) {
-		RS_ERR_CLOSE("Failed to setup arena collision meshes, no meshes found for game mode")
+		RS_ERR_CLOSE(
+			"No arena meshes found for gamemode " << GAMEMODE_STRS[(int)gameMode] << ", " <<
+			"the mesh files should be in " << RocketSim::_collisionMeshesFolder
+		)
 	}
 
 	_worldCollisionBvhShapes = new btBvhTriangleMeshShape[collisionMeshes.size()];
@@ -1126,3 +1127,5 @@ void Arena::SetCarBallCollision(bool enable)
 
 	ball->_rigidBody.getBroadphaseHandle ()->m_collisionFilterMask = mask;
 }
+
+RS_NS_END

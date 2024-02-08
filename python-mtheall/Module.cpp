@@ -196,46 +196,46 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 		// GameMode
 		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
 		    "SOCCAR",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::SOCCAR))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::GameMode::SOCCAR))));
 		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
 		    "HOOPS",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::HOOPS))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::GameMode::HOOPS))));
 		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
 		    "HEATSEEKER",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::HEATSEEKER))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::GameMode::HEATSEEKER))));
 		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
 		    "SNOWDAY",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::SNOWDAY))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::GameMode::SNOWDAY))));
 		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
 		    "THE_VOID",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::GameMode::THE_VOID))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::GameMode::THE_VOID))));
 
 		// Team
 		SET_TYPE_ATTR (RocketSim::Python::Team::Type,
 		    "BLUE",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::Team::BLUE))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::Team::BLUE))));
 		SET_TYPE_ATTR (RocketSim::Python::Team::Type,
 		    "ORANGE",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::Team::ORANGE))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::Team::ORANGE))));
 
 		// DemoMode
 		SET_TYPE_ATTR (RocketSim::Python::DemoMode::Type,
 		    "NORMAL",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::DemoMode::NORMAL))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::DemoMode::NORMAL))));
 		SET_TYPE_ATTR (RocketSim::Python::DemoMode::Type,
 		    "ON_CONTACT",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::DemoMode::ON_CONTACT))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::DemoMode::ON_CONTACT))));
 		SET_TYPE_ATTR (RocketSim::Python::DemoMode::Type,
 		    "DISABLED",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (::DemoMode::DISABLED))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::DemoMode::DISABLED))));
 
 		// MemoryWeightMode
 		SET_TYPE_ATTR (RocketSim::Python::MemoryWeightMode::Type,
 		    "HEAVY",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (ArenaMemWeightMode::HEAVY))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::ArenaMemWeightMode::HEAVY))));
 		SET_TYPE_ATTR (RocketSim::Python::MemoryWeightMode::Type,
 		    "LIGHT",
-		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (ArenaMemWeightMode::LIGHT))));
+		    PyObjectRef::stealObject (PyLong_FromLong (static_cast<long> (RocketSim::ArenaMemWeightMode::LIGHT))));
 
 		// CarConfig
 		SET_TYPE_ATTR (RocketSim::Python::CarConfig::Type,

@@ -6,43 +6,43 @@ PyTypeObject *CarControls::Type = nullptr;
 
 PyMemberDef CarControls::Members[] = {
     {.name      = "throttle",
-        .type   = TypeHelper<decltype (::CarControls::throttle)>::type,
-        .offset = offsetof (CarControls, controls) + offsetof (::CarControls, throttle),
+        .type   = TypeHelper<decltype (RocketSim::CarControls::throttle)>::type,
+        .offset = offsetof (CarControls, controls) + offsetof (RocketSim::CarControls, throttle),
         .flags  = 0,
         .doc    = "Throttle"},
     {.name      = "steer",
-        .type   = TypeHelper<decltype (::CarControls::steer)>::type,
-        .offset = offsetof (CarControls, controls) + offsetof (::CarControls, steer),
+        .type   = TypeHelper<decltype (RocketSim::CarControls::steer)>::type,
+        .offset = offsetof (CarControls, controls) + offsetof (RocketSim::CarControls, steer),
         .flags  = 0,
         .doc    = "Steer"},
     {.name      = "pitch",
-        .type   = TypeHelper<decltype (::CarControls::pitch)>::type,
-        .offset = offsetof (CarControls, controls) + offsetof (::CarControls, pitch),
+        .type   = TypeHelper<decltype (RocketSim::CarControls::pitch)>::type,
+        .offset = offsetof (CarControls, controls) + offsetof (RocketSim::CarControls, pitch),
         .flags  = 0,
         .doc    = "Pitch"},
     {.name      = "yaw",
-        .type   = TypeHelper<decltype (::CarControls::yaw)>::type,
-        .offset = offsetof (CarControls, controls) + offsetof (::CarControls, yaw),
+        .type   = TypeHelper<decltype (RocketSim::CarControls::yaw)>::type,
+        .offset = offsetof (CarControls, controls) + offsetof (RocketSim::CarControls, yaw),
         .flags  = 0,
         .doc    = "Yaw"},
     {.name      = "roll",
-        .type   = TypeHelper<decltype (::CarControls::roll)>::type,
-        .offset = offsetof (CarControls, controls) + offsetof (::CarControls, roll),
+        .type   = TypeHelper<decltype (RocketSim::CarControls::roll)>::type,
+        .offset = offsetof (CarControls, controls) + offsetof (RocketSim::CarControls, roll),
         .flags  = 0,
         .doc    = "Roll"},
     {.name      = "boost",
-        .type   = TypeHelper<decltype (::CarControls::boost)>::type,
-        .offset = offsetof (CarControls, controls) + offsetof (::CarControls, boost),
+        .type   = TypeHelper<decltype (RocketSim::CarControls::boost)>::type,
+        .offset = offsetof (CarControls, controls) + offsetof (RocketSim::CarControls, boost),
         .flags  = 0,
         .doc    = "Boost"},
     {.name      = "jump",
-        .type   = TypeHelper<decltype (::CarControls::jump)>::type,
-        .offset = offsetof (CarControls, controls) + offsetof (::CarControls, jump),
+        .type   = TypeHelper<decltype (RocketSim::CarControls::jump)>::type,
+        .offset = offsetof (CarControls, controls) + offsetof (RocketSim::CarControls, jump),
         .flags  = 0,
         .doc    = "Jump"},
     {.name      = "handbrake",
-        .type   = TypeHelper<decltype (::CarControls::handbrake)>::type,
-        .offset = offsetof (CarControls, controls) + offsetof (::CarControls, handbrake),
+        .type   = TypeHelper<decltype (RocketSim::CarControls::handbrake)>::type,
+        .offset = offsetof (CarControls, controls) + offsetof (RocketSim::CarControls, handbrake),
         .flags  = 0,
         .doc    = "Handbrake"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -88,7 +88,7 @@ PyType_Spec CarControls::Spec = {
     .slots     = CarControls::Slots,
 };
 
-PyRef<CarControls> CarControls::NewFromCarControls (::CarControls const &controls_) noexcept
+PyRef<CarControls> CarControls::NewFromCarControls (RocketSim::CarControls const &controls_) noexcept
 {
 	auto const self = PyRef<CarControls>::stealObject (CarControls::New (CarControls::Type, nullptr, nullptr));
 	if (!self || !InitFromCarControls (self.borrow (), controls_))
@@ -97,13 +97,13 @@ PyRef<CarControls> CarControls::NewFromCarControls (::CarControls const &control
 	return self;
 }
 
-bool CarControls::InitFromCarControls (CarControls *const self_, ::CarControls const &controls_) noexcept
+bool CarControls::InitFromCarControls (CarControls *const self_, RocketSim::CarControls const &controls_) noexcept
 {
 	self_->controls = controls_;
 	return true;
 }
 
-::CarControls CarControls::ToCarControls (CarControls *self_) noexcept
+RocketSim::CarControls CarControls::ToCarControls (CarControls *self_) noexcept
 {
 	return self_->controls;
 }
@@ -116,7 +116,7 @@ PyObject *CarControls::New (PyTypeObject *subtype_, PyObject *args_, PyObject *k
 	if (!self)
 		return nullptr;
 
-	new (&self->controls)::CarControls{};
+	new (&self->controls) RocketSim::CarControls{};
 
 	return self.giftObject ();
 }
@@ -136,7 +136,7 @@ int CarControls::Init (CarControls *self_, PyObject *args_, PyObject *kwds_) noe
 	static char *dict[] = {
 	    throttleKwd, steerKwd, pitchKwd, yawKwd, rollKwd, boostKwd, jumpKwd, handbrakeKwd, useItemKwd, nullptr};
 
-	::CarControls controls{};
+	RocketSim::CarControls controls{};
 	int boost     = controls.boost;
 	int jump      = controls.jump;
 	int handbrake = controls.handbrake;
@@ -180,7 +180,7 @@ PyObject *CarControls::Pickle (CarControls *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::CarControls const model{};
+	RocketSim::CarControls const model{};
 	auto const controls = ToCarControls (self_);
 
 	if (controls.throttle != model.throttle &&

@@ -7,6 +7,8 @@
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btConvexHullShape.h"
 #include "../CollisionMasks.h"
 
+RS_NS_START
+
 bool BallState::Matches(const BallState& other, float marginPos, float marginVel, float marginAngVel) const {
 	return
 		pos.DistSq(other.pos) < (marginPos * marginPos) &&
@@ -221,3 +223,5 @@ void Ball::_OnWorldCollision(GameMode gameMode, Vec normal, float tickTime) {
 		}
 	}
 }
+
+RS_NS_END

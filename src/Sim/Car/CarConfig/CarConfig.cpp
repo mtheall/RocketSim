@@ -1,5 +1,7 @@
 #include "CarConfig.h"
 
+RS_NS_START
+
 // Default car-type config definitions
 
 // For those confused about the hitbox numbers,
@@ -82,3 +84,5 @@ MAKE_CAR_CONFIG(PLANK, 2);
 MAKE_CAR_CONFIG(BREAKOUT, 3);
 MAKE_CAR_CONFIG(HYBRID, 4);
 MAKE_CAR_CONFIG(MERC, 5);
+
+RS_NS_END

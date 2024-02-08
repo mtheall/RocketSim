@@ -9,18 +9,18 @@ PyTypeObject *BoostPadState::Type = nullptr;
 
 PyMemberDef BoostPadState::Members[] = {
     {.name      = "is_active",
-        .type   = TypeHelper<decltype (::BoostPadState::isActive)>::type,
-        .offset = offsetof (BoostPadState, state) + offsetof (::BoostPadState, isActive),
+        .type   = TypeHelper<decltype (RocketSim::BoostPadState::isActive)>::type,
+        .offset = offsetof (BoostPadState, state) + offsetof (RocketSim::BoostPadState, isActive),
         .flags  = 0,
         .doc    = "Is active"},
     {.name      = "cooldown",
-        .type   = TypeHelper<decltype (::BoostPadState::cooldown)>::type,
-        .offset = offsetof (BoostPadState, state) + offsetof (::BoostPadState, cooldown),
+        .type   = TypeHelper<decltype (RocketSim::BoostPadState::cooldown)>::type,
+        .offset = offsetof (BoostPadState, state) + offsetof (RocketSim::BoostPadState, cooldown),
         .flags  = 0,
         .doc    = "Cooldown"},
     {.name      = "prev_locked_car_id",
-        .type   = TypeHelper<decltype (::BoostPadState::prevLockedCarID)>::type,
-        .offset = offsetof (BoostPadState, state) + offsetof (::BoostPadState, prevLockedCarID),
+        .type   = TypeHelper<decltype (RocketSim::BoostPadState::prevLockedCarID)>::type,
+        .offset = offsetof (BoostPadState, state) + offsetof (RocketSim::BoostPadState, prevLockedCarID),
         .flags  = 0,
         .doc    = "Prev locked car id"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -65,7 +65,7 @@ PyType_Spec BoostPadState::Spec = {
     .slots     = BoostPadState::Slots,
 };
 
-PyRef<BoostPadState> BoostPadState::NewFromBoostPadState (::BoostPadState const &state_) noexcept
+PyRef<BoostPadState> BoostPadState::NewFromBoostPadState (RocketSim::BoostPadState const &state_) noexcept
 {
 	auto const self = PyRef<BoostPadState>::stealObject (BoostPadState::New (BoostPadState::Type, nullptr, nullptr));
 	if (!self || !InitFromBoostPadState (self.borrow (), state_))
@@ -74,13 +74,13 @@ PyRef<BoostPadState> BoostPadState::NewFromBoostPadState (::BoostPadState const 
 	return self;
 }
 
-bool BoostPadState::InitFromBoostPadState (BoostPadState *self_, ::BoostPadState const &state_) noexcept
+bool BoostPadState::InitFromBoostPadState (BoostPadState *self_, RocketSim::BoostPadState const &state_) noexcept
 {
 	self_->state = state_;
 	return true;
 }
 
-::BoostPadState BoostPadState::ToBoostPadState (BoostPadState *self_) noexcept
+RocketSim::BoostPadState BoostPadState::ToBoostPadState (BoostPadState *self_) noexcept
 {
 	return self_->state;
 }
@@ -93,7 +93,7 @@ PyObject *BoostPadState::New (PyTypeObject *subtype_, PyObject *args_, PyObject 
 	if (!self)
 		return nullptr;
 
-	new (&self->state)::BoostPadState;
+	new (&self->state) RocketSim::BoostPadState;
 
 	return self.giftObject ();
 }
@@ -106,7 +106,7 @@ int BoostPadState::Init (BoostPadState *self_, PyObject *args_, PyObject *kwds_)
 
 	static char *dict[] = {isActiveKwd, cooldownKwd, prevLockedCarIDKwd, nullptr};
 
-	::BoostPadState state{};
+	RocketSim::BoostPadState state{};
 
 	int isActive                  = state.isActive;
 	unsigned long prevLockedCarID = state.prevLockedCarID;
@@ -136,7 +136,7 @@ PyObject *BoostPadState::Pickle (BoostPadState *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::BoostPadState model{};
+	RocketSim::BoostPadState model{};
 	auto const state = ToBoostPadState (self_);
 
 	if (state.isActive != model.isActive &&

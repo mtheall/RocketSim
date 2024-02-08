@@ -9,13 +9,13 @@ PyTypeObject *WheelPairConfig::Type = nullptr;
 
 PyMemberDef WheelPairConfig::Members[] = {
     {.name      = "wheel_radius",
-        .type   = TypeHelper<decltype (::WheelPairConfig::wheelRadius)>::type,
-        .offset = offsetof (WheelPairConfig, config) + offsetof (::WheelPairConfig, wheelRadius),
+        .type   = TypeHelper<decltype (RocketSim::WheelPairConfig::wheelRadius)>::type,
+        .offset = offsetof (WheelPairConfig, config) + offsetof (RocketSim::WheelPairConfig, wheelRadius),
         .flags  = 0,
         .doc    = "Wheel radius"},
     {.name      = "suspension_rest_length",
-        .type   = TypeHelper<decltype (::WheelPairConfig::suspensionRestLength)>::type,
-        .offset = offsetof (WheelPairConfig, config) + offsetof (::WheelPairConfig, suspensionRestLength),
+        .type   = TypeHelper<decltype (RocketSim::WheelPairConfig::suspensionRestLength)>::type,
+        .offset = offsetof (WheelPairConfig, config) + offsetof (RocketSim::WheelPairConfig, suspensionRestLength),
         .flags  = 0,
         .doc    = "Suspension rest length"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -71,7 +71,7 @@ PyType_Spec WheelPairConfig::Spec = {
     .slots     = WheelPairConfig::Slots,
 };
 
-PyRef<WheelPairConfig> WheelPairConfig::NewFromWheelPairConfig (::WheelPairConfig const &config_) noexcept
+PyRef<WheelPairConfig> WheelPairConfig::NewFromWheelPairConfig (RocketSim::WheelPairConfig const &config_) noexcept
 {
 	auto const self =
 	    PyRef<WheelPairConfig>::stealObject (WheelPairConfig::New (WheelPairConfig::Type, nullptr, nullptr));
@@ -81,7 +81,8 @@ PyRef<WheelPairConfig> WheelPairConfig::NewFromWheelPairConfig (::WheelPairConfi
 	return self;
 }
 
-bool WheelPairConfig::InitFromWheelPairConfig (WheelPairConfig *const self_, ::WheelPairConfig const &config_) noexcept
+bool WheelPairConfig::InitFromWheelPairConfig (WheelPairConfig *const self_,
+    RocketSim::WheelPairConfig const &config_) noexcept
 {
 	auto connectionPointOffset = Vec::NewFromVec (config_.connectionPointOffset);
 	if (!connectionPointOffset)
@@ -94,7 +95,7 @@ bool WheelPairConfig::InitFromWheelPairConfig (WheelPairConfig *const self_, ::W
 	return true;
 }
 
-::WheelPairConfig WheelPairConfig::ToWheelPairConfig (WheelPairConfig *self_) noexcept
+RocketSim::WheelPairConfig WheelPairConfig::ToWheelPairConfig (WheelPairConfig *self_) noexcept
 {
 	auto config = self_->config;
 
@@ -111,7 +112,7 @@ PyObject *WheelPairConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObjec
 	if (!self)
 		return nullptr;
 
-	new (&self->config)::WheelPairConfig ();
+	new (&self->config) RocketSim::WheelPairConfig ();
 
 	self->connectionPointOffset = nullptr;
 
@@ -126,7 +127,7 @@ int WheelPairConfig::Init (WheelPairConfig *self_, PyObject *args_, PyObject *kw
 
 	static char *dict[] = {wheelRadiusKwd, suspensionRestLengthKwd, connectionPointOffsetKwd, nullptr};
 
-	::WheelPairConfig config{};
+	RocketSim::WheelPairConfig config{};
 
 	PyObject *connectionPointOffset = nullptr; // borrowed
 	if (!PyArg_ParseTupleAndKeywords (args_,

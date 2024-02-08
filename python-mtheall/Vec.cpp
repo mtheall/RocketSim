@@ -13,18 +13,18 @@ PyTypeObject *Vec::Type = nullptr;
 
 PyMemberDef Vec::Members[] = {
     {.name      = "x",
-        .type   = TypeHelper<decltype (::Vec::x)>::type,
-        .offset = offsetof (Vec, vec) + offsetof (::Vec, x),
+        .type   = TypeHelper<decltype (RocketSim::Vec::x)>::type,
+        .offset = offsetof (Vec, vec) + offsetof (RocketSim::Vec, x),
         .flags  = 0,
         .doc    = "X component"},
     {.name      = "y",
-        .type   = TypeHelper<decltype (::Vec::y)>::type,
-        .offset = offsetof (Vec, vec) + offsetof (::Vec, y),
+        .type   = TypeHelper<decltype (RocketSim::Vec::y)>::type,
+        .offset = offsetof (Vec, vec) + offsetof (RocketSim::Vec, y),
         .flags  = 0,
         .doc    = "Y component"},
     {.name      = "z",
-        .type   = TypeHelper<decltype (::Vec::z)>::type,
-        .offset = offsetof (Vec, vec) + offsetof (::Vec, z),
+        .type   = TypeHelper<decltype (RocketSim::Vec::z)>::type,
+        .offset = offsetof (Vec, vec) + offsetof (RocketSim::Vec, z),
         .flags  = 0,
         .doc    = "Z component"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -86,7 +86,7 @@ PyType_Spec Vec::Spec = {
     .slots     = Vec::Slots,
 };
 
-PyRef<Vec> Vec::NewFromVec (::Vec const &vec_) noexcept
+PyRef<Vec> Vec::NewFromVec (RocketSim::Vec const &vec_) noexcept
 {
 	auto const self = PyRef<Vec>::stealObject (Vec::New (Vec::Type, nullptr, nullptr));
 	if (!self || !InitFromVec (self.borrow (), vec_))
@@ -95,13 +95,13 @@ PyRef<Vec> Vec::NewFromVec (::Vec const &vec_) noexcept
 	return self;
 }
 
-bool Vec::InitFromVec (Vec *const self_, ::Vec const &vec_) noexcept
+bool Vec::InitFromVec (Vec *const self_, RocketSim::Vec const &vec_) noexcept
 {
 	self_->vec = vec_;
 	return true;
 }
 
-::Vec Vec::ToVec (Vec *self_) noexcept
+RocketSim::Vec Vec::ToVec (Vec *self_) noexcept
 {
 	return self_->vec;
 }
@@ -114,7 +114,7 @@ PyObject *Vec::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) no
 	if (!self)
 		return nullptr;
 
-	new (&self->vec)::Vec{};
+	new (&self->vec) RocketSim::Vec{};
 
 	return self.giftObject ();
 }
@@ -126,7 +126,7 @@ int Vec::Init (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char zKwd[]  = "z";
 	static char *dict[] = {xKwd, yKwd, zKwd, nullptr};
 
-	::Vec vec{};
+	RocketSim::Vec vec{};
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|fff", dict, &vec.x, &vec.y, &vec.z))
 		return -1;
 
@@ -213,7 +213,7 @@ PyObject *Vec::Pickle (Vec *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::Vec const model{};
+	RocketSim::Vec const model{};
 	auto const vec = ToVec (self_);
 
 	if (vec.x != model.x && !DictSetValue (dict.borrow (), "x", PyFloat_FromDouble (vec.x)))

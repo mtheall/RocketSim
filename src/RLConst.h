@@ -2,6 +2,8 @@
 #include "BaseInc.h"
 #include "Math/Math.h"
 
+RS_NS_START
+
 // Constant/default values from the game
 
 namespace RLConst {
@@ -122,6 +124,7 @@ namespace RLConst {
 		BALL_CAR_EXTRA_IMPULSE_Z_SCALE_HOOPS_GROUND = BALL_CAR_EXTRA_IMPULSE_Z_SCALE * 1.55f,
 		BALL_CAR_EXTRA_IMPULSE_FORWARD_SCALE = 0.65f,
 		BALL_CAR_EXTRA_IMPULSE_MAXDELTAVEL_UU = 4600.f,
+		BALL_CAR_EXTRA_IMPULSE_Z_SCALE_HOOPS_NORMAL_Z_THRESH = 0.1f,
 
 		CAR_SPAWN_REST_Z = 17.f,
 		CAR_RESPAWN_Z = 36.f,
@@ -421,3 +424,5 @@ namespace RLConst {
 		}
 	};
 }
+
+RS_NS_END

@@ -6,7 +6,7 @@
 
 namespace
 {
-unsigned templateDiff (::CarConfig const &config_, ::CarConfig const &model_) noexcept
+unsigned templateDiff (RocketSim::CarConfig const &config_, RocketSim::CarConfig const &model_) noexcept
 {
 	unsigned diff = 0;
 
@@ -40,7 +40,7 @@ unsigned templateDiff (::CarConfig const &config_, ::CarConfig const &model_) no
 	return diff;
 }
 
-RocketSim::Python::CarConfig::Index bestTemplateConfig (::CarConfig const &config_) noexcept
+RocketSim::Python::CarConfig::Index bestTemplateConfig (RocketSim::CarConfig const &config_) noexcept
 {
 	using RocketSim::Python::CarConfig;
 
@@ -49,12 +49,12 @@ RocketSim::Python::CarConfig::Index bestTemplateConfig (::CarConfig const &confi
 
 	for (auto const &[index, model] : {
 	         // clang-format off
-	         std::make_pair (CarConfig::Index::OCTANE, &CAR_CONFIG_OCTANE),
-	         std::make_pair (CarConfig::Index::DOMINUS, &CAR_CONFIG_DOMINUS),
-	         std::make_pair (CarConfig::Index::PLANK, &CAR_CONFIG_PLANK),
-	         std::make_pair (CarConfig::Index::BREAKOUT, &CAR_CONFIG_BREAKOUT),
-	         std::make_pair (CarConfig::Index::HYBRID, &CAR_CONFIG_HYBRID),
-	         std::make_pair (CarConfig::Index::MERC, &CAR_CONFIG_MERC)
+	         std::make_pair (CarConfig::Index::OCTANE, &RocketSim::CAR_CONFIG_OCTANE),
+	         std::make_pair (CarConfig::Index::DOMINUS, &RocketSim::CAR_CONFIG_DOMINUS),
+	         std::make_pair (CarConfig::Index::PLANK, &RocketSim::CAR_CONFIG_PLANK),
+	         std::make_pair (CarConfig::Index::BREAKOUT, &RocketSim::CAR_CONFIG_BREAKOUT),
+	         std::make_pair (CarConfig::Index::HYBRID, &RocketSim::CAR_CONFIG_HYBRID),
+	         std::make_pair (CarConfig::Index::MERC, &RocketSim::CAR_CONFIG_MERC)
 	         // clang-format on
 	     })
 	{
@@ -79,8 +79,8 @@ PyTypeObject *CarConfig::Type = nullptr;
 
 PyMemberDef CarConfig::Members[] = {
     {.name      = "dodge_deadzone",
-        .type   = TypeHelper<decltype (::CarConfig::dodgeDeadzone)>::type,
-        .offset = offsetof (CarConfig, config) + offsetof (::CarConfig, dodgeDeadzone),
+        .type   = TypeHelper<decltype (RocketSim::CarConfig::dodgeDeadzone)>::type,
+        .offset = offsetof (CarConfig, config) + offsetof (RocketSim::CarConfig, dodgeDeadzone),
         .flags  = 0,
         .doc    = "Dodge deadzone"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -136,7 +136,7 @@ PyType_Spec CarConfig::Spec = {
     .slots     = CarConfig::Slots,
 };
 
-bool CarConfig::FromIndex (Index index_, ::CarConfig &config_) noexcept
+bool CarConfig::FromIndex (Index index_, RocketSim::CarConfig &config_) noexcept
 {
 	switch (index_)
 	{
@@ -169,7 +169,7 @@ bool CarConfig::FromIndex (Index index_, ::CarConfig &config_) noexcept
 	return false;
 }
 
-PyRef<CarConfig> CarConfig::NewFromCarConfig (::CarConfig const &config_) noexcept
+PyRef<CarConfig> CarConfig::NewFromCarConfig (RocketSim::CarConfig const &config_) noexcept
 {
 	auto const self = PyRef<CarConfig>::stealObject (CarConfig::New (CarConfig::Type, nullptr, nullptr));
 	if (!self || !InitFromCarConfig (self.borrow (), config_))
@@ -178,7 +178,7 @@ PyRef<CarConfig> CarConfig::NewFromCarConfig (::CarConfig const &config_) noexce
 	return self;
 }
 
-bool CarConfig::InitFromCarConfig (CarConfig *const self_, ::CarConfig const &config_) noexcept
+bool CarConfig::InitFromCarConfig (CarConfig *const self_, RocketSim::CarConfig const &config_) noexcept
 {
 	auto hitboxSize      = Vec::NewFromVec (config_.hitboxSize);
 	auto hitboxPosOffset = Vec::NewFromVec (config_.hitboxPosOffset);
@@ -198,7 +198,7 @@ bool CarConfig::InitFromCarConfig (CarConfig *const self_, ::CarConfig const &co
 	return true;
 }
 
-::CarConfig CarConfig::ToCarConfig (CarConfig *self_) noexcept
+RocketSim::CarConfig CarConfig::ToCarConfig (CarConfig *self_) noexcept
 {
 	auto config = self_->config;
 
@@ -218,7 +218,7 @@ PyObject *CarConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 	if (!self)
 		return nullptr;
 
-	new (&self->config)::CarConfig ();
+	new (&self->config) RocketSim::CarConfig ();
 
 	self->hitboxSize      = nullptr;
 	self->hitboxPosOffset = nullptr;
@@ -263,7 +263,7 @@ int CarConfig::Init (CarConfig *self_, PyObject *args_, PyObject *kwds_) noexcep
 		return -1;
 
 	// initialize with template
-	::CarConfig config{};
+	RocketSim::CarConfig config{};
 	if (!FromIndex (static_cast<Index> (templateId), config))
 		return -1;
 
@@ -310,7 +310,7 @@ PyObject *CarConfig::Pickle (CarConfig *self_) noexcept
 	if (!DictSetValue (dict.borrow (), "template", PyLong_FromLong (static_cast<long> (index))))
 		return nullptr;
 
-	::CarConfig model{};
+	RocketSim::CarConfig model{};
 	if (!FromIndex (index, model))
 		return nullptr;
 

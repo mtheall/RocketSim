@@ -9,118 +9,118 @@ PyTypeObject *CarState::Type = nullptr;
 
 PyMemberDef CarState::Members[] = {
     {.name      = "update_counter",
-        .type   = TypeHelper<decltype (::CarState::updateCounter)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, updateCounter),
+        .type   = TypeHelper<decltype (RocketSim::CarState::updateCounter)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, updateCounter),
         .flags  = 0,
         .doc    = "Update counter (ticks since last state set)"},
     {.name      = "is_on_ground",
-        .type   = TypeHelper<decltype (::CarState::isOnGround)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, isOnGround),
+        .type   = TypeHelper<decltype (RocketSim::CarState::isOnGround)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isOnGround),
         .flags  = 0,
         .doc    = "Is on ground"},
     {.name      = "has_jumped",
-        .type   = TypeHelper<decltype (::CarState::hasJumped)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, hasJumped),
+        .type   = TypeHelper<decltype (RocketSim::CarState::hasJumped)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, hasJumped),
         .flags  = 0,
         .doc    = "Has jumped"},
     {.name      = "has_double_jumped",
-        .type   = TypeHelper<decltype (::CarState::hasDoubleJumped)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, hasDoubleJumped),
+        .type   = TypeHelper<decltype (RocketSim::CarState::hasDoubleJumped)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, hasDoubleJumped),
         .flags  = 0,
         .doc    = "Has double jumped"},
     {.name      = "has_flipped",
-        .type   = TypeHelper<decltype (::CarState::hasFlipped)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, hasFlipped),
+        .type   = TypeHelper<decltype (RocketSim::CarState::hasFlipped)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, hasFlipped),
         .flags  = 0,
         .doc    = "Has flipped"},
     {.name      = "jump_time",
-        .type   = TypeHelper<decltype (::CarState::jumpTime)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, jumpTime),
+        .type   = TypeHelper<decltype (RocketSim::CarState::jumpTime)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, jumpTime),
         .flags  = 0,
         .doc    = "Jump time"},
     {.name      = "flip_time",
-        .type   = TypeHelper<decltype (::CarState::flipTime)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, flipTime),
+        .type   = TypeHelper<decltype (RocketSim::CarState::flipTime)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, flipTime),
         .flags  = 0,
         .doc    = "Flip time"},
     {.name      = "is_flipping",
-        .type   = TypeHelper<decltype (::CarState::isFlipping)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, isFlipping),
+        .type   = TypeHelper<decltype (RocketSim::CarState::isFlipping)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isFlipping),
         .flags  = 0,
         .doc    = "Is flipping"},
     {.name      = "is_jumping",
-        .type   = TypeHelper<decltype (::CarState::isJumping)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, isJumping),
+        .type   = TypeHelper<decltype (RocketSim::CarState::isJumping)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isJumping),
         .flags  = 0,
         .doc    = "Is jumping"},
     {.name      = "air_time_since_jump",
-        .type   = TypeHelper<decltype (::CarState::airTimeSinceJump)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, airTimeSinceJump),
+        .type   = TypeHelper<decltype (RocketSim::CarState::airTimeSinceJump)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, airTimeSinceJump),
         .flags  = 0,
         .doc    = "Air time since jump"},
     {.name      = "boost",
-        .type   = TypeHelper<decltype (::CarState::boost)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, boost),
+        .type   = TypeHelper<decltype (RocketSim::CarState::boost)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, boost),
         .flags  = 0,
         .doc    = "Boost"},
     {.name      = "time_spent_boosting",
-        .type   = TypeHelper<decltype (::CarState::timeSpentBoosting)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, timeSpentBoosting),
+        .type   = TypeHelper<decltype (RocketSim::CarState::timeSpentBoosting)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, timeSpentBoosting),
         .flags  = 0,
         .doc    = "Time spent boosting"},
     {.name      = "is_supersonic",
-        .type   = TypeHelper<decltype (::CarState::isSupersonic)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, isSupersonic),
+        .type   = TypeHelper<decltype (RocketSim::CarState::isSupersonic)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isSupersonic),
         .flags  = 0,
         .doc    = "Is supersonic"},
     {.name      = "supersonic_time",
-        .type   = TypeHelper<decltype (::CarState::supersonicTime)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, supersonicTime),
+        .type   = TypeHelper<decltype (RocketSim::CarState::supersonicTime)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, supersonicTime),
         .flags  = 0,
         .doc    = "Supersonic time"},
     {.name      = "handbrake_val",
-        .type   = TypeHelper<decltype (::CarState::handbrakeVal)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, handbrakeVal),
+        .type   = TypeHelper<decltype (RocketSim::CarState::handbrakeVal)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, handbrakeVal),
         .flags  = 0,
         .doc    = "Handbrake val"},
     {.name      = "is_auto_flipping",
-        .type   = TypeHelper<decltype (::CarState::isAutoFlipping)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, isAutoFlipping),
+        .type   = TypeHelper<decltype (RocketSim::CarState::isAutoFlipping)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isAutoFlipping),
         .flags  = 0,
         .doc    = "Is auto flipping"},
     {.name      = "auto_flip_timer",
-        .type   = TypeHelper<decltype (::CarState::autoFlipTimer)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, autoFlipTimer),
+        .type   = TypeHelper<decltype (RocketSim::CarState::autoFlipTimer)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, autoFlipTimer),
         .flags  = 0,
         .doc    = "Auto flip timer"},
     {.name      = "auto_flip_torque_scale",
-        .type   = TypeHelper<decltype (::CarState::autoFlipTorqueScale)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, autoFlipTorqueScale),
+        .type   = TypeHelper<decltype (RocketSim::CarState::autoFlipTorqueScale)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, autoFlipTorqueScale),
         .flags  = 0,
         .doc    = "Auto flip torque scale"},
     {.name      = "has_world_contact",
-        .type   = TypeHelper<decltype (::CarState::worldContact.hasContact)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, worldContact.hasContact),
+        .type   = TypeHelper<decltype (RocketSim::CarState::worldContact.hasContact)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, worldContact.hasContact),
         .flags  = 0,
         .doc    = "Has world contact"},
     {.name      = "car_contact_id",
-        .type   = TypeHelper<decltype (::CarState::carContact.otherCarID)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, carContact.otherCarID),
+        .type   = TypeHelper<decltype (RocketSim::CarState::carContact.otherCarID)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, carContact.otherCarID),
         .flags  = 0,
         .doc    = "Car contact other car id"},
     {.name      = "car_contact_cooldown_timer",
-        .type   = TypeHelper<decltype (::CarState::carContact.cooldownTimer)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, carContact.cooldownTimer),
+        .type   = TypeHelper<decltype (RocketSim::CarState::carContact.cooldownTimer)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, carContact.cooldownTimer),
         .flags  = 0,
         .doc    = "Car contact cooldown timer"},
     {.name      = "is_demoed",
-        .type   = TypeHelper<decltype (::CarState::isDemoed)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, isDemoed),
+        .type   = TypeHelper<decltype (RocketSim::CarState::isDemoed)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isDemoed),
         .flags  = 0,
         .doc    = "Is demoed"},
     {.name      = "demo_respawn_timer",
-        .type   = TypeHelper<decltype (::CarState::demoRespawnTimer)>::type,
-        .offset = offsetof (CarState, state) + offsetof (::CarState, demoRespawnTimer),
+        .type   = TypeHelper<decltype (RocketSim::CarState::demoRespawnTimer)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, demoRespawnTimer),
         .flags  = 0,
         .doc    = "Demo respawn timer"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -204,7 +204,7 @@ PyType_Spec CarState::Spec = {
     .slots     = CarState::Slots,
 };
 
-PyRef<CarState> CarState::NewFromCarState (::CarState const &state_) noexcept
+PyRef<CarState> CarState::NewFromCarState (RocketSim::CarState const &state_) noexcept
 {
 	auto const self = PyRef<CarState>::stealObject (CarState::New (CarState::Type, nullptr, nullptr));
 	if (!self || !InitFromCarState (self.borrow (), state_))
@@ -213,7 +213,7 @@ PyRef<CarState> CarState::NewFromCarState (::CarState const &state_) noexcept
 	return self;
 }
 
-bool CarState::InitFromCarState (CarState *const self_, ::CarState const &state_) noexcept
+bool CarState::InitFromCarState (CarState *const self_, RocketSim::CarState const &state_) noexcept
 {
 	auto pos                = Vec::NewFromVec (state_.pos);
 	auto rotMat             = RotMat::NewFromRotMat (state_.rotMat);
@@ -242,7 +242,7 @@ bool CarState::InitFromCarState (CarState *const self_, ::CarState const &state_
 	return true;
 }
 
-::CarState CarState::ToCarState (CarState *self_) noexcept
+RocketSim::CarState CarState::ToCarState (CarState *self_) noexcept
 {
 	auto state = self_->state;
 
@@ -266,7 +266,7 @@ PyObject *CarState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds
 	if (!self)
 		return nullptr;
 
-	new (&self->state)::CarState ();
+	new (&self->state) RocketSim::CarState ();
 
 	self->pos                = nullptr;
 	self->rotMat             = nullptr;
@@ -345,7 +345,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    updateCounterKwd,
 	    nullptr};
 
-	::CarState state{};
+	RocketSim::CarState state{};
 
 	PyObject *pos                = nullptr; // borrowed references
 	PyObject *rotMat             = nullptr;
@@ -480,7 +480,7 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::CarState const model{};
+	RocketSim::CarState const model{};
 	auto const state = ToCarState (self_);
 
 	if (state.updateCounter != model.updateCounter &&

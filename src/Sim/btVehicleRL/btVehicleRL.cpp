@@ -7,6 +7,8 @@
 #include "../../../libsrc/bullet3-3.24/BulletDynamics/Dynamics/btDynamicsWorld.h"
 #include "../../../libsrc/bullet3-3.24/BulletDynamics/ConstraintSolver/btContactConstraint.h"
 
+RS_NS_START
+
 btVehicleRL::btVehicleRL(const btVehicleTuning& tuning, btRigidBody* chassis, btVehicleRaycaster* raycaster, btDynamicsWorld* world)
 	: m_vehicleRaycaster(raycaster), m_pitchControl(0),  m_dynamicsWorld(world) {
 	m_chassisBody = chassis;
@@ -130,9 +132,9 @@ float btVehicleRL::rayCast(btWheelInfoRL& wheel, SuspensionCollisionGrid* grid) 
 
 	btCollisionObject* object;
 	if (grid) {
-		object = grid->CastSuspensionRay(m_vehicleRaycaster, source, target, rayResults);
+		object = grid->CastSuspensionRay(m_vehicleRaycaster, source, target, m_chassisBody, rayResults);
 	} else {
-		object = (btCollisionObject*)m_vehicleRaycaster->castRay(source, target, rayResults);
+		object = (btCollisionObject*)m_vehicleRaycaster->castRay(source, target, m_chassisBody, rayResults);
 	}
 
 	if (object) {
@@ -412,3 +414,5 @@ btVector3 btVehicleRL::getUpwardsDirFromWheelContacts() {
 float btVehicleRL::getForwardSpeed() {
 	return m_chassisBody->getLinearVelocity().dot(getForwardVector());
 }
+
+RS_NS_END

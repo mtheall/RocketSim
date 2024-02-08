@@ -53,7 +53,7 @@ Ball *Ball::New () noexcept
 	if (!self)
 		return nullptr;
 
-	new (&self->arena) std::shared_ptr<::Arena>{};
+	new (&self->arena) std::shared_ptr<RocketSim::Arena>{};
 	self->ball = nullptr;
 
 	return self.gift ();

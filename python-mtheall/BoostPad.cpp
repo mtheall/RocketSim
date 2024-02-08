@@ -62,7 +62,7 @@ BoostPad *BoostPad::New () noexcept
 	if (!self)
 		return nullptr;
 
-	new (&self->arena) std::shared_ptr<::Arena>{};
+	new (&self->arena) std::shared_ptr<RocketSim::Arena>{};
 	self->pad = nullptr;
 
 	return self.gift ();

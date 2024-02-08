@@ -11,133 +11,133 @@ PyTypeObject *MutatorConfig::Type = nullptr;
 
 PyMemberDef MutatorConfig::Members[] = {
     {.name      = "ball_drag",
-        .type   = TypeHelper<decltype (::MutatorConfig::ballDrag)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, ballDrag),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::ballDrag)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, ballDrag),
         .flags  = 0,
         .doc    = "Ball drag"},
     {.name      = "ball_hit_extra_force_scale",
-        .type   = TypeHelper<decltype (::MutatorConfig::ballHitExtraForceScale)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, ballHitExtraForceScale),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::ballHitExtraForceScale)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, ballHitExtraForceScale),
         .flags  = 0,
         .doc    = "Ball hit extra force scale"},
     {.name      = "ball_mass",
-        .type   = TypeHelper<decltype (::MutatorConfig::ballMass)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, ballMass),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::ballMass)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, ballMass),
         .flags  = 0,
         .doc    = "Ball mass"},
     {.name      = "ball_max_speed",
-        .type   = TypeHelper<decltype (::MutatorConfig::ballMaxSpeed)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, ballMaxSpeed),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::ballMaxSpeed)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, ballMaxSpeed),
         .flags  = 0,
         .doc    = "Ball max speed"},
     {.name      = "ball_radius",
-        .type   = TypeHelper<decltype (::MutatorConfig::ballRadius)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, ballRadius),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::ballRadius)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, ballRadius),
         .flags  = 0,
         .doc    = "Ball radius"},
     {.name      = "ball_world_friction",
-        .type   = TypeHelper<decltype (::MutatorConfig::ballWorldFriction)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, ballWorldFriction),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::ballWorldFriction)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, ballWorldFriction),
         .flags  = 0,
         .doc    = "Ball world friction"},
     {.name      = "ball_world_restitution",
-        .type   = TypeHelper<decltype (::MutatorConfig::ballWorldRestitution)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, ballWorldRestitution),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::ballWorldRestitution)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, ballWorldRestitution),
         .flags  = 0,
         .doc    = "Ball world restitution"},
     {.name      = "boost_accel",
-        .type   = TypeHelper<decltype (::MutatorConfig::boostAccel)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, boostAccel),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::boostAccel)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, boostAccel),
         .flags  = 0,
         .doc    = "Boost accel"},
     {.name      = "boost_pad_cooldown_big",
-        .type   = TypeHelper<decltype (::MutatorConfig::boostPadCooldown_Big)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, boostPadCooldown_Big),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::boostPadCooldown_Big)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, boostPadCooldown_Big),
         .flags  = 0,
         .doc    = "Boost pad cooldown big"},
     {.name      = "boost_pad_cooldown_small",
-        .type   = TypeHelper<decltype (::MutatorConfig::boostPadCooldown_Small)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, boostPadCooldown_Small),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::boostPadCooldown_Small)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, boostPadCooldown_Small),
         .flags  = 0,
         .doc    = "Boost pad cooldown small"},
     {.name      = "boost_used_per_second",
-        .type   = TypeHelper<decltype (::MutatorConfig::boostUsedPerSecond)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, boostUsedPerSecond),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::boostUsedPerSecond)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, boostUsedPerSecond),
         .flags  = 0,
         .doc    = "Boost used per second"},
     {.name      = "bump_cooldown_time",
-        .type   = TypeHelper<decltype (::MutatorConfig::bumpCooldownTime)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, bumpCooldownTime),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::bumpCooldownTime)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, bumpCooldownTime),
         .flags  = 0,
         .doc    = "Bump cooldown time"},
     {.name      = "bump_force_scale",
-        .type   = TypeHelper<decltype (::MutatorConfig::bumpForceScale)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, bumpForceScale),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::bumpForceScale)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, bumpForceScale),
         .flags  = 0,
         .doc    = "Bump force scale"},
     {.name      = "car_mass",
-        .type   = TypeHelper<decltype (::MutatorConfig::carMass)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, carMass),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::carMass)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, carMass),
         .flags  = 0,
         .doc    = "Car mass"},
     {.name      = "car_spawn_boost_amount",
-        .type   = TypeHelper<decltype (::MutatorConfig::carSpawnBoostAmount)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, carSpawnBoostAmount),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::carSpawnBoostAmount)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, carSpawnBoostAmount),
         .flags  = 0,
         .doc    = "Car spawn boost amount"},
     {.name      = "car_world_friction",
-        .type   = TypeHelper<decltype (::MutatorConfig::carWorldFriction)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, carWorldFriction),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::carWorldFriction)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, carWorldFriction),
         .flags  = 0,
         .doc    = "Car world friction"},
     {.name      = "car_world_restitution",
-        .type   = TypeHelper<decltype (::MutatorConfig::carWorldRestitution)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, carWorldRestitution),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::carWorldRestitution)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, carWorldRestitution),
         .flags  = 0,
         .doc    = "Car world restitution"},
     {.name      = "unlimited_flips",
-        .type   = TypeHelper<decltype (::MutatorConfig::unlimitedFlips)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, unlimitedFlips),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::unlimitedFlips)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, unlimitedFlips),
         .flags  = 0,
         .doc    = "Enable unlimited flips"},
     {.name      = "unlimited_double_jumps",
-        .type   = TypeHelper<decltype (::MutatorConfig::unlimitedDoubleJumps)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, unlimitedDoubleJumps),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::unlimitedDoubleJumps)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, unlimitedDoubleJumps),
         .flags  = 0,
         .doc    = "Enable unlimited double jumps"},
     {.name      = "demo_mode",
-        .type   = TypeHelper<std::underlying_type_t<decltype (::MutatorConfig::demoMode)>>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, demoMode),
+        .type   = TypeHelper<std::underlying_type_t<decltype (RocketSim::MutatorConfig::demoMode)>>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, demoMode),
         .flags  = 0,
         .doc    = "Demo mode"},
     {.name      = "enable_team_demos",
-        .type   = TypeHelper<decltype (::MutatorConfig::enableTeamDemos)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, enableTeamDemos),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::enableTeamDemos)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, enableTeamDemos),
         .flags  = 0,
         .doc    = "Enable team demos"},
     {.name      = "jump_accel",
-        .type   = TypeHelper<decltype (::MutatorConfig::jumpAccel)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, jumpAccel),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::jumpAccel)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, jumpAccel),
         .flags  = 0,
         .doc    = "Jump acceleration"},
     {.name      = "jump_immediate_force",
-        .type   = TypeHelper<decltype (::MutatorConfig::jumpImmediateForce)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, jumpImmediateForce),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::jumpImmediateForce)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, jumpImmediateForce),
         .flags  = 0,
         .doc    = "Jump immediate force"},
     {.name      = "respawn_delay",
-        .type   = TypeHelper<decltype (::MutatorConfig::respawnDelay)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, respawnDelay),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::respawnDelay)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, respawnDelay),
         .flags  = 0,
         .doc    = "Respawn delay"},
     {.name      = "enable_car_car_collision",
-        .type   = TypeHelper<decltype (::MutatorConfig::enableCarCarCollision)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, enableCarCarCollision),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::enableCarCarCollision)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, enableCarCarCollision),
         .flags  = 0,
         .doc    = "Enable car-car collision"},
     {.name      = "enable_car_ball_collision",
-        .type   = TypeHelper<decltype (::MutatorConfig::enableCarBallCollision)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (::MutatorConfig, enableCarBallCollision),
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::enableCarBallCollision)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, enableCarBallCollision),
         .flags  = 0,
         .doc    = "Enable car-ball collision"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -218,7 +218,7 @@ PyType_Spec MutatorConfig::Spec = {
     .slots     = MutatorConfig::Slots,
 };
 
-PyRef<MutatorConfig> MutatorConfig::NewFromMutatorConfig (::MutatorConfig const &config_) noexcept
+PyRef<MutatorConfig> MutatorConfig::NewFromMutatorConfig (RocketSim::MutatorConfig const &config_) noexcept
 {
 	auto const self = PyRef<MutatorConfig>::stealObject (MutatorConfig::New (MutatorConfig::Type, nullptr, nullptr));
 	if (!self || !InitFromMutatorConfig (self.borrow (), config_))
@@ -227,7 +227,7 @@ PyRef<MutatorConfig> MutatorConfig::NewFromMutatorConfig (::MutatorConfig const 
 	return self;
 }
 
-bool MutatorConfig::InitFromMutatorConfig (MutatorConfig *const self_, ::MutatorConfig const &config_) noexcept
+bool MutatorConfig::InitFromMutatorConfig (MutatorConfig *const self_, RocketSim::MutatorConfig const &config_) noexcept
 {
 	auto const gravity = Vec::NewFromVec (config_.gravity);
 
@@ -240,7 +240,7 @@ bool MutatorConfig::InitFromMutatorConfig (MutatorConfig *const self_, ::Mutator
 	return true;
 }
 
-::MutatorConfig MutatorConfig::ToMutatorConfig (MutatorConfig *self_) noexcept
+RocketSim::MutatorConfig MutatorConfig::ToMutatorConfig (MutatorConfig *self_) noexcept
 {
 	auto config = self_->config;
 
@@ -257,7 +257,7 @@ PyObject *MutatorConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject 
 	if (!self)
 		return nullptr;
 
-	new (&self->config)::MutatorConfig{::GameMode::SOCCAR};
+	new (&self->config) RocketSim::MutatorConfig{RocketSim::GameMode::SOCCAR};
 	self->gravity = nullptr;
 
 	return self.giftObject ();
@@ -324,18 +324,18 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	    enableCarBallCollisionKwd,
 	    nullptr};
 
-	int gameMode = static_cast<int> (::GameMode::SOCCAR);
+	int gameMode = static_cast<int> (RocketSim::GameMode::SOCCAR);
 
 	// first pass to get game mode, second pass to fill in if not
 	for (int i = 0; i < 2; ++i)
 	{
-		switch (static_cast<::GameMode> (gameMode))
+		switch (static_cast<RocketSim::GameMode> (gameMode))
 		{
-		case ::GameMode::SOCCAR:
-		case ::GameMode::HOOPS:
-		case ::GameMode::HEATSEEKER:
-		case ::GameMode::SNOWDAY:
-		case ::GameMode::THE_VOID:
+		case RocketSim::GameMode::SOCCAR:
+		case RocketSim::GameMode::HOOPS:
+		case RocketSim::GameMode::HEATSEEKER:
+		case RocketSim::GameMode::SNOWDAY:
+		case RocketSim::GameMode::THE_VOID:
 			break;
 
 		default:
@@ -343,7 +343,7 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 			return -1;
 		}
 
-		::MutatorConfig config{static_cast<::GameMode> (gameMode)};
+		RocketSim::MutatorConfig config{static_cast<RocketSim::GameMode> (gameMode)};
 
 		PyObject *gravity = nullptr; // borrowed reference
 		int demoMode      = static_cast<int> (config.demoMode);
@@ -390,16 +390,16 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 			return -1;
 
 		// try again with parsed game mode
-		if (i == 0 && static_cast<::GameMode> (gameMode) != ::GameMode::SOCCAR)
+		if (i == 0 && static_cast<RocketSim::GameMode> (gameMode) != RocketSim::GameMode::SOCCAR)
 			continue;
 
-		config.demoMode = static_cast<::DemoMode> (demoMode);
+		config.demoMode = static_cast<RocketSim::DemoMode> (demoMode);
 
 		switch (config.demoMode)
 		{
-		case ::DemoMode::NORMAL:
-		case ::DemoMode::ON_CONTACT:
-		case ::DemoMode::DISABLED:
+		case RocketSim::DemoMode::NORMAL:
+		case RocketSim::DemoMode::ON_CONTACT:
+		case RocketSim::DemoMode::DISABLED:
 			break;
 
 		default:
@@ -447,7 +447,7 @@ PyObject *MutatorConfig::Pickle (MutatorConfig *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::MutatorConfig const model{::GameMode::SOCCAR};
+	RocketSim::MutatorConfig const model{RocketSim::GameMode::SOCCAR};
 	auto const config = ToMutatorConfig (self_);
 
 	if (config.gravity != model.gravity && !DictSetValue (dict.borrow (), "gravity", PyNewRef (self_->gravity)))

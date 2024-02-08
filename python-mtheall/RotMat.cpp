@@ -79,7 +79,7 @@ PyType_Spec RotMat::Spec = {
     .slots     = RotMat::Slots,
 };
 
-PyRef<RotMat> RotMat::NewFromRotMat (::RotMat const &mat_) noexcept
+PyRef<RotMat> RotMat::NewFromRotMat (RocketSim::RotMat const &mat_) noexcept
 {
 	auto const self = PyRef<RotMat>::stealObject (RotMat::New (RotMat::Type, nullptr, nullptr));
 	if (!self || !InitFromRotMat (self.borrow (), mat_))
@@ -88,7 +88,7 @@ PyRef<RotMat> RotMat::NewFromRotMat (::RotMat const &mat_) noexcept
 	return self;
 }
 
-bool RotMat::InitFromRotMat (RotMat *const self_, ::RotMat const &mat_) noexcept
+bool RotMat::InitFromRotMat (RotMat *const self_, RocketSim::RotMat const &mat_) noexcept
 {
 	auto const forward = Vec::NewFromVec (mat_.forward);
 	auto const right   = Vec::NewFromVec (mat_.right);
@@ -104,9 +104,9 @@ bool RotMat::InitFromRotMat (RotMat *const self_, ::RotMat const &mat_) noexcept
 	return true;
 }
 
-::RotMat RotMat::ToRotMat (RotMat *self_) noexcept
+RocketSim::RotMat RotMat::ToRotMat (RotMat *self_) noexcept
 {
-	::RotMat mat{};
+	RocketSim::RotMat mat{};
 
 	mat.forward = Vec::ToVec (self_->forward);
 	mat.right   = Vec::ToVec (self_->right);
@@ -132,7 +132,7 @@ PyObject *RotMat::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_)
 
 int RotMat::Init (RotMat *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	::RotMat mat = ::RotMat::GetIdentity ();
+	RocketSim::RotMat mat = RocketSim::RotMat::GetIdentity ();
 	if (PyTuple_Size (args_) == 0 && !kwds_)
 	{
 		if (!InitFromRotMat (self_, mat))
@@ -372,7 +372,7 @@ PyObject *RotMat::AsTuple (RotMat *self_) noexcept
 
 PyObject *RotMat::AsAngle (RotMat *self_) noexcept
 {
-	return Angle::NewFromAngle (::Angle::FromRotMat (ToRotMat (self_))).giftObject ();
+	return Angle::NewFromAngle (RocketSim::Angle::FromRotMat (ToRotMat (self_))).giftObject ();
 }
 
 PyObject *RotMat::AsNumpy (RotMat *self_) noexcept

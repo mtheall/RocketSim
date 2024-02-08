@@ -122,7 +122,7 @@ Car *Car::New () noexcept
 	if (!self)
 		return nullptr;
 
-	new (&self->arena) std::shared_ptr<::Arena>{};
+	new (&self->arena) std::shared_ptr<RocketSim::Arena>{};
 	self->car   = nullptr;
 	self->goals = 0;
 
@@ -162,7 +162,7 @@ PyObject *Car::InternalPickle (Car *self_) noexcept
 	        dict.borrow (), "controls", CarControls::NewFromCarControls (self_->car->controls).giftObject ()))
 		return nullptr;
 
-	if (self_->car->team != ::Team::BLUE &&
+	if (self_->car->team != RocketSim::Team::BLUE &&
 	    !DictSetValue (dict.borrow (), "team", PyLong_FromLong (static_cast<long> (self_->car->team))))
 		return nullptr;
 
@@ -188,7 +188,7 @@ PyObject *Car::InternalPickle (Car *self_) noexcept
 	return dict.gift ();
 }
 
-PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, PyObject *dict_) noexcept
+PyObject *Car::InternalUnpickle (std::shared_ptr<RocketSim::Arena> arena_, Car *self_, PyObject *dict_) noexcept
 {
 	auto const dummy = PyObjectRef::steal (PyTuple_New (0));
 	if (!dummy)
@@ -229,7 +229,7 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 	unsigned shots        = 0;
 	unsigned saves        = 0;
 	unsigned assists      = 0;
-	int team              = static_cast<int> (::Team::BLUE);
+	int team              = static_cast<int> (RocketSim::Team::BLUE);
 	if (!PyArg_ParseTupleAndKeywords (dummy.borrow (),
 	        dict_,
 	        "|kiO!O!O!IIIIII",
@@ -256,7 +256,8 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 	if (arena_->_carIDMap.contains (id))
 		return PyErr_Format (PyExc_ValueError, "Car with id '%lu' already exists", id);
 
-	if (static_cast<::Team> (team) != ::Team::BLUE && static_cast<::Team> (team) != ::Team::ORANGE)
+	if (static_cast<RocketSim::Team> (team) != RocketSim::Team::BLUE &&
+	    static_cast<RocketSim::Team> (team) != RocketSim::Team::ORANGE)
 		return PyErr_Format (PyExc_ValueError, "Invalid team '%d'", team);
 
 	if (!state)
@@ -279,7 +280,8 @@ PyObject *Car::InternalUnpickle (std::shared_ptr<::Arena> arena_, Car *self_, Py
 
 	arena_->_lastCarID = id - 1;
 
-	self_->car = arena_->AddCar (static_cast<::Team> (team), CarConfig::ToCarConfig (PyCast<CarConfig> (config)));
+	self_->car =
+	    arena_->AddCar (static_cast<RocketSim::Team> (team), CarConfig::ToCarConfig (PyCast<CarConfig> (config)));
 
 	self_->arena        = arena_;
 	self_->goals        = goals;

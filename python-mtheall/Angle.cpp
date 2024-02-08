@@ -10,18 +10,18 @@ PyTypeObject *Angle::Type = nullptr;
 
 PyMemberDef Angle::Members[] = {
     {.name      = "yaw",
-        .type   = TypeHelper<decltype (::Angle::yaw)>::type,
-        .offset = offsetof (Angle, angle) + offsetof (::Angle, yaw),
+        .type   = TypeHelper<decltype (RocketSim::Angle::yaw)>::type,
+        .offset = offsetof (Angle, angle) + offsetof (RocketSim::Angle, yaw),
         .flags  = 0,
         .doc    = "Yaw component"},
     {.name      = "pitch",
-        .type   = TypeHelper<decltype (::Angle::pitch)>::type,
-        .offset = offsetof (Angle, angle) + offsetof (::Angle, pitch),
+        .type   = TypeHelper<decltype (RocketSim::Angle::pitch)>::type,
+        .offset = offsetof (Angle, angle) + offsetof (RocketSim::Angle, pitch),
         .flags  = 0,
         .doc    = "Pitch component"},
     {.name      = "roll",
-        .type   = TypeHelper<decltype (::Angle::roll)>::type,
-        .offset = offsetof (Angle, angle) + offsetof (::Angle, roll),
+        .type   = TypeHelper<decltype (RocketSim::Angle::roll)>::type,
+        .offset = offsetof (Angle, angle) + offsetof (RocketSim::Angle, roll),
         .flags  = 0,
         .doc    = "Roll component"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -82,7 +82,7 @@ PyType_Spec Angle::Spec = {
     .slots     = Angle::Slots,
 };
 
-PyRef<Angle> Angle::NewFromAngle (::Angle const &angle_) noexcept
+PyRef<Angle> Angle::NewFromAngle (RocketSim::Angle const &angle_) noexcept
 {
 	auto const self = PyRef<Angle>::stealObject (Angle::New (Angle::Type, nullptr, nullptr));
 	if (!self || !InitFromAngle (self.borrow (), angle_))
@@ -91,13 +91,13 @@ PyRef<Angle> Angle::NewFromAngle (::Angle const &angle_) noexcept
 	return self;
 }
 
-bool Angle::InitFromAngle (Angle *const self_, ::Angle const &angle_) noexcept
+bool Angle::InitFromAngle (Angle *const self_, RocketSim::Angle const &angle_) noexcept
 {
 	self_->angle = angle_;
 	return true;
 }
 
-::Angle Angle::ToAngle (Angle *self_) noexcept
+RocketSim::Angle Angle::ToAngle (Angle *self_) noexcept
 {
 	return self_->angle;
 }
@@ -110,7 +110,7 @@ PyObject *Angle::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	if (!self)
 		return nullptr;
 
-	new (&self->angle)::Angle{};
+	new (&self->angle) RocketSim::Angle{};
 
 	return self.giftObject ();
 }
@@ -123,7 +123,7 @@ int Angle::Init (Angle *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	static char *dict[] = {yawKwd, pitchKwd, rollKwd, nullptr};
 
-	::Angle angle{};
+	RocketSim::Angle angle{};
 	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|fff", dict, &angle.yaw, &angle.pitch, &angle.roll))
 		return -1;
 
@@ -193,7 +193,7 @@ PyObject *Angle::Pickle (Angle *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::Angle const model{};
+	RocketSim::Angle const model{};
 	auto const angle = ToAngle (self_);
 
 	if (angle.yaw != model.yaw && !DictSetValue (dict.borrow (), "yaw", PyFloat_FromDouble (angle.yaw)))

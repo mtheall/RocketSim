@@ -3,6 +3,8 @@
 
 class btBvhTriangleMeshShape;
 
+RS_NS_START
+
 struct SuspensionCollisionGrid {
 	GameMode gameMode;
 	bool lightMem;
@@ -27,9 +29,16 @@ struct SuspensionCollisionGrid {
 	static_assert(RS_MIN(CELL_SIZE_X[0], RS_MIN(CELL_SIZE_Y[0], CELL_SIZE_Z[0])) > 60, "SuspensionCollisionGrid cells are too small");
 
 	struct Cell {
-		bool worldCollision = false;
-		int dynamicObjects = 0;
+		bool 
+			worldCollision = false, 
+			dynamicCollision = false;
 	};
+
+	struct CellRange {
+		int minX, minY, minZ;
+		int maxX, maxY, maxZ;
+	};
+	std::vector<CellRange> dynamicCellRanges;
 
 	struct {
 		float extentX_bt, extentY_bt, height_bt;
@@ -91,8 +100,12 @@ struct SuspensionCollisionGrid {
 
 	void SetupWorldCollision(const std::vector<btBvhTriangleMeshShape*>& triMeshShapes);
 
-	btCollisionObject* CastSuspensionRay(btVehicleRaycaster* raycaster, Vec start, Vec end, btVehicleRaycaster::btVehicleRaycasterResult& result);
+	btCollisionObject* CastSuspensionRay(btVehicleRaycaster* raycaster, Vec start, Vec end, const btCollisionObject* ignoreObj, btVehicleRaycaster::btVehicleRaycasterResult& result);
+	
 	void UpdateDynamicCollisions(Vec minBT, Vec maxBT, bool remove);
+    void ClearDynamicCollisions();
 
 	btRigidBody* defaultWorldCollisionRB = NULL;
 };
+
+RS_NS_END

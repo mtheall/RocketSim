@@ -9,31 +9,31 @@ PyTypeObject *BallState::Type = nullptr;
 
 PyMemberDef BallState::Members[] = {
     {.name      = "update_counter",
-        .type   = TypeHelper<decltype (::BallState::updateCounter)>::type,
-        .offset = offsetof (BallState, state) + offsetof (::BallState, updateCounter),
+        .type   = TypeHelper<decltype (RocketSim::BallState::updateCounter)>::type,
+        .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, updateCounter),
         .flags  = 0,
         .doc    = "Update counter (ticks since last state set)"},
     {.name      = "last_hit_car_id",
-        .type   = TypeHelper<decltype (::BallState::lastHitCarID)>::type,
-        .offset = offsetof (BallState, state) + offsetof (::BallState, lastHitCarID),
+        .type   = TypeHelper<decltype (RocketSim::BallState::lastHitCarID)>::type,
+        .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, lastHitCarID),
         .flags  = 0,
         .doc    = "Last hit car id"},
     {.name      = "heatseeker_target_dir",
-        .type   = TypeHelper<decltype (::BallState::HeatseekerInfo::yTargetDir)>::type,
-        .offset = offsetof (BallState, state) + offsetof (::BallState, hsInfo) +
-                  offsetof (::BallState::HeatseekerInfo, yTargetDir),
+        .type   = TypeHelper<decltype (RocketSim::BallState::HeatseekerInfo::yTargetDir)>::type,
+        .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, hsInfo) +
+                  offsetof (RocketSim::BallState::HeatseekerInfo, yTargetDir),
         .flags = 0,
         .doc   = "Heatseeker target direction"},
     {.name      = "heatseeker_target_speed",
-        .type   = TypeHelper<decltype (::BallState::HeatseekerInfo::curTargetSpeed)>::type,
-        .offset = offsetof (BallState, state) + offsetof (::BallState, hsInfo) +
-                  offsetof (::BallState::HeatseekerInfo, curTargetSpeed),
+        .type   = TypeHelper<decltype (RocketSim::BallState::HeatseekerInfo::curTargetSpeed)>::type,
+        .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, hsInfo) +
+                  offsetof (RocketSim::BallState::HeatseekerInfo, curTargetSpeed),
         .flags = 0,
         .doc   = "Heatseeker target speed"},
     {.name      = "heatseeker_time_since_hit",
-        .type   = TypeHelper<decltype (::BallState::HeatseekerInfo::timeSinceHit)>::type,
-        .offset = offsetof (BallState, state) + offsetof (::BallState, hsInfo) +
-                  offsetof (::BallState::HeatseekerInfo, timeSinceHit),
+        .type   = TypeHelper<decltype (RocketSim::BallState::HeatseekerInfo::timeSinceHit)>::type,
+        .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, hsInfo) +
+                  offsetof (RocketSim::BallState::HeatseekerInfo, timeSinceHit),
         .flags = 0,
         .doc   = "Heatseeker time since hit"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -92,7 +92,7 @@ PyType_Spec BallState::Spec = {
     .slots     = BallState::Slots,
 };
 
-PyRef<BallState> BallState::NewFromBallState (::BallState const &state_) noexcept
+PyRef<BallState> BallState::NewFromBallState (RocketSim::BallState const &state_) noexcept
 {
 	auto const self = PyRef<BallState>::stealObject (BallState::New (BallState::Type, nullptr, nullptr));
 	if (!self || !InitFromBallState (self.borrow (), state_))
@@ -101,7 +101,7 @@ PyRef<BallState> BallState::NewFromBallState (::BallState const &state_) noexcep
 	return self;
 }
 
-bool BallState::InitFromBallState (BallState *const self_, ::BallState const &state_) noexcept
+bool BallState::InitFromBallState (BallState *const self_, RocketSim::BallState const &state_) noexcept
 {
 	auto pos    = Vec::NewFromVec (state_.pos);
 	auto rotMat = RotMat::NewFromRotMat (state_.rotMat);
@@ -121,7 +121,7 @@ bool BallState::InitFromBallState (BallState *const self_, ::BallState const &st
 	return true;
 }
 
-::BallState BallState::ToBallState (BallState *self_) noexcept
+RocketSim::BallState BallState::ToBallState (BallState *self_) noexcept
 {
 	auto state = self_->state;
 
@@ -141,7 +141,7 @@ PyObject *BallState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwd
 	if (!self)
 		return nullptr;
 
-	new (&self->state)::BallState{};
+	new (&self->state) RocketSim::BallState{};
 
 	self->pos    = nullptr;
 	self->rotMat = nullptr;
@@ -174,7 +174,7 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	    updateCounterKwd,
 	    nullptr};
 
-	::BallState state{};
+	RocketSim::BallState state{};
 
 	PyObject *pos    = nullptr; // borrowed references
 	PyObject *rotMat = nullptr; // borrowed references
@@ -240,7 +240,7 @@ PyObject *BallState::Pickle (BallState *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::BallState const model{};
+	RocketSim::BallState const model{};
 	auto const state = ToBallState (self_);
 
 	if (state.updateCounter != model.updateCounter &&

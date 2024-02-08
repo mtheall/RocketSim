@@ -9,18 +9,18 @@ PyTypeObject *BallHitInfo::Type = nullptr;
 
 PyMemberDef BallHitInfo::Members[] = {
     {.name      = "is_valid",
-        .type   = TypeHelper<decltype (::BallHitInfo::isValid)>::type,
-        .offset = offsetof (BallHitInfo, info) + offsetof (::BallHitInfo, isValid),
+        .type   = TypeHelper<decltype (RocketSim::BallHitInfo::isValid)>::type,
+        .offset = offsetof (BallHitInfo, info) + offsetof (RocketSim::BallHitInfo, isValid),
         .flags  = 0,
         .doc    = "Is valid"},
     {.name      = "tick_count_when_hit",
-        .type   = TypeHelper<decltype (::BallHitInfo::tickCountWhenHit)>::type,
-        .offset = offsetof (BallHitInfo, info) + offsetof (::BallHitInfo, tickCountWhenHit),
+        .type   = TypeHelper<decltype (RocketSim::BallHitInfo::tickCountWhenHit)>::type,
+        .offset = offsetof (BallHitInfo, info) + offsetof (RocketSim::BallHitInfo, tickCountWhenHit),
         .flags  = 0,
         .doc    = "Tick count when hit"},
     {.name      = "tick_count_when_extra_impulse_applied",
-        .type   = TypeHelper<decltype (::BallHitInfo::tickCountWhenExtraImpulseApplied)>::type,
-        .offset = offsetof (BallHitInfo, info) + offsetof (::BallHitInfo, tickCountWhenExtraImpulseApplied),
+        .type   = TypeHelper<decltype (RocketSim::BallHitInfo::tickCountWhenExtraImpulseApplied)>::type,
+        .offset = offsetof (BallHitInfo, info) + offsetof (RocketSim::BallHitInfo, tickCountWhenExtraImpulseApplied),
         .flags  = 0,
         .doc    = "Tick count when extra impulse applied"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
@@ -78,7 +78,7 @@ PyType_Spec BallHitInfo::Spec = {
     .slots     = BallHitInfo::Slots,
 };
 
-PyRef<BallHitInfo> BallHitInfo::NewFromBallHitInfo (::BallHitInfo const &info_) noexcept
+PyRef<BallHitInfo> BallHitInfo::NewFromBallHitInfo (RocketSim::BallHitInfo const &info_) noexcept
 {
 	auto const self = PyRef<BallHitInfo>::stealObject (BallHitInfo::New (BallHitInfo::Type, nullptr, nullptr));
 	if (!self || !InitFromBallHitInfo (self.borrow (), info_))
@@ -87,7 +87,7 @@ PyRef<BallHitInfo> BallHitInfo::NewFromBallHitInfo (::BallHitInfo const &info_) 
 	return self;
 }
 
-bool BallHitInfo::InitFromBallHitInfo (BallHitInfo *const self_, ::BallHitInfo const &info_) noexcept
+bool BallHitInfo::InitFromBallHitInfo (BallHitInfo *const self_, RocketSim::BallHitInfo const &info_) noexcept
 {
 	auto relativePosOnBall = Vec::NewFromVec (info_.relativePosOnBall);
 	auto ballPos           = Vec::NewFromVec (info_.ballPos);
@@ -105,7 +105,7 @@ bool BallHitInfo::InitFromBallHitInfo (BallHitInfo *const self_, ::BallHitInfo c
 	return true;
 }
 
-::BallHitInfo BallHitInfo::ToBallHitInfo (BallHitInfo *self_) noexcept
+RocketSim::BallHitInfo BallHitInfo::ToBallHitInfo (BallHitInfo *self_) noexcept
 {
 	auto info = self_->info;
 
@@ -124,7 +124,7 @@ PyObject *BallHitInfo::New (PyTypeObject *subtype_, PyObject *args_, PyObject *k
 	if (!self)
 		return nullptr;
 
-	new (&self->info)::BallHitInfo ();
+	new (&self->info) RocketSim::BallHitInfo ();
 
 	self->relativePosOnBall = nullptr;
 	self->ballPos           = nullptr;
@@ -150,7 +150,7 @@ int BallHitInfo::Init (BallHitInfo *self_, PyObject *args_, PyObject *kwds_) noe
 	    tickCountWhenExtraImpulseAppliedKwd,
 	    nullptr};
 
-	::BallHitInfo info{};
+	RocketSim::BallHitInfo info{};
 
 	int isValid                                         = info.isValid;
 	PyObject *relativePosOnBall                         = nullptr;
@@ -210,7 +210,7 @@ PyObject *BallHitInfo::Pickle (BallHitInfo *self_) noexcept
 	if (!dict)
 		return nullptr;
 
-	::BallHitInfo const model{};
+	RocketSim::BallHitInfo const model{};
 	auto const info = ToBallHitInfo (self_);
 
 	if (info.isValid != model.isValid && !DictSetValue (dict.borrow (), "is_valid", PyBool_FromLong (info.isValid)))
