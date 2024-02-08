@@ -840,9 +840,19 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 		return 0;
 	}
-	catch (...)
+	catch (std::bad_alloc const &err)
 	{
 		PyErr_NoMemory ();
+		return -1;
+	}
+	catch (std::exception const &err)
+	{
+		PyErr_SetString (PyExc_RuntimeError, err.what ());
+		return -1;
+	}
+	catch (...)
+	{
+		PyErr_SetString (PyExc_RuntimeError, "Unknown exception");
 		return -1;
 	}
 }
