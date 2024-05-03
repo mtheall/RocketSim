@@ -302,7 +302,7 @@ int RotMat::Setforward (RotMat *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'forward' attribute of 'RocketSim.RotMat' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'forward' attribute of 'RocketSim.RotMat' objects");
 		return -1;
 	}
 
@@ -326,7 +326,7 @@ int RotMat::Setright (RotMat *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'right' attribute of 'RocketSim.RotMat' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'right' attribute of 'RocketSim.RotMat' objects");
 		return -1;
 	}
 
@@ -350,7 +350,7 @@ int RotMat::Setup (RotMat *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'up' attribute of 'RocketSim.RotMat' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'up' attribute of 'RocketSim.RotMat' objects");
 		return -1;
 	}
 

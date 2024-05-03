@@ -345,7 +345,7 @@ int BallState::Setpos (BallState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'pos' attribute of 'RocketSim.BallState' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'pos' attribute of 'RocketSim.BallState' objects");
 		return -1;
 	}
 
@@ -372,7 +372,7 @@ int BallState::Setrot_mat (BallState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'rot_mat' attribute of 'RocketSim.BallState' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'rot_mat' attribute of 'RocketSim.BallState' objects");
 		return -1;
 	}
 
@@ -396,7 +396,7 @@ int BallState::Setvel (BallState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'vel' attribute of 'RocketSim.BallState' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'vel' attribute of 'RocketSim.BallState' objects");
 		return -1;
 	}
 
@@ -420,7 +420,7 @@ int BallState::Setang_vel (BallState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'ang_vel' attribute of 'RocketSim.BallState' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'ang_vel' attribute of 'RocketSim.BallState' objects");
 		return -1;
 	}
 

@@ -301,7 +301,7 @@ int BallHitInfo::Setrelative_pos_on_ball (BallHitInfo *self_, PyObject *value_, 
 	if (!value_)
 	{
 		PyErr_SetString (
-		    PyExc_TypeError, "can't delete 'relative_pos_on_ball' attribute of 'RocketSim.BallHitInfo' objects");
+		    PyExc_AttributeError, "can't delete 'relative_pos_on_ball' attribute of 'RocketSim.BallHitInfo' objects");
 		return -1;
 	}
 
@@ -328,7 +328,7 @@ int BallHitInfo::Setball_pos (BallHitInfo *self_, PyObject *value_, void *) noex
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'ball_pos' attribute of 'RocketSim.BallHitInfo' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'ball_pos' attribute of 'RocketSim.BallHitInfo' objects");
 		return -1;
 	}
 
@@ -352,7 +352,8 @@ int BallHitInfo::Setextra_hit_vel (BallHitInfo *self_, PyObject *value_, void *)
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'extra_hit_vel' attribute of 'RocketSim.BallHitInfo' objects");
+		PyErr_SetString (
+		    PyExc_AttributeError, "can't delete 'extra_hit_vel' attribute of 'RocketSim.BallHitInfo' objects");
 		return -1;
 	}
 

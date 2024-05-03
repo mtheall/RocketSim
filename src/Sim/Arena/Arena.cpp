@@ -235,6 +235,9 @@ bool Arena::_BulletContactAddedCallback(
 		bodyA = objA->m_collisionObject,
 		bodyB = objB->m_collisionObject;
 
+	if (!objA->m_collisionObject->hasContactResponse() || !objB->m_collisionObject->hasContactResponse())
+		return true;
+
 	bool shouldSwap = false;
 	if ((bodyA->getUserIndex() != -1) && (bodyB->getUserIndex() != -1)) {
 		// If both bodies have a user index, the lower user index should be A
@@ -481,7 +484,7 @@ Arena::Arena(GameMode gameMode, ArenaMemWeightMode memWeightMode, float tickRate
 
 		// Adjust solver configuration to be closer to older Bullet (Rocket League's Bullet is from somewhere between 2013 and 2015)
 		auto& solverInfo = _bulletWorld.getSolverInfo();
-		solverInfo.m_splitImpulsePenetrationThreshold = 1.0e30;
+		solverInfo.m_splitImpulsePenetrationThreshold = 1.0e30f;
 		solverInfo.m_erp2 = 0.8f;
 	}
 
@@ -597,7 +600,7 @@ Arena* Arena::DeserializeNew(DataStreamIn& in) {
 	
 	{ // Deserialize cars
 		uint32_t carAmount = in.Read<uint32_t>();
-		for (int i = 0; i < carAmount; i++) {
+		for (uint32_t i = 0; i < carAmount; i++) {
 			Team team;
 			uint32_t id;
 			in.Read(team);

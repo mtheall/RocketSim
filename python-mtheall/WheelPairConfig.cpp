@@ -219,8 +219,8 @@ int WheelPairConfig::Setconnection_point_offset (WheelPairConfig *self_, PyObjec
 {
 	if (!value_)
 	{
-		PyErr_SetString (
-		    PyExc_TypeError, "can't delete 'connection_point_offset' attribute of 'RocketSim.WheelPairConfig' objects");
+		PyErr_SetString (PyExc_AttributeError,
+		    "can't delete 'connection_point_offset' attribute of 'RocketSim.WheelPairConfig' objects");
 		return -1;
 	}
 

@@ -13,6 +13,7 @@
 
 #include <map>
 #include <memory>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -95,6 +96,33 @@ void InitInternal (char const *path_);
 bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept;
 
 PyObject *PyDeepCopy (void *obj_, PyObject *memo_) noexcept;
+
+template <typename T, std::size_t Extent>
+bool fromSequence (PyObject *obj_, std::span<T, Extent> span_) noexcept
+{
+	if (!PySequence_Check (obj_))
+	{
+		PyErr_SetString (PyExc_TypeError, "attribute value type must be a sequence");
+		return false;
+	}
+
+	if (PySequence_Size (obj_) != span_.size ())
+	{
+		PyErr_Format (PyExc_RuntimeError, "sequence must contain %u elements", static_cast<unsigned> (span_.size ()));
+		return false;
+	}
+
+	for (unsigned i = 0; i < span_.size (); ++i)
+	{
+		auto const obj = PyObjectRef::steal (PySequence_GetItem (obj_, i));
+		if (!obj)
+			return false;
+
+		span_[i] = PyObject_IsTrue (obj.borrow ());
+	}
+
+	return true;
+}
 
 class GIL
 {
@@ -505,7 +533,7 @@ struct CarState
 	RotMat *rotMat;
 	Vec *vel;
 	Vec *angVel;
-	Vec *lastRelDodgeTorque;
+	Vec *flipRelTorque;
 	CarControls *lastControls;
 	Vec *worldContactNormal;
 	BallHitInfo *ballHitInfo;
@@ -529,14 +557,17 @@ struct CarState
 	static PyObject *Copy (CarState *self_) noexcept;
 	static PyObject *DeepCopy (CarState *self_, PyObject *memo_) noexcept;
 
+	static PyObject *HasFlipOrJump (CarState *self_) noexcept;
+
 	GETSET_DECLARE (CarState, pos)
 	GETSET_DECLARE (CarState, rot_mat)
 	GETSET_DECLARE (CarState, vel)
 	GETSET_DECLARE (CarState, ang_vel)
-	GETSET_DECLARE (CarState, last_rel_dodge_torque)
+	GETSET_DECLARE (CarState, flip_rel_torque)
 	GETSET_DECLARE (CarState, last_controls)
 	GETSET_DECLARE (CarState, world_contact_normal)
 	GETSET_DECLARE (CarState, ball_hit_info)
+	GETSET_DECLARE (CarState, wheels_with_contact)
 };
 
 struct Car

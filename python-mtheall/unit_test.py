@@ -725,10 +725,11 @@ class TestCarState(FuzzyTestCase):
     self.assertAlmostEqual(state_a.vel,                  state_b.vel, 3)
     self.assertEqual(state_a.ang_vel,                    state_b.ang_vel)
     self.assertEqual(state_a.is_on_ground,               state_b.is_on_ground)
+    self.assertEqual(state_a.wheels_with_contact,        state_b.wheels_with_contact)
     self.assertEqual(state_a.has_jumped,                 state_b.has_jumped)
     self.assertEqual(state_a.has_double_jumped,          state_b.has_double_jumped)
     self.assertEqual(state_a.has_flipped,                state_b.has_flipped)
-    self.assertEqual(state_a.last_rel_dodge_torque,      state_b.last_rel_dodge_torque)
+    self.assertEqual(state_a.flip_rel_torque,            state_b.flip_rel_torque)
     self.assertEqual(state_a.jump_time,                  state_b.jump_time)
     self.assertEqual(state_a.flip_time,                  state_b.flip_time)
     self.assertEqual(state_a.is_jumping,                 state_b.is_jumping)
@@ -761,10 +762,11 @@ class TestCarState(FuzzyTestCase):
       vel                        = random_vec(),
       ang_vel                    = random_vec(),
       is_on_ground               = random_bool(),
+      wheels_with_contact        = (random_bool(), random_bool(), random_bool(), random_bool()),
       has_jumped                 = random_bool(),
       has_double_jumped          = random_bool(),
       has_flipped                = random_bool(),
-      last_rel_dodge_torque      = random_vec(),
+      flip_rel_torque            = random_vec(),
       jump_time                  = random_float(),
       flip_time                  = random_float(),
       is_flipping                = random_bool(),
@@ -815,10 +817,11 @@ class TestCarState(FuzzyTestCase):
       vel                        = random_vec(),
       ang_vel                    = random_vec(),
       is_on_ground               = random_bool(),
+      wheels_with_contact        = (random_bool(), random_bool(), random_bool(), random_bool()),
       has_jumped                 = random_bool(),
       has_double_jumped          = random_bool(),
       has_flipped                = random_bool(),
-      last_rel_dodge_torque      = random_vec(),
+      flip_rel_torque            = random_vec(),
       jump_time                  = random_float(),
       flip_time                  = random_float(),
       is_flipping                = random_bool(),
@@ -876,10 +879,11 @@ class TestCarState(FuzzyTestCase):
       vel                        = random_vec(),
       ang_vel                    = random_vec(),
       is_on_ground               = random_bool(),
+      wheels_with_contact        = (random_bool(), random_bool(), random_bool(), random_bool()),
       has_jumped                 = random_bool(),
       has_double_jumped          = random_bool(),
       has_flipped                = random_bool(),
-      last_rel_dodge_torque      = random_vec(),
+      flip_rel_torque            = random_vec(),
       jump_time                  = random_float(),
       flip_time                  = random_float(),
       is_flipping                = random_bool(),

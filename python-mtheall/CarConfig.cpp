@@ -406,7 +406,7 @@ int CarConfig::Sethitbox_size (CarConfig *self_, PyObject *value_, void *) noexc
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'hitbox_size' attribute of 'RocketSim.CarConfig' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'hitbox_size' attribute of 'RocketSim.CarConfig' objects");
 		return -1;
 	}
 
@@ -431,7 +431,7 @@ int CarConfig::Sethitbox_pos_offset (CarConfig *self_, PyObject *value_, void *)
 	if (!value_)
 	{
 		PyErr_SetString (
-		    PyExc_TypeError, "can't delete 'hitbox_pos_offset' attribute of 'RocketSim.CarConfig' objects");
+		    PyExc_AttributeError, "can't delete 'hitbox_pos_offset' attribute of 'RocketSim.CarConfig' objects");
 		return -1;
 	}
 
@@ -455,7 +455,8 @@ int CarConfig::Setfront_wheels (CarConfig *self_, PyObject *value_, void *) noex
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'front_wheels' attribute of 'RocketSim.CarConfig' objects");
+		PyErr_SetString (
+		    PyExc_AttributeError, "can't delete 'front_wheels' attribute of 'RocketSim.CarConfig' objects");
 		return -1;
 	}
 
@@ -479,7 +480,7 @@ int CarConfig::Setback_wheels (CarConfig *self_, PyObject *value_, void *) noexc
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'back_wheels' attribute of 'RocketSim.CarConfig' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'back_wheels' attribute of 'RocketSim.CarConfig' objects");
 		return -1;
 	}
 

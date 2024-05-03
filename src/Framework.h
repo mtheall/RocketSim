@@ -34,6 +34,11 @@
 #define _USE_MATH_DEFINES // for M_PI and similar
 #include <cmath>
 
+#ifdef _MSC_VER
+// Disable annoying truncation warnings on MSVC
+#pragma warning(disable: 4305 4244 4267)
+#endif
+
 typedef uint8_t byte;
 
 // Current millisecond time
@@ -78,8 +83,13 @@ typedef uint8_t byte;
 
 #define RS_ALIGN_16 alignas(16)
 
+#ifndef RS_NO_NAMESPACE
 #define RS_NS_START namespace RocketSim {
 #define RS_NS_END }
+#else
+#define RS_NS_START
+#define RS_NS_END
+#endif
 
 template<typename ...Args>
 size_t __RS_GET_ARGUMENT_COUNT(Args ...) {

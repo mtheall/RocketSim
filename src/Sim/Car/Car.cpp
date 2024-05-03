@@ -133,9 +133,13 @@ void Car::_PostTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig
 
 	_internalState.rotMat = _rigidBody.m_worldTransform.m_basis;
 
+	// Update wheelsWithContact
 	int numWheelsInContact = 0;
-	for (int i = 0; i < 4; i++)
-		numWheelsInContact += _bulletVehicle.m_wheelInfo[i].m_raycastInfo.m_isInContact;
+	for (int i = 0; i < 4; i++) {
+		bool inContact = _bulletVehicle.m_wheelInfo[i].m_raycastInfo.m_isInContact;
+		_internalState.wheelsWithContact[i] = inContact;
+		numWheelsInContact += inContact;
+	}
 
 	{ // Update isOnGround
 		_internalState.isOnGround = numWheelsInContact >= 3;
@@ -289,6 +293,12 @@ void Car::_BulletSetup(GameMode gameMode, btDynamicsWorld* bulletWorld, const Mu
 	_internalState.boost = mutatorConfig.carSpawnBoostAmount;
 }
 
+bool CarState::HasFlipOrJump() const {
+	return 
+		isOnGround || 
+		(!hasFlipped && !hasDoubleJumped && airTimeSinceJump < RLConst::DOUBLEJUMP_MAX_DELAY);
+}
+
 void CarState::Serialize(DataStreamOut& out) const {
 	ballHitInfo.Serialize(out);
 
@@ -349,7 +359,7 @@ void Car::_UpdateWheels(float tickTime, const MutatorConfig& mutatorConfig, int 
 
 		float engineThrottle = realThrottle;
 
-		if (controls.handbrake > 0) {
+		if (controls.handbrake) {
 			// Real throttle is unchanged from the input throttle when powersliding
 		} else {
 			float absThrottle = abs(realThrottle);
@@ -556,9 +566,9 @@ void Car::_UpdateAirTorque(float tickTime, const MutatorConfig& mutatorConfig, b
 
 	if (_internalState.isFlipping) {
 
-		btVector3 relDodgeTorque = _internalState.lastRelDodgeTorque;
+		btVector3 relDodgeTorque = _internalState.flipRelTorque;
 
-		if (!_internalState.lastRelDodgeTorque.IsZero()) {
+		if (!_internalState.flipRelTorque.IsZero()) {
 			// Flip cancel check
 			float pitchScale = 1;
 			if (relDodgeTorque.y() != 0 && controls.pitch != 0) {
@@ -679,7 +689,7 @@ void Car::_UpdateDoubleJumpOrFlip(float tickTime, const MutatorConfig& mutatorCo
 							dodgeDir = dodgeDir.safeNormalized();
 						}
 
-						_internalState.lastRelDodgeTorque = btVector3(-dodgeDir.y(), dodgeDir.x(), 0);
+						_internalState.flipRelTorque = btVector3(-dodgeDir.y(), dodgeDir.x(), 0);
 
 						if (abs(dodgeDir.x()) < 0.1f) dodgeDir.x() = 0;
 						if (abs(dodgeDir.y()) < 0.1f) dodgeDir.y() = 0;

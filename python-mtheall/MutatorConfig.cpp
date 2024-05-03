@@ -610,7 +610,7 @@ int MutatorConfig::Setgravity (MutatorConfig *self_, PyObject *value_, void *) n
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'gravity' attribute of 'RocketSim.MutatorConfig' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'gravity' attribute of 'RocketSim.MutatorConfig' objects");
 		return -1;
 	}
 

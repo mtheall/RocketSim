@@ -1,10 +1,13 @@
 #include "Module.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
 
 namespace RocketSim::Python
 {
+constexpr unsigned NUM_WHEELS = std::extent_v<decltype (RocketSim::CarState::wheelsWithContact)>;
+
 PyTypeObject *CarState::Type = nullptr;
 
 PyMemberDef CarState::Members[] = {
@@ -127,6 +130,10 @@ PyMemberDef CarState::Members[] = {
 };
 
 PyMethodDef CarState::Methods[] = {
+    {.ml_name     = "has_flip_or_jump",
+        .ml_meth  = (PyCFunction)&CarState::HasFlipOrJump,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&CarState::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&CarState::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name     = "__copy__",
@@ -147,10 +154,11 @@ PyGetSetDef CarState::GetSet[] = {
     GETSET_ENTRY (CarState, rot_mat, "Rotation matrix"),
     GETSET_ENTRY (CarState, vel, "Velocity"),
     GETSET_ENTRY (CarState, ang_vel, "Angular velocity"),
-    GETSET_ENTRY (CarState, last_rel_dodge_torque, "Last relative dodge torque"),
+    GETSET_ENTRY (CarState, flip_rel_torque, "Flip relative torque"),
     GETSET_ENTRY (CarState, last_controls, "Last controls"),
     GETSET_ENTRY (CarState, world_contact_normal, "World contact normal"),
     GETSET_ENTRY (CarState, ball_hit_info, "Ball hit info"),
+    GETSET_ENTRY (CarState, wheels_with_contact, "Wheels with contact"),
     {.name = nullptr, .get = nullptr, .set = nullptr, .doc = nullptr, .closure = nullptr},
 };
 
@@ -168,10 +176,11 @@ __init__(self
 	vel: RocketSim.Vec = RocketSim.Vec(),
 	ang_vel: RocketSim.Vec = RocketSim.Vec(),
 	is_on_ground: bool = True,
+	wheels_with_contact: Tuple[bool] = (false, false, false, false),
 	has_jumped: bool = False,
 	has_double_jumped: bool = False,
 	has_flipped: bool = False,
-	last_rel_dodge_torque: RocketSim.Vec = RocketSim.Vec(),
+	flip_rel_torque: RocketSim.Vec = RocketSim.Vec(),
 	jump_time: float = 0.0,
 	flip_time: float = 0.0,
 	is_flipping: bool = False,
@@ -219,20 +228,19 @@ bool CarState::InitFromCarState (CarState *const self_, RocketSim::CarState cons
 	auto rotMat             = RotMat::NewFromRotMat (state_.rotMat);
 	auto vel                = Vec::NewFromVec (state_.vel);
 	auto angVel             = Vec::NewFromVec (state_.angVel);
-	auto lastRelDodgeTorque = Vec::NewFromVec (state_.lastRelDodgeTorque);
+	auto flipRelTorque      = Vec::NewFromVec (state_.flipRelTorque);
 	auto lastControls       = CarControls::NewFromCarControls (state_.lastControls);
 	auto worldContactNormal = Vec::NewFromVec (state_.worldContact.contactNormal);
 	auto ballHitInfo        = BallHitInfo::NewFromBallHitInfo (state_.ballHitInfo);
 
-	if (!pos || !rotMat || !vel || !angVel || !lastRelDodgeTorque || !lastControls || !worldContactNormal ||
-	    !ballHitInfo)
+	if (!pos || !rotMat || !vel || !angVel || !flipRelTorque || !lastControls || !worldContactNormal || !ballHitInfo)
 		return false;
 
 	PyRef<Vec>::assign (self_->pos, pos.borrowObject ());
 	PyRef<RotMat>::assign (self_->rotMat, rotMat.borrowObject ());
 	PyRef<Vec>::assign (self_->vel, vel.borrowObject ());
 	PyRef<Vec>::assign (self_->angVel, angVel.borrowObject ());
-	PyRef<Vec>::assign (self_->lastRelDodgeTorque, lastRelDodgeTorque.borrowObject ());
+	PyRef<Vec>::assign (self_->flipRelTorque, flipRelTorque.borrowObject ());
 	PyRef<CarControls>::assign (self_->lastControls, lastControls.borrowObject ());
 	PyRef<Vec>::assign (self_->worldContactNormal, worldContactNormal.borrowObject ());
 	PyRef<BallHitInfo>::assign (self_->ballHitInfo, ballHitInfo.borrowObject ());
@@ -250,7 +258,7 @@ RocketSim::CarState CarState::ToCarState (CarState *self_) noexcept
 	state.rotMat                     = RotMat::ToRotMat (self_->rotMat);
 	state.vel                        = Vec::ToVec (self_->vel);
 	state.angVel                     = Vec::ToVec (self_->angVel);
-	state.lastRelDodgeTorque         = Vec::ToVec (self_->lastRelDodgeTorque);
+	state.flipRelTorque              = Vec::ToVec (self_->flipRelTorque);
 	state.lastControls               = CarControls::ToCarControls (self_->lastControls);
 	state.worldContact.contactNormal = Vec::ToVec (self_->worldContactNormal);
 	state.ballHitInfo                = BallHitInfo::ToBallHitInfo (self_->ballHitInfo);
@@ -272,7 +280,7 @@ PyObject *CarState::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds
 	self->rotMat             = nullptr;
 	self->vel                = nullptr;
 	self->angVel             = nullptr;
-	self->lastRelDodgeTorque = nullptr;
+	self->flipRelTorque      = nullptr;
 	self->lastControls       = nullptr;
 	self->worldContactNormal = nullptr;
 	self->ballHitInfo        = nullptr;
@@ -287,10 +295,11 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char velKwd[]                     = "vel";
 	static char angVelKwd[]                  = "ang_vel";
 	static char isOnGroundKwd[]              = "is_on_ground";
+	static char wheelsWithContactKwd[]       = "wheels_with_contact";
 	static char hasJumpedKwd[]               = "has_jumped";
 	static char hasDoubleJumpedKwd[]         = "has_double_jumped";
 	static char hasFlippedKwd[]              = "has_flipped";
-	static char lastRelDodgeTorqueKwd[]      = "last_rel_dodge_torque";
+	static char flipRelTorqueKwd[]           = "flip_rel_torque";
 	static char jumpTimeKwd[]                = "jump_time";
 	static char flipTimeKwd[]                = "flip_time";
 	static char isFlippingKwd[]              = "is_flipping";
@@ -318,10 +327,11 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    velKwd,
 	    angVelKwd,
 	    isOnGroundKwd,
+	    wheelsWithContactKwd,
 	    hasJumpedKwd,
 	    hasDoubleJumpedKwd,
 	    hasFlippedKwd,
-	    lastRelDodgeTorqueKwd,
+	    flipRelTorqueKwd,
 	    jumpTimeKwd,
 	    flipTimeKwd,
 	    isFlippingKwd,
@@ -351,7 +361,8 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	PyObject *rotMat             = nullptr;
 	PyObject *vel                = nullptr;
 	PyObject *angVel             = nullptr;
-	PyObject *lastRelDodgeTorque = nullptr;
+	PyObject *wheelsWithContact  = nullptr;
+	PyObject *flipRelTorque      = nullptr;
 	PyObject *lastControls       = nullptr;
 	PyObject *worldContactNormal = nullptr;
 	PyObject *ballHitInfo        = nullptr;
@@ -371,7 +382,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	unsigned long long updateCounter = state.updateCounter;
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!ppppO!ffppfffpffpfpO!kfpfO!O!K",
+	        "|O!O!O!O!pOpppO!ffppfffpffpfpO!kfpfO!O!K",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -382,11 +393,12 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        Vec::Type,
 	        &angVel,
 	        &isOnGround,
+	        &wheelsWithContact,
 	        &hasJumped,
 	        &hasDoubleJumped,
 	        &hasFlipped,
 	        Vec::Type,
-	        &lastRelDodgeTorque,
+	        &flipRelTorque,
 	        &state.jumpTime,
 	        &state.flipTime,
 	        &isFlipping,
@@ -425,8 +437,17 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	if (angVel)
 		state.angVel = Vec::ToVec (PyCast<Vec> (angVel));
 
-	if (lastRelDodgeTorque)
-		state.lastRelDodgeTorque = Vec::ToVec (PyCast<Vec> (lastRelDodgeTorque));
+	if (wheelsWithContact)
+	{
+		std::array<bool, NUM_WHEELS> tmp;
+		if (!fromSequence (wheelsWithContact, std::span (tmp)))
+			return -1;
+
+		std::copy (std::begin (tmp), std::end (tmp), std::begin (state.wheelsWithContact));
+	}
+
+	if (flipRelTorque)
+		state.flipRelTorque = Vec::ToVec (PyCast<Vec> (flipRelTorque));
 
 	if (worldContactNormal)
 		state.worldContact.contactNormal = Vec::ToVec (PyCast<Vec> (worldContactNormal));
@@ -463,7 +484,7 @@ void CarState::Dealloc (CarState *self_) noexcept
 	Py_XDECREF (self_->rotMat);
 	Py_XDECREF (self_->vel);
 	Py_XDECREF (self_->angVel);
-	Py_XDECREF (self_->lastRelDodgeTorque);
+	Py_XDECREF (self_->flipRelTorque);
 	Py_XDECREF (self_->lastControls);
 	Py_XDECREF (self_->worldContactNormal);
 	Py_XDECREF (self_->ballHitInfo);
@@ -505,6 +526,12 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 	    !DictSetValue (dict.borrow (), "is_on_ground", PyBool_FromLong (state.isOnGround)))
 		return nullptr;
 
+	if (!std::equal (std::begin (state.wheelsWithContact),
+	        std::end (state.wheelsWithContact),
+	        std::begin (model.wheelsWithContact)) &&
+	    !DictSetValue (dict.borrow (), "wheels_with_contact", Getwheels_with_contact (self_, nullptr)))
+		return nullptr;
+
 	if (state.hasJumped != model.hasJumped &&
 	    !DictSetValue (dict.borrow (), "has_jumped", PyBool_FromLong (state.hasJumped)))
 		return nullptr;
@@ -517,8 +544,8 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 	    !DictSetValue (dict.borrow (), "has_flipped", PyBool_FromLong (state.hasFlipped)))
 		return nullptr;
 
-	if (state.lastRelDodgeTorque != model.lastRelDodgeTorque &&
-	    !DictSetValue (dict.borrow (), "last_rel_dodge_torque", PyNewRef (self_->lastRelDodgeTorque)))
+	if (state.flipRelTorque != model.flipRelTorque &&
+	    !DictSetValue (dict.borrow (), "flip_rel_torque", PyNewRef (self_->flipRelTorque)))
 		return nullptr;
 
 	if (state.jumpTime != model.jumpTime &&
@@ -636,7 +663,7 @@ PyObject *CarState::Copy (CarState *self_) noexcept
 	PyRef<RotMat>::assign (state->rotMat, reinterpret_cast<PyObject *> (self_->rotMat));
 	PyRef<Vec>::assign (state->vel, reinterpret_cast<PyObject *> (self_->vel));
 	PyRef<Vec>::assign (state->angVel, reinterpret_cast<PyObject *> (self_->angVel));
-	PyRef<Vec>::assign (state->lastRelDodgeTorque, reinterpret_cast<PyObject *> (self_->lastRelDodgeTorque));
+	PyRef<Vec>::assign (state->flipRelTorque, reinterpret_cast<PyObject *> (self_->flipRelTorque));
 	PyRef<CarControls>::assign (state->lastControls, reinterpret_cast<PyObject *> (self_->lastControls));
 	PyRef<Vec>::assign (state->worldContactNormal, reinterpret_cast<PyObject *> (self_->worldContactNormal));
 	PyRef<BallHitInfo>::assign (state->ballHitInfo, reinterpret_cast<PyObject *> (self_->ballHitInfo));
@@ -668,8 +695,8 @@ PyObject *CarState::DeepCopy (CarState *self_, PyObject *memo_) noexcept
 	if (!state->angVel)
 		return nullptr;
 
-	PyRef<Vec>::assign (state->lastRelDodgeTorque, PyDeepCopy (self_->lastRelDodgeTorque, memo_));
-	if (!state->lastRelDodgeTorque)
+	PyRef<Vec>::assign (state->flipRelTorque, PyDeepCopy (self_->flipRelTorque, memo_));
+	if (!state->flipRelTorque)
 		return nullptr;
 
 	PyRef<CarControls>::assign (state->lastControls, PyDeepCopy (self_->lastControls, memo_));
@@ -689,6 +716,11 @@ PyObject *CarState::DeepCopy (CarState *self_, PyObject *memo_) noexcept
 	return state.giftObject ();
 }
 
+PyObject *CarState::HasFlipOrJump (CarState *self_) noexcept
+{
+	return PyBool_FromLong (self_->state.HasFlipOrJump ());
+}
+
 PyObject *CarState::Getpos (CarState *self_, void *) noexcept
 {
 	return PyRef<Vec>::incRef (self_->pos).giftObject ();
@@ -698,7 +730,7 @@ int CarState::Setpos (CarState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'pos' attribute of 'RocketSim.CarState' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'pos' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
@@ -722,7 +754,7 @@ int CarState::Setrot_mat (CarState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'rot_mat' attribute of 'RocketSim.CarState' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'rot_mat' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
@@ -746,7 +778,7 @@ int CarState::Setvel (CarState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'vel' attribute of 'RocketSim.CarState' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'vel' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
@@ -770,7 +802,7 @@ int CarState::Setang_vel (CarState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'ang_vel' attribute of 'RocketSim.CarState' objects");
+		PyErr_SetString (PyExc_AttributeError, "can't delete 'ang_vel' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
@@ -785,17 +817,17 @@ int CarState::Setang_vel (CarState *self_, PyObject *value_, void *) noexcept
 	return 0;
 }
 
-PyObject *CarState::Getlast_rel_dodge_torque (CarState *self_, void *) noexcept
+PyObject *CarState::Getflip_rel_torque (CarState *self_, void *) noexcept
 {
-	return PyRef<Vec>::incRef (self_->lastRelDodgeTorque).giftObject ();
+	return PyRef<Vec>::incRef (self_->flipRelTorque).giftObject ();
 }
 
-int CarState::Setlast_rel_dodge_torque (CarState *self_, PyObject *value_, void *) noexcept
+int CarState::Setflip_rel_torque (CarState *self_, PyObject *value_, void *) noexcept
 {
 	if (!value_)
 	{
 		PyErr_SetString (
-		    PyExc_TypeError, "can't delete 'last_rel_dodge_torque' attribute of 'RocketSim.CarState' objects");
+		    PyExc_AttributeError, "can't delete 'flip_rel_torque' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
@@ -805,7 +837,7 @@ int CarState::Setlast_rel_dodge_torque (CarState *self_, PyObject *value_, void 
 		return -1;
 	}
 
-	PyRef<Vec>::assign (self_->lastRelDodgeTorque, value_);
+	PyRef<Vec>::assign (self_->flipRelTorque, value_);
 
 	return 0;
 }
@@ -819,7 +851,8 @@ int CarState::Setlast_controls (CarState *self_, PyObject *value_, void *) noexc
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'last_controls' attribute of 'RocketSim.CarState' objects");
+		PyErr_SetString (
+		    PyExc_AttributeError, "can't delete 'last_controls' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
@@ -844,7 +877,7 @@ int CarState::Setworld_contact_normal (CarState *self_, PyObject *value_, void *
 	if (!value_)
 	{
 		PyErr_SetString (
-		    PyExc_TypeError, "can't delete 'world_contact_normal' attribute of 'RocketSim.CarState' objects");
+		    PyExc_AttributeError, "can't delete 'world_contact_normal' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
@@ -868,7 +901,8 @@ int CarState::Setball_hit_info (CarState *self_, PyObject *value_, void *) noexc
 {
 	if (!value_)
 	{
-		PyErr_SetString (PyExc_TypeError, "can't delete 'ball_hit_info' attribute of 'RocketSim.CarState' objects");
+		PyErr_SetString (
+		    PyExc_AttributeError, "can't delete 'ball_hit_info' attribute of 'RocketSim.CarState' objects");
 		return -1;
 	}
 
@@ -879,6 +913,39 @@ int CarState::Setball_hit_info (CarState *self_, PyObject *value_, void *) noexc
 	}
 
 	PyRef<BallHitInfo>::assign (self_->ballHitInfo, value_);
+
+	return 0;
+}
+
+PyObject *CarState::Getwheels_with_contact (CarState *self_, void *) noexcept
+{
+	auto obj = PyObjectRef::stealObject (PyTuple_New (NUM_WHEELS));
+	if (!obj)
+		return nullptr;
+
+	for (unsigned i = 0; i < NUM_WHEELS; ++i)
+	{
+		if (PyTuple_SetItem (obj.borrow (), i, PyBool_FromLong (self_->state.wheelsWithContact[i])) != 0)
+			return nullptr;
+	}
+
+	return obj.giftObject ();
+}
+
+int CarState::Setwheels_with_contact (CarState *self_, PyObject *value_, void *) noexcept
+{
+	if (!value_)
+	{
+		PyErr_SetString (
+		    PyExc_TypeError, "can't delete 'wheels_with_contact' attribute of 'RocketSim.CarState' objects");
+		return -1;
+	}
+
+	std::array<bool, NUM_WHEELS> tmp;
+	if (!fromSequence (value_, std::span (tmp)))
+		return -1;
+
+	std::copy (std::begin (tmp), std::end (tmp), std::begin (self_->state.wheelsWithContact));
 
 	return 0;
 }
