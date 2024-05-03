@@ -91,5 +91,6 @@ setup(
   version = "2.1.0a3",
   description = "This is Rocket League!",
   cmdclass = {"build_ext": build_ext_ex},
-  ext_modules = [RocketSim]
+  ext_modules = [RocketSim],
+  install_requires = ["numpy"]
 )
