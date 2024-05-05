@@ -56,6 +56,11 @@ PyMemberDef CarState::Members[] = {
         .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isJumping),
         .flags  = 0,
         .doc    = "Is jumping"},
+    {.name      = "air_time",
+        .type   = TypeHelper<decltype (RocketSim::CarState::airTime)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, airTime),
+        .flags  = 0,
+        .doc    = "Air time"},
     {.name      = "air_time_since_jump",
         .type   = TypeHelper<decltype (RocketSim::CarState::airTimeSinceJump)>::type,
         .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, airTimeSinceJump),
@@ -134,6 +139,14 @@ PyMethodDef CarState::Methods[] = {
         .ml_meth  = (PyCFunction)&CarState::HasFlipOrJump,
         .ml_flags = METH_NOARGS,
         .ml_doc   = nullptr},
+    {.ml_name     = "has_flip_reset",
+        .ml_meth  = (PyCFunction)&CarState::HasFlipReset,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
+    {.ml_name     = "got_flip_reset",
+        .ml_meth  = (PyCFunction)&CarState::GotFlipReset,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = nullptr},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&CarState::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&CarState::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name     = "__copy__",
@@ -185,6 +198,7 @@ __init__(self
 	flip_time: float = 0.0,
 	is_flipping: bool = False,
 	is_jumping: bool = False,
+	air_time: float = 0.0,
 	air_time_since_jump: float = 0.0,
 	boost: float = 33.3,
 	time_spent_boosting: float = 0.0,
@@ -304,6 +318,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char flipTimeKwd[]                = "flip_time";
 	static char isFlippingKwd[]              = "is_flipping";
 	static char isJumpingKwd[]               = "is_jumping";
+	static char airTimeKwd[]                 = "air_time";
 	static char airTimeSinceJumpKwd[]        = "air_time_since_jump";
 	static char boostKwd[]                   = "boost";
 	static char timeSpentBoostingKwd[]       = "time_spent_boosting";
@@ -336,6 +351,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    flipTimeKwd,
 	    isFlippingKwd,
 	    isJumpingKwd,
+	    airTimeKwd,
 	    airTimeSinceJumpKwd,
 	    boostKwd,
 	    timeSpentBoostingKwd,
@@ -382,7 +398,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	unsigned long long updateCounter = state.updateCounter;
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!pOpppO!ffppfffpffpfpO!kfpfO!O!K",
+	        "|O!O!O!O!pOpppO!ffppffffpffpfpO!kfpfO!O!K",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -403,6 +419,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        &state.flipTime,
 	        &isFlipping,
 	        &isJumping,
+	        &state.airTime,
 	        &state.airTimeSinceJump,
 	        &state.boost,
 	        &state.timeSpentBoosting,
@@ -564,6 +581,10 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 	    !DictSetValue (dict.borrow (), "is_jumping", PyBool_FromLong (state.isJumping)))
 		return nullptr;
 
+	if (state.airTime != model.airTime &&
+	    !DictSetValue (dict.borrow (), "air_time", PyFloat_FromDouble (state.airTime)))
+		return nullptr;
+
 	if (state.airTimeSinceJump != model.airTimeSinceJump &&
 	    !DictSetValue (dict.borrow (), "air_time_since_jump", PyFloat_FromDouble (state.airTimeSinceJump)))
 		return nullptr;
@@ -719,6 +740,16 @@ PyObject *CarState::DeepCopy (CarState *self_, PyObject *memo_) noexcept
 PyObject *CarState::HasFlipOrJump (CarState *self_) noexcept
 {
 	return PyBool_FromLong (self_->state.HasFlipOrJump ());
+}
+
+PyObject *CarState::HasFlipReset (CarState *self_) noexcept
+{
+	return PyBool_FromLong (self_->state.HasFlipReset ());
+}
+
+PyObject *CarState::GotFlipReset (CarState *self_) noexcept
+{
+	return PyBool_FromLong (self_->state.GotFlipReset ());
 }
 
 PyObject *CarState::Getpos (CarState *self_, void *) noexcept

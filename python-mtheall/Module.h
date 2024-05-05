@@ -558,6 +558,8 @@ struct CarState
 	static PyObject *DeepCopy (CarState *self_, PyObject *memo_) noexcept;
 
 	static PyObject *HasFlipOrJump (CarState *self_) noexcept;
+	static PyObject *HasFlipReset (CarState *self_) noexcept;
+	static PyObject *GotFlipReset (CarState *self_) noexcept;
 
 	GETSET_DECLARE (CarState, pos)
 	GETSET_DECLARE (CarState, rot_mat)

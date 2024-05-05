@@ -752,6 +752,10 @@ class TestCarState(FuzzyTestCase):
     TestBallHitInfo.compare(self, state_a.ball_hit_info, state_b.ball_hit_info)
     TestCarControls.compare(self, state_a.last_controls, state_b.last_controls)
 
+    self.assertEqual(state_a.has_flip_or_jump(), state_b.has_flip_or_jump())
+    self.assertEqual(state_a.has_flip_reset(), state_b.has_flip_reset())
+    self.assertEqual(state_a.got_flip_reset(), state_b.got_flip_reset())
+
   def test_basic(self):
     pass
 
