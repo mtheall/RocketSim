@@ -3,10 +3,21 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <mutex>
 
 namespace RocketSim::Python
 {
 constexpr unsigned NUM_WHEELS = std::extent_v<decltype (RocketSim::CarState::wheelsWithContact)>;
+
+std::once_flag lastRelDodgeTorqueWarnOnce;
+
+void warnLastRelDodgeTorque ()
+{
+	std::call_once (lastRelDodgeTorqueWarnOnce,
+	    &std::fprintf,
+	    stderr,
+	    "last_rel_dodge_torque is a deprecated alias of flip_rel_torque\n");
+}
 
 PyTypeObject *CarState::Type = nullptr;
 
@@ -167,6 +178,7 @@ PyGetSetDef CarState::GetSet[] = {
     GETSET_ENTRY (CarState, rot_mat, "Rotation matrix"),
     GETSET_ENTRY (CarState, vel, "Velocity"),
     GETSET_ENTRY (CarState, ang_vel, "Angular velocity"),
+    GETSET_ENTRY (CarState, last_rel_dodge_torque, "Deprecated alias of flip_rel_torque"),
     GETSET_ENTRY (CarState, flip_rel_torque, "Flip relative torque"),
     GETSET_ENTRY (CarState, last_controls, "Last controls"),
     GETSET_ENTRY (CarState, world_contact_normal, "World contact normal"),
@@ -336,6 +348,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char ballHitInfoKwd[]             = "ball_hit_info";
 	static char lastControlsKwd[]            = "last_controls";
 	static char updateCounterKwd[]           = "update_counter";
+	static char lastRelDodgeTorqueKwd[]      = "last_rel_dodge_torque";
 
 	static char *dict[] = {posKwd,
 	    rotMatKwd,
@@ -369,6 +382,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    ballHitInfoKwd,
 	    lastControlsKwd,
 	    updateCounterKwd,
+	    lastRelDodgeTorqueKwd,
 	    nullptr};
 
 	RocketSim::CarState state{};
@@ -382,6 +396,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	PyObject *lastControls       = nullptr;
 	PyObject *worldContactNormal = nullptr;
 	PyObject *ballHitInfo        = nullptr;
+	PyObject *lastRelDodgeTorque = nullptr;
 
 	int isOnGround      = state.isOnGround;
 	int hasJumped       = state.hasJumped;
@@ -398,7 +413,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	unsigned long long updateCounter = state.updateCounter;
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!pOpppO!ffppffffpffpfpO!kfpfO!O!K",
+	        "|O!O!O!O!pOpppO!ffppffffpffpfpO!kfpfO!O!K$O!",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -439,7 +454,9 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        &ballHitInfo,
 	        CarControls::Type,
 	        &lastControls,
-	        &updateCounter))
+	        &updateCounter,
+	        Vec::Type,
+	        &lastRelDodgeTorque))
 		return -1;
 
 	if (pos)
@@ -465,6 +482,8 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	if (flipRelTorque)
 		state.flipRelTorque = Vec::ToVec (PyCast<Vec> (flipRelTorque));
+	else if (lastRelDodgeTorque)
+		state.flipRelTorque = Vec::ToVec (PyCast<Vec> (lastRelDodgeTorque));
 
 	if (worldContactNormal)
 		state.worldContact.contactNormal = Vec::ToVec (PyCast<Vec> (worldContactNormal));
@@ -846,6 +865,18 @@ int CarState::Setang_vel (CarState *self_, PyObject *value_, void *) noexcept
 	PyRef<Vec>::assign (self_->angVel, value_);
 
 	return 0;
+}
+
+PyObject *CarState::Getlast_rel_dodge_torque (CarState *self_, void *closure_) noexcept
+{
+	warnLastRelDodgeTorque ();
+	return Getflip_rel_torque (self_, closure_);
+}
+
+int CarState::Setlast_rel_dodge_torque (CarState *self_, PyObject *value_, void *closure_) noexcept
+{
+	warnLastRelDodgeTorque ();
+	return Setflip_rel_torque (self_, value_, closure_);
 }
 
 PyObject *CarState::Getflip_rel_torque (CarState *self_, void *) noexcept

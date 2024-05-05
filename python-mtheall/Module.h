@@ -565,6 +565,7 @@ struct CarState
 	GETSET_DECLARE (CarState, rot_mat)
 	GETSET_DECLARE (CarState, vel)
 	GETSET_DECLARE (CarState, ang_vel)
+	GETSET_DECLARE (CarState, last_rel_dodge_torque)
 	GETSET_DECLARE (CarState, flip_rel_torque)
 	GETSET_DECLARE (CarState, last_controls)
 	GETSET_DECLARE (CarState, world_contact_normal)
