@@ -1771,12 +1771,14 @@ class TestArena(FuzzyTestCase):
     def pyr_to_mat3(pyr: np.ndarray) -> np.ndarray:
       # what
       pitch, yaw, roll = pyr
-      q = glm.normalize(glm.angleAxis(yaw, z))
-      q = q * glm.normalize(glm.angleAxis(pitch, y))
-      q = q * glm.normalize(glm.angleAxis(roll, -x))
+
+      q = glm.rotate(glm.quat(), yaw, z)
+      q = glm.rotate(q, pitch, y)
+      q = glm.rotate(q, -roll, x)
+
       return np.array(glm.mat3_cast(q))
 
-    def check_pyr(pyr: np.ndarray) -> bool:
+    def check_pyr(pyr: np.ndarray, m: glm.mat3) -> bool:
       pitch, yaw, roll = pyr
 
       if abs(pitch) > math.pi / 2.0:
@@ -1790,6 +1792,16 @@ class TestArena(FuzzyTestCase):
       if abs(roll) > math.pi:
         print(roll)
         return False
+
+      x = glm.vec3(1, 0, 0)
+      y = glm.vec3(0, 1, 0)
+      z = glm.vec3(0, 0, 1)
+
+      pyr_mat = glm.mat3(pyr_to_mat3(pyr))
+
+      self.assertAlmostEqual(glm.dot(pyr_mat * x, m * x), 1.0, 5)
+      self.assertAlmostEqual(glm.dot(pyr_mat * y, m * y), 1.0, 5)
+      self.assertAlmostEqual(glm.dot(pyr_mat * z, m * z), 1.0, 5)
 
       return True
 
@@ -1935,8 +1947,7 @@ class TestArena(FuzzyTestCase):
               q   = glm.quat_cast(m)
               pyr = gym_state[33:36]
               compare_quat(gym_state[14:18], np.array(q))
-              self.assertAlmostEqual(np.array(m), pyr_to_mat3(pyr), 4)
-              self.assertTrue(check_pyr(pyr))
+              self.assertTrue(check_pyr(pyr, m))
 
               self.assertAlmostEqual(glm.dot(car_dir_x, m * x), 1.0, 5)
               self.assertAlmostEqual(glm.dot(car_dir_y, m * y), 1.0, 5)
@@ -1967,8 +1978,7 @@ class TestArena(FuzzyTestCase):
             q = glm.quat_cast(m)
             pyr = gym_state[33:36]
             compare_quat(gym_state[14:18], np.array(q))
-            self.assertAlmostEqual(np.array(m), pyr_to_mat3(pyr), 4)
-            self.assertTrue(check_pyr(pyr))
+            self.assertTrue(check_pyr(pyr, m))
 
             self.assertAlmostEqual(glm.dot(invert_vector(car_dir_x), m * x), 1.0, 5)
             self.assertAlmostEqual(glm.dot(invert_vector(car_dir_y), m * y), 1.0, 5)
