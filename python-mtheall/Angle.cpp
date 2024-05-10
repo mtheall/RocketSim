@@ -69,6 +69,9 @@ PyType_Slot Angle::Slots[] = {
     {Py_tp_repr, (void *)&Angle::Repr},
     {Py_tp_members, &Angle::Members},
     {Py_tp_methods, &Angle::Methods},
+    {Py_sq_length, (void *)&Angle::Length},
+    {Py_sq_item, (void *)&Angle::GetItem},
+    {Py_sq_ass_item, (void *)&Angle::SetItem},
     {Py_tp_doc, (void *)R"(Tait-Bryan angle rotation in the order ZYX (yaw/pitch/roll)
 __init__(self, yaw: float = 0.0, pitch: float = 0.0, roll: float = 0.0))"},
     {0, nullptr},
@@ -228,6 +231,60 @@ PyObject *Angle::Copy (Angle *self_) noexcept
 PyObject *Angle::DeepCopy (Angle *self_, PyObject *memo_) noexcept
 {
 	return NewFromAngle (self_->angle).giftObject ();
+}
+
+Py_ssize_t Angle::Length (Angle *self_) noexcept
+{
+	return 3;
+}
+
+PyObject *Angle::GetItem (Angle *self_, Py_ssize_t index_) noexcept
+{
+	switch (index_)
+	{
+	case 0:
+		return PyFloat_FromDouble (self_->angle.yaw);
+
+	case 1:
+		return PyFloat_FromDouble (self_->angle.pitch);
+
+	case 2:
+		return PyFloat_FromDouble (self_->angle.roll);
+	}
+
+	PyErr_SetString (PyExc_IndexError, "index out of range");
+	return nullptr;
+}
+
+int Angle::SetItem (Angle *self_, Py_ssize_t index_, PyObject *value_) noexcept
+{
+	if (!value_)
+	{
+		PyErr_SetString (PyExc_TypeError, "'RocketSim.Angle' object doesn't support item deletion");
+		return -1;
+	}
+
+	auto const val = PyFloat_AsDouble (value_);
+	if (val == -1.0 && PyErr_Occurred ())
+		return -1;
+
+	switch (index_)
+	{
+	case 0:
+		self_->angle.yaw = val;
+		return 0;
+
+	case 1:
+		self_->angle.pitch = val;
+		return 0;
+
+	case 2:
+		self_->angle.roll = val;
+		return 0;
+	}
+
+	PyErr_SetString (PyExc_IndexError, "index out of range");
+	return -1;
 }
 
 PyObject *Angle::AsTuple (Angle *self_) noexcept

@@ -57,6 +57,9 @@ PyType_Slot RotMat::Slots[] = {
     {Py_tp_repr, (void *)&RotMat::Repr},
     {Py_tp_methods, &RotMat::Methods},
     {Py_tp_getset, &RotMat::GetSet},
+    {Py_sq_length, (void *)&RotMat::Length},
+    {Py_sq_item, (void *)&RotMat::GetItem},
+    {Py_sq_ass_item, (void *)&RotMat::SetItem},
     {Py_tp_doc, (void *)R"(Rotation matrix (3x3)
 __init__(self)
 	Identity matrix
@@ -291,6 +294,53 @@ PyObject *RotMat::DeepCopy (RotMat *self_, PyObject *memo_) noexcept
 		return nullptr;
 
 	return mat.giftObject ();
+}
+
+Py_ssize_t RotMat::Length (RotMat *self_) noexcept
+{
+	return 3;
+}
+
+PyObject *RotMat::GetItem (RotMat *self_, Py_ssize_t index_) noexcept
+{
+	switch (index_)
+	{
+	case 0:
+		return Getforward (self_, nullptr);
+
+	case 1:
+		return Getright (self_, nullptr);
+
+	case 2:
+		return Getup (self_, nullptr);
+	}
+
+	PyErr_SetString (PyExc_IndexError, "index out of range");
+	return nullptr;
+}
+
+int RotMat::SetItem (RotMat *self_, Py_ssize_t index_, PyObject *value_) noexcept
+{
+	if (!value_)
+	{
+		PyErr_SetString (PyExc_TypeError, "'RocketSim.RotMat' object doesn't support item deletion");
+		return -1;
+	}
+
+	switch (index_)
+	{
+	case 0:
+		return Setforward (self_, value_, nullptr);
+
+	case 1:
+		return Setright (self_, value_, nullptr);
+
+	case 2:
+		return Setup (self_, value_, nullptr);
+	}
+
+	PyErr_SetString (PyExc_IndexError, "index out of range");
+	return -1;
 }
 
 PyObject *RotMat::Getforward (RotMat *self_, void *) noexcept

@@ -97,7 +97,10 @@ bool DictSetValue (PyObject *dict_, char const *key_, PyObject *value_) noexcept
 
 PyObject *PyDeepCopy (void *obj_, PyObject *memo_) noexcept;
 
+double ToFloat (PyObject *obj_) noexcept;
+
 template <typename T, std::size_t Extent>
+    requires (std::is_same_v<T, bool> || std::is_arithmetic_v<T>)
 bool fromSequence (PyObject *obj_, std::span<T, Extent> span_) noexcept
 {
 	if (!PySequence_Check (obj_))
@@ -118,7 +121,27 @@ bool fromSequence (PyObject *obj_, std::span<T, Extent> span_) noexcept
 		if (!obj)
 			return false;
 
-		span_[i] = PyObject_IsTrue (obj.borrow ());
+		if constexpr (std::is_same_v<T, bool>)
+			span_[i] = PyObject_IsTrue (obj.borrow ());
+		else if (std::is_same_v<T, long>)
+			span_[i] = PyLong_AsLong (obj.borrow ());
+		else if constexpr (std::is_same_v<T, long long>)
+			span_[i] = PyLong_AsLongLong (obj.borrow ());
+		else if constexpr (std::is_same_v<T, Py_ssize_t>)
+			span_[i] = PyLong_AsSsize_t (obj.borrow ());
+		else if constexpr (std::is_same_v<T, unsigned long>)
+			span_[i] = PyLong_AsUnsignedLong (obj.borrow ());
+		else if constexpr (std::is_same_v<T, std::size_t>)
+			span_[i] = PyLong_AsSize_t (obj.borrow ());
+		else if constexpr (std::is_same_v<T, unsigned long long>)
+			span_[i] = PyLong_AsUnsignedLongLong (obj.borrow ());
+		else if constexpr (std::is_integral_v<T>)
+			span_[i] = PyLong_AsLong (obj.borrow ());
+		else if constexpr (std::is_floating_point_v<T>)
+			span_[i] = PyFloat_AsDouble (obj.borrow ());
+
+		if (PyErr_Occurred ())
+			return false;
 	}
 
 	return true;
@@ -203,6 +226,10 @@ struct Vec
 	static PyObject *Copy (Vec *self_) noexcept;
 	static PyObject *DeepCopy (Vec *self_, PyObject *memo_) noexcept;
 
+	static Py_ssize_t Length (Vec *self_) noexcept;
+	static PyObject *GetItem (Vec *self_, Py_ssize_t index_) noexcept;
+	static int SetItem (Vec *self_, Py_ssize_t index_, PyObject *value_) noexcept;
+
 	static PyObject *AsTuple (Vec *self_) noexcept;
 	static PyObject *AsNumpy (Vec *self_) noexcept;
 	static PyObject *Round (Vec *self_, PyObject *args_, PyObject *kwds_) noexcept;
@@ -235,6 +262,10 @@ struct RotMat
 	static PyObject *Unpickle (RotMat *self_, PyObject *dict_) noexcept;
 	static PyObject *Copy (RotMat *self_) noexcept;
 	static PyObject *DeepCopy (RotMat *self_, PyObject *memo_) noexcept;
+
+	static Py_ssize_t Length (RotMat *self_) noexcept;
+	static PyObject *GetItem (RotMat *self_, Py_ssize_t index_) noexcept;
+	static int SetItem (RotMat *self_, Py_ssize_t index_, PyObject *value_) noexcept;
 
 	static PyObject *AsTuple (RotMat *self_) noexcept;
 	static PyObject *AsAngle (RotMat *self_) noexcept;
@@ -270,6 +301,10 @@ struct Angle
 	static PyObject *Unpickle (Angle *self_, PyObject *dict_) noexcept;
 	static PyObject *Copy (Angle *self_) noexcept;
 	static PyObject *DeepCopy (Angle *self_, PyObject *memo_) noexcept;
+
+	static Py_ssize_t Length (Angle *self_) noexcept;
+	static PyObject *GetItem (Angle *self_, Py_ssize_t index_) noexcept;
+	static int SetItem (Angle *self_, Py_ssize_t index_, PyObject *value_) noexcept;
 
 	static PyObject *AsTuple (Angle *self_) noexcept;
 	static PyObject *AsRotMat (Angle *self_) noexcept;

@@ -73,6 +73,9 @@ PyType_Slot Vec::Slots[] = {
     {Py_tp_repr, (void *)&Vec::Repr},
     {Py_tp_members, &Vec::Members},
     {Py_tp_methods, &Vec::Methods},
+    {Py_sq_length, (void *)&Vec::Length},
+    {Py_sq_item, (void *)&Vec::GetItem},
+    {Py_sq_ass_item, (void *)&Vec::SetItem},
     {Py_tp_doc, (void *)R"(3-dimensional vector
 __init__(self, x: float = 0.0, y: float = 0.0, z: float = 0.0))"},
     {0, nullptr},
@@ -248,6 +251,60 @@ PyObject *Vec::Copy (Vec *self_) noexcept
 PyObject *Vec::DeepCopy (Vec *self_, PyObject *memo_) noexcept
 {
 	return NewFromVec (self_->vec).giftObject ();
+}
+
+Py_ssize_t Vec::Length (Vec *self_) noexcept
+{
+	return 3;
+}
+
+PyObject *Vec::GetItem (Vec *self_, Py_ssize_t index_) noexcept
+{
+	switch (index_)
+	{
+	case 0:
+		return PyFloat_FromDouble (self_->vec.x);
+
+	case 1:
+		return PyFloat_FromDouble (self_->vec.y);
+
+	case 2:
+		return PyFloat_FromDouble (self_->vec.z);
+	}
+
+	PyErr_SetString (PyExc_IndexError, "index out of range");
+	return nullptr;
+}
+
+int Vec::SetItem (Vec *self_, Py_ssize_t index_, PyObject *value_) noexcept
+{
+	if (!value_)
+	{
+		PyErr_SetString (PyExc_TypeError, "'RocketSim.Vec' object doesn't support item deletion");
+		return -1;
+	}
+
+	auto const val = PyFloat_AsDouble (value_);
+	if (val == -1.0 && PyErr_Occurred ())
+		return -1;
+
+	switch (index_)
+	{
+	case 0:
+		self_->vec.x = val;
+		return 0;
+
+	case 1:
+		self_->vec.y = val;
+		return 0;
+
+	case 2:
+		self_->vec.z = val;
+		return 0;
+	}
+
+	PyErr_SetString (PyExc_IndexError, "index out of range");
+	return -1;
 }
 
 PyObject *Vec::AsTuple (Vec *self_) noexcept
