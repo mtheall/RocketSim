@@ -9,6 +9,7 @@
 #include "../BoostPad/BoostPadGrid/BoostPadGrid.h"
 #include "../SuspensionCollisionGrid/SuspensionCollisionGrid.h"
 #include "../MutatorConfig/MutatorConfig.h"
+#include "ArenaConfig/ArenaConfig.h"
 
 #include "../../../libsrc/bullet3-3.24/BulletCollision/BroadphaseCollision/btDbvtBroadphase.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btStaticPlaneShape.h"
@@ -19,13 +20,6 @@
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h"
 
 RS_NS_START
-
-// Mode of speed/memory optimization for the arena
-// Will affect whether high memory consumption is used to slightly increase speed or not
-enum class ArenaMemWeightMode : byte {
-	HEAVY, // ~611KB per arena with 4 cars
-	LIGHT  // ~397KB per arena with 4 cars
-};
 
 using BallTouchEventFn   = void(*)(class Arena* arena, Car *car, void* userInfo);
 using BoostPickupEventFn = void(*)(class Arena* arena, Car *car, BoostPad *boostPad, void* userInfo);
@@ -94,7 +88,7 @@ public:
 		btDefaultCollisionConfiguration collisionConfig;
 		btCollisionDispatcher collisionDispatcher;
 		btHashedOverlappingPairCache* overlappingPairCache;
-		btDbvtBroadphase broadphase;
+		btBroadphaseInterface* broadphase;
 		btSequentialImpulseConstraintSolver constraintSolver;
 	} _bulletWorldParams;
 
@@ -128,7 +122,7 @@ public:
 	RSAPI void SetGoalScoreCallback(GoalScoreEventFn callbackFn, void* userInfo = nullptr);
 
 	// NOTE: Arena should be destroyed after use
-	RSAPI static Arena* Create(GameMode gameMode, ArenaMemWeightMode memWeightMode = ArenaMemWeightMode::HEAVY, float tickRate = 120);
+	RSAPI static Arena* Create(GameMode gameMode, const ArenaConfig& arenaConfig = {}, float tickRate = 120);
 	
 	// Serialize entire arena state including cars, ball, and boostpads
 	RSAPI void Serialize(DataStreamOut& out) const;
@@ -204,8 +198,13 @@ public:
 	void _BtCallback_OnCarCarCollision(Car* car1, Car* car2, btManifoldPoint& manifoldPoint);
 	void _BtCallback_OnCarWorldCollision(Car* car, btCollisionObject* worldObject, btManifoldPoint& manifoldPoint);
 
+	const ArenaConfig& GetArenaConfig() const {
+		return _config;
+	}
+
+	// Backwards compatability
 	ArenaMemWeightMode GetMemWeightMode() {
-		return _memWeightMode;
+		return _config.memWeightMode;
 	}
 
 	void SetCarCarCollision(bool enable);
@@ -216,10 +215,10 @@ private:
 	bool _stop = false;
 
 	// Constructor for use by Arena::Create()
-	Arena(GameMode gameMode, ArenaMemWeightMode memWeightMode, float tickRate = 120);
+	Arena(GameMode gameMode, const ArenaConfig& config, float tickRate = 120);
 
-	// Making this private because horrible memory overflows would happen if you changed it
-	ArenaMemWeightMode _memWeightMode;
+	// Making this private because horrible memory overflows can happen if you changed it
+	ArenaConfig _config;
 };
 
 RS_NS_END

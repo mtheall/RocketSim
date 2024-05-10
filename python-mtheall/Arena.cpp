@@ -785,10 +785,11 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	try
 	{
-		auto arena =
-		    std::shared_ptr<RocketSim::Arena> (RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode),
-		        static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode),
-		        tickRate));
+		RocketSim::ArenaConfig arenaConfig;
+		arenaConfig.memWeightMode = static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode);
+
+		auto arena = std::shared_ptr<RocketSim::Arena> (
+		    RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode), arenaConfig, tickRate));
 		if (!arena)
 			throw -1;
 
@@ -1282,10 +1283,11 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 	try
 	{
-		auto arena =
-		    std::shared_ptr<RocketSim::Arena> (RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode),
-		        static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode),
-		        1.0f / tickTime));
+		RocketSim::ArenaConfig arenaConfig;
+		arenaConfig.memWeightMode = static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode);
+
+		auto arena = std::shared_ptr<RocketSim::Arena> (
+		    RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode), arenaConfig, 1.0f / tickTime));
 		if (!arena)
 			return PyErr_NoMemory ();
 
