@@ -9,25 +9,35 @@ namespace
 // No data races due to GIL
 bool inited = false;
 
-RocketSim::Python::PyObjectRef CopyModuleObj;
-RocketSim::Python::PyObjectRef DeepCopyObj;
+PyObject *CopyModuleObj = nullptr;
+PyObject *DeepCopyObj   = nullptr;
 
 bool InitDeepCopy () noexcept
 {
 	if (DeepCopyObj)
 		return true;
 
-	CopyModuleObj = RocketSim::Python::PyObjectRef::steal (PyImport_ImportModule ("copy"));
+	CopyModuleObj = PyImport_ImportModule ("copy");
 	if (!CopyModuleObj)
 		return false;
 
-	DeepCopyObj = RocketSim::Python::PyObjectRef::steal (PyObject_GetAttrString (CopyModuleObj.borrow (), "deepcopy"));
+	DeepCopyObj = PyObject_GetAttrString (CopyModuleObj, "deepcopy");
 	if (!DeepCopyObj)
-		return false;
-
-	if (!PyCallable_Check (DeepCopyObj.borrow ()))
 	{
-		DeepCopyObj = {};
+		Py_DECREF (CopyModuleObj);
+		CopyModuleObj = nullptr;
+
+		return false;
+	}
+
+	if (!PyCallable_Check (DeepCopyObj))
+	{
+		Py_DECREF (DeepCopyObj);
+		DeepCopyObj = nullptr;
+
+		Py_DECREF (CopyModuleObj);
+		CopyModuleObj = nullptr;
+
 		PyErr_SetString (PyExc_ImportError, "Failed to import copy.deepcopy");
 		return false;
 	}
@@ -71,7 +81,7 @@ PyObject *PyDeepCopy (void *obj_, PyObject *memo_) noexcept
 	if (!args)
 		return nullptr;
 
-	return PyObject_Call (DeepCopyObj.borrow (), args.borrow (), nullptr);
+	return PyObject_Call (DeepCopyObj, args.borrow (), nullptr);
 }
 }
 
@@ -108,8 +118,11 @@ PyObject *Init (PyObject *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 void Free (void *)
 {
+	Py_XDECREF (DeepCopyObj);
+	DeepCopyObj = nullptr;
+
+	Py_XDECREF (CopyModuleObj);
 	CopyModuleObj = nullptr;
-	DeepCopyObj   = nullptr;
 }
 
 struct PyMethodDef Methods[] = {
