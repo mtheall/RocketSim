@@ -201,7 +201,7 @@ __init__(self
 	vel: RocketSim.Vec = RocketSim.Vec(),
 	ang_vel: RocketSim.Vec = RocketSim.Vec(),
 	is_on_ground: bool = True,
-	wheels_with_contact: Tuple[bool] = (false, false, false, false),
+	wheels_with_contact: Sequence[bool] = (false, false, false, false),
 	has_jumped: bool = False,
 	has_double_jumped: bool = False,
 	has_flipped: bool = False,

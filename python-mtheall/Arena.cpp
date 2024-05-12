@@ -626,7 +626,7 @@ This can be called from within a callback to stop simulation early)"},
     {.ml_name     = "multi_step",
         .ml_meth  = (PyCFunction)&Arena::MultiStep,
         .ml_flags = METH_VARARGS | METH_KEYWORDS | METH_STATIC,
-        .ml_doc   = R"(multi_step(arenas: list[RocketSim.Arena] = [], ticks: int = 1))"},
+        .ml_doc   = R"(multi_step(arenas: Sequence[RocketSim.Arena] = [], ticks: int = 1))"},
     {.ml_name = "__getstate__", .ml_meth = (PyCFunction)&Arena::Pickle, .ml_flags = METH_NOARGS, .ml_doc = nullptr},
     {.ml_name = "__setstate__", .ml_meth = (PyCFunction)&Arena::Unpickle, .ml_flags = METH_O, .ml_doc = nullptr},
     {.ml_name     = "__copy__",
@@ -1151,22 +1151,22 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	PyObject *ballState                   = nullptr;
 	PyObject *cars                        = nullptr;
 	PyObject *pads                        = nullptr;
-	PyObject *ballTouchCallback           = nullptr;
-	PyObject *ballTouchCallbackUserData   = nullptr;
-	PyObject *boostPickupCallback         = nullptr;
-	PyObject *boostPickupCallbackUserData = nullptr;
-	PyObject *carBumpCallback             = nullptr;
-	PyObject *carBumpCallbackUserData     = nullptr;
-	PyObject *carDemoCallback             = nullptr;
-	PyObject *carDemoCallbackUserData     = nullptr;
-	PyObject *goalScoreCallback           = nullptr;
-	PyObject *goalScoreCallbackUserData   = nullptr;
-	PyObject *shotEventCallback           = nullptr;
-	PyObject *shotEventCallbackUserData   = nullptr;
-	PyObject *goalEventCallback           = nullptr;
-	PyObject *goalEventCallbackUserData   = nullptr;
-	PyObject *saveEventCallback           = nullptr;
-	PyObject *saveEventCallbackUserData   = nullptr;
+	PyObject *ballTouchCallback           = Py_None;
+	PyObject *ballTouchCallbackUserData   = Py_None;
+	PyObject *boostPickupCallback         = Py_None;
+	PyObject *boostPickupCallbackUserData = Py_None;
+	PyObject *carBumpCallback             = Py_None;
+	PyObject *carBumpCallbackUserData     = Py_None;
+	PyObject *carDemoCallback             = Py_None;
+	PyObject *carDemoCallbackUserData     = Py_None;
+	PyObject *goalScoreCallback           = Py_None;
+	PyObject *goalScoreCallbackUserData   = Py_None;
+	PyObject *shotEventCallback           = Py_None;
+	PyObject *shotEventCallbackUserData   = Py_None;
+	PyObject *goalEventCallback           = Py_None;
+	PyObject *goalEventCallbackUserData   = Py_None;
+	PyObject *saveEventCallback           = Py_None;
+	PyObject *saveEventCallbackUserData   = Py_None;
 	unsigned long long tickCount          = 0;
 	unsigned long long lastGoalTick       = 0;
 	unsigned long long lastGymStateTick   = 0;
@@ -1178,7 +1178,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	int memoryWeightMode                  = static_cast<int> (RocketSim::ArenaMemWeightMode::HEAVY);
 	if (!PyArg_ParseTupleAndKeywords (dummy.borrow (),
 	        dict_,
-	        "|iikO!fKO!O!O!IIKKOOOOOOOOOOOOOO",
+	        "|iikO!fKO!OOIIKKOOOOOOOOOOOOOO",
 	        dict,
 	        &gameMode,
 	        &memoryWeightMode,
@@ -1189,9 +1189,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	        &tickCount,
 	        BallState::Type,
 	        &ballState,
-	        &PyList_Type,
 	        &cars,
-	        &PyList_Type,
 	        &pads,
 	        &blueScore,
 	        &orangeScore,
@@ -1235,8 +1233,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		break;
 
 	default:
-		PyErr_Format (PyExc_ValueError, "Invalid arena memory weight mode '%d'", memoryWeightMode);
-		return -1;
+		return PyErr_Format (PyExc_ValueError, "Invalid arena memory weight mode '%d'", memoryWeightMode);
 	}
 
 	// make sure callback are None or callable
@@ -1321,27 +1318,37 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 			arena->ball->_internalState.updateCounter = PyCast<BallState> (ballState)->state.updateCounter;
 		}
 
-		auto carMap        = std::map<std::uint32_t, PyRef<Car>>{};
-		auto const numCars = PyList_Size (cars);
-		for (unsigned i = 0; i < numCars; ++i)
+		auto carMap = std::map<std::uint32_t, PyRef<Car>>{};
+		if (cars)
 		{
-			auto car = PyRef<Car>::steal (Car::New ());
-			if (!car)
+			if (!PySequence_Check (cars))
 				return nullptr;
 
-			auto result = PyObjectRef::steal (Car::InternalUnpickle (arena, car.borrow (), PyList_GetItem (cars, i)));
-			if (!result)
-				return nullptr;
+			auto const numCars = PySequence_Size (cars);
+			for (unsigned i = 0; i < numCars; ++i)
+			{
+				auto car = PyRef<Car>::steal (Car::New ());
+				if (!car)
+					return nullptr;
 
-			carMap[car->car->id] = car;
+				auto result =
+				    PyObjectRef::steal (Car::InternalUnpickle (arena, car.borrow (), PySequence_GetItem (cars, i)));
+				if (!result)
+					return nullptr;
+
+				carMap[car->car->id] = car;
+			}
 		}
 
 		auto padMap = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
 		if (pads)
 		{
+			if (!PySequence_Check (pads))
+				return nullptr;
+
 			auto const &[indexMapping, indexMappingSize] = getIndexMapping (arena->gameMode);
 
-			auto const numPads = PyList_Size (pads);
+			auto const numPads = PySequence_Size (pads);
 
 			if (numPads != indexMappingSize)
 				return PyErr_Format (PyExc_KeyError,
@@ -1373,7 +1380,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 					return nullptr;
 				}
 
-				auto state = PyList_GetItem (pads, i);
+				auto state = PySequence_GetItem (pads, i);
 				if (!state)
 					return nullptr;
 
@@ -2548,10 +2555,13 @@ PyObject *Arena::MultiStep (PyObject *dummy_, PyObject *args_, PyObject *kwds_) 
 
 	PyObject *arenas    = nullptr;
 	int ticksToSimulate = 1;
-	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|O!i", dict, &PyList_Type, &arenas, &ticksToSimulate))
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "O|i", dict, &arenas, &ticksToSimulate))
 		return nullptr;
 
-	auto const count = PyList_Size (arenas);
+	if (!PySequence_Check (arenas))
+		return nullptr;
+
+	auto const count = PySequence_Size (arenas);
 	if (count == 0)
 		Py_RETURN_NONE;
 
@@ -2568,7 +2578,7 @@ PyObject *Arena::MultiStep (PyObject *dummy_, PyObject *args_, PyObject *kwds_) 
 	{
 		for (unsigned i = 0; i < count; ++i)
 		{
-			auto obj = PyList_GetItem (arenas, i);
+			auto obj = PySequence_GetItem (arenas, i);
 			if (!obj)
 				return nullptr;
 

@@ -5,6 +5,7 @@ import RocketSim as rs
 import glm
 import math
 import numpy as np
+import pickle
 import unittest
 
 # simple actor that drives straight toward a target
@@ -242,6 +243,25 @@ class TestRegression(unittest.TestCase):
         break
 
     self.assertTrue(bumped[0])
+
+  def test_unpickle_no_boostpads(self):
+    pickle.loads(pickle.dumps(rs.Arena(rs.GameMode.THE_VOID)))
+
+  def test_unpickle_no_cars(self):
+    pickle.loads(pickle.dumps(rs.Arena()))
+
+  def test_unpickle_no_callbacks(self):
+    arena = rs.Arena()
+
+    arena = pickle.loads(pickle.dumps(arena))
+
+    ball = arena.ball
+    car  = arena.add_car(rs.Team.BLUE)
+
+    # trigger the ball touch callback
+    for i in range(1000):
+      target_chase(ball.get_state().pos, car)
+      arena.step()
 
 if __name__ == "__main__":
   unittest.main()
