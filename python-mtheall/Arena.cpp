@@ -766,6 +766,17 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		return -1;
 	}
 
+	switch (static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode))
+	{
+	case RocketSim::ArenaMemWeightMode::LIGHT:
+	case RocketSim::ArenaMemWeightMode::HEAVY:
+		break;
+
+	default:
+		PyErr_Format (PyExc_ValueError, "Invalid arena memory weight mode '%d'", memoryWeightMode);
+		return -1;
+	}
+
 	if (tickRate < 15.0f || tickRate > 120.0f)
 	{
 		PyErr_SetString (PyExc_RuntimeError, "Invalid tick rate");
@@ -1217,9 +1228,16 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		return PyErr_Format (PyExc_ValueError, "Invalid game mode '%d'", gameMode);
 	}
 
-	if (static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode) != RocketSim::ArenaMemWeightMode::LIGHT &&
-	    static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode) != RocketSim::ArenaMemWeightMode::HEAVY)
-		return PyErr_Format (PyExc_ValueError, "Invalid arena memory weight mode '%d'", memoryWeightMode);
+	switch (static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode))
+	{
+	case RocketSim::ArenaMemWeightMode::LIGHT:
+	case RocketSim::ArenaMemWeightMode::HEAVY:
+		break;
+
+	default:
+		PyErr_Format (PyExc_ValueError, "Invalid arena memory weight mode '%d'", memoryWeightMode);
+		return -1;
+	}
 
 	// make sure callback are None or callable
 	if (ballTouchCallback && ballTouchCallback != Py_None && !PyCallable_Check (ballTouchCallback))
