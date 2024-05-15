@@ -979,6 +979,12 @@ PyObject *Arena::Pickle (Arena *self_) noexcept
 	    !DictSetValue (dict.borrow (), "game_mode", PyLong_FromLong (static_cast<long> (self_->arena->gameMode))))
 		return nullptr;
 
+	if (self_->arena->GetArenaConfig ().memWeightMode != RocketSim::ArenaMemWeightMode::HEAVY &&
+	    !DictSetValue (dict.borrow (),
+	        "memory_weight_mode",
+	        PyLong_FromLong (static_cast<long> (self_->arena->GetArenaConfig ().memWeightMode))))
+		return nullptr;
+
 	if (self_->arena->_lastCarID &&
 	    !DictSetValue (dict.borrow (), "last_car_id", PyLong_FromUnsignedLong (self_->arena->_lastCarID)))
 		return nullptr;
