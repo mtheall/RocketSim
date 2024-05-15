@@ -263,5 +263,9 @@ class TestRegression(unittest.TestCase):
       target_chase(ball.get_state().pos, car)
       arena.step()
 
+  def test_arena_ball_prediction(self):
+    arena = rs.Arena()
+    arena.get_ball_prediction(4, 2)
+
 if __name__ == "__main__":
   unittest.main()

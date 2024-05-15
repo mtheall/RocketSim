@@ -492,7 +492,7 @@ Returns `default` if car doesn't exist)"},
         .ml_meth  = (PyCFunction)&Arena::GetBallPrediction,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc =
-            R"(get_ball_prediction(self, num_ticks: int = 120, tick_skip: int = 1) -> List[Tuple[float, RocketSim.BallState]])"},
+            R"(get_ball_prediction(self, num_ticks: int = 120, tick_interval: int = 1) -> List[RocketSim.BallState])"},
     {.ml_name     = "get_boost_pads",
         .ml_meth  = (PyCFunction)&Arena::GetBoostPads,
         .ml_flags = METH_NOARGS,
@@ -1907,15 +1907,23 @@ PyObject *Arena::GetCars (Arena *self_) noexcept
 
 PyObject *Arena::GetBallPrediction (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
-	static char numTicksKwd[] = "num_ticks";
-	static char tickSkipKwd[] = "tick_skip";
+	static char numStatesKwd[]    = "num_states";
+	static char tickIntervalKwd[] = "tick_interval";
 
-	static char *dict[] = {numTicksKwd, tickSkipKwd, nullptr};
+	static char *dict[] = {numStatesKwd, tickIntervalKwd, nullptr};
 
-	unsigned numTicks = 120;
-	unsigned tickSkip = 1;
-	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|II", dict, &numTicks, &tickSkip))
+	unsigned numStates    = 120;
+	unsigned tickInterval = 1;
+	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|II", dict, &numStates, &tickInterval))
 		return nullptr;
+
+	if (numStates < 1)
+		return PyErr_Format (PyExc_RuntimeError, "Invalid num_states '%u'\n", numStates);
+
+	if (tickInterval < 1)
+		return PyErr_Format (PyExc_RuntimeError, "Invalid tick_interval '%u'\n", tickInterval);
+
+	auto const numTicks = numStates * tickInterval;
 
 	if (!self_->ballPrediction)
 	{
@@ -1935,14 +1943,9 @@ PyObject *Arena::GetBallPrediction (Arena *self_, PyObject *args_, PyObject *kwd
 		}
 	}
 
-	auto const count = numTicks / (tickSkip + 1);
-
-	auto list = PyObjectRef::steal (PyList_New (count));
+	auto list = PyObjectRef::steal (PyList_New (numStates));
 	if (!list)
 		return nullptr;
-
-	if (count == 0)
-		return list.gift ();
 
 	try
 	{
@@ -1953,22 +1956,15 @@ PyObject *Arena::GetBallPrediction (Arena *self_, PyObject *args_, PyObject *kwd
 
 		self_->ballPrediction->UpdatePredFromArena (self_->arena.get ());
 
-		unsigned index = 0;
-		for (unsigned i = 0; i < self_->ballPrediction->predData.size (); i += tickSkip + 1)
+		auto pred = std::begin (self_->ballPrediction->predData);
+		for (unsigned i = 0; i < numStates; ++i, std::advance (pred, tickInterval))
 		{
-			auto time =
-			    PyObjectRef::stealObject (PyFloat_FromDouble ((self_->arena->tickCount + i) * self_->arena->tickTime));
-			auto state = BallState::NewFromBallState (self_->ballPrediction->predData[i]);
-
-			auto tuple = PyObjectRef::steal (PyTuple_New (2));
-			if (!tuple)
+			auto state = BallState::NewFromBallState (*pred);
+			if (!state)
 				return nullptr;
 
-			PyTuple_SetItem (tuple.borrow (), 0, time.giftObject ());
-			PyTuple_SetItem (tuple.borrow (), 1, state.giftObject ());
-
 			// steals ref
-			if (PyList_SetItem (list.borrow (), index++, tuple.newObjectRef ()) < 0)
+			if (PyList_SetItem (list.borrow (), i, state.giftObject ()) < 0)
 				return nullptr;
 		}
 	}
