@@ -756,7 +756,7 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 			break;
 
 		default:
-			PyErr_SetString (PyExc_RuntimeError, "Invalid game mode");
+			PyErr_Format (PyExc_RuntimeError, "Invalid game mode '%d'", gameMode);
 			return -1;
 		}
 	}
@@ -779,7 +779,7 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	if (tickRate < 15.0f || tickRate > 120.0f)
 	{
-		PyErr_SetString (PyExc_RuntimeError, "Invalid tick rate");
+		PyErr_Format (PyExc_RuntimeError, "Invalid tick rate '%f'", tickRate);
 		return -1;
 	}
 
@@ -1497,7 +1497,7 @@ PyObject *Arena::AddCar (Arena *self_, PyObject *args_, PyObject *kwds_) noexcep
 
 	if (team != static_cast<int> (RocketSim::Team::BLUE) && team != static_cast<int> (RocketSim::Team::ORANGE))
 	{
-		PyErr_SetString (PyExc_RuntimeError, "Invalid team");
+		PyErr_Format (PyExc_RuntimeError, "Invalid team '%d'", team);
 		return nullptr;
 	}
 
