@@ -1945,7 +1945,7 @@ PyObject *Arena::GetBallPrediction (Arena *self_, PyObject *args_, PyObject *kwd
 
 		self_->ballPrediction->numPredTicks = numTicks;
 
-		self_->ballPrediction->UpdatePred (self_->arena.get ());
+		self_->ballPrediction->UpdatePredFromArena (self_->arena.get ());
 
 		unsigned index = 0;
 		for (unsigned i = 0; i < self_->ballPrediction->predData.size (); i += tickSkip + 1)

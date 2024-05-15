@@ -651,6 +651,34 @@ struct Car
 	static PyObject *SetState (Car *self_, PyObject *args_, PyObject *kwds_) noexcept;
 };
 
+struct BallPredictor
+{
+	PyObject_HEAD;
+
+	RocketSim::BallPredTracker tracker;
+
+	static PyTypeObject *Type;
+	static PyMethodDef Methods[];
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+
+	static bool InitFromArena (BallPredictor *self_, RocketSim::Arena *arena_) noexcept;
+	static bool InitFromParams (BallPredictor *self_,
+	    RocketSim::GameMode gameMode_,
+	    RocketSim::ArenaMemWeightMode memoryWeightMode_,
+	    float tickRate_) noexcept;
+
+	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
+	static int Init (BallPredictor *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static void Dealloc (BallPredictor *self_) noexcept;
+	static PyObject *Pickle (BallPredictor *self_) noexcept;
+	static PyObject *Unpickle (BallPredictor *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (BallPredictor *self_) noexcept;
+	static PyObject *DeepCopy (BallPredictor *self_, PyObject *memo_) noexcept;
+
+	static PyObject *GetBallPrediction (BallPredictor *self_, PyObject *args_, PyObject *kwds_) noexcept;
+};
+
 struct MutatorConfig
 {
 	PyObject_HEAD;

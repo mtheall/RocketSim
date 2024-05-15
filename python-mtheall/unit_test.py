@@ -346,7 +346,7 @@ class TestBallHitInfo(FuzzyTestCase):
     self.compare(info_a, info_b)
 
 class TestBallState(FuzzyTestCase):
-  def compare(self, state_a, state_b):
+  def compare(self, state_a, state_b, check_update_counter = True):
     self.assertAlmostEqual(state_a.pos,                 state_b.pos, 3)
     self.assertEqual(state_a.rot_mat.forward,           state_b.rot_mat.forward)
     self.assertEqual(state_a.rot_mat.right,             state_b.rot_mat.right)
@@ -357,7 +357,9 @@ class TestBallState(FuzzyTestCase):
     self.assertEqual(state_a.heatseeker_target_speed,   state_b.heatseeker_target_speed)
     self.assertEqual(state_a.heatseeker_time_since_hit, state_b.heatseeker_time_since_hit)
     self.assertEqual(state_a.last_hit_car_id,           state_b.last_hit_car_id)
-    self.assertEqual(state_a.update_counter,            state_b.update_counter)
+
+    if check_update_counter:
+      self.assertEqual(state_a.update_counter, state_b.update_counter)
 
   def compare_direct(self, state, pos, vel, ang_vel, car_id):
     self.assertEqual(state.pos, pos)
@@ -988,6 +990,27 @@ class TestCar(FuzzyTestCase):
         self.assertEqual(state.pos, demo_pos[0])
 
     self.assertNotEqual(len(demo_pos), 0)
+
+class TestBallPredictor(FuzzyTestCase):
+  def test_ball_predictor(self):
+    pred = rs.BallPredictor()
+
+    for skip in range(1, 9):
+      state = rs.BallState(
+        pos             = random_vec(),
+        vel             = random_vec(),
+        ang_vel         = random_vec(),
+        last_hit_car_id = random_int(),
+        update_counter  = random_int()
+      )
+
+      states = pred.get_ball_prediction(state, 0, 10, skip)
+      for i in range(len(states)):
+        s = pred.get_ball_prediction(states[i], skip, 10, skip)
+        j = i
+        while j < len(states) and j - i < len(s):
+          TestBallState.compare(self, states[j], s[j - i], False)
+          j += 1
 
 class TestMutatorConfig(FuzzyTestCase):
   def compare(self, config_a, config_b):
