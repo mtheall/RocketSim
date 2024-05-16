@@ -267,5 +267,18 @@ class TestRegression(unittest.TestCase):
     arena = rs.Arena()
     arena.get_ball_prediction(4, 2)
 
+  def test_soccar_wall(self):
+    arena = rs.Arena()
+    ball_state = arena.ball.get_state()
+    ball_state.vel = rs.Vec(2000.0, 0.0, 0.0)
+    arena.ball.set_state(ball_state)
+
+    radius = arena.ball.get_radius()
+
+    for i in range(1000):
+      arena.step()
+      x = arena.ball.get_state().pos.x
+      self.assertLess(x + radius, 4096)
+
 if __name__ == "__main__":
   unittest.main()

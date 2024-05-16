@@ -1460,9 +1460,11 @@ class TestArena(FuzzyTestCase):
 
       pred = arena.get_ball_prediction()
       self.assertEqual(len(pred), 120)
+      TestBallState.compare(self, pred[0], arena.ball.get_state())
 
       pred = arena.get_ball_prediction(num_states=50, tick_interval=3)
       self.assertEqual(len(pred), 50)
+      TestBallState.compare(self, pred[0], arena.ball.get_state())
 
   def test_clone(self):
     for mode in (rs.GameMode.SOCCAR, rs.GameMode.HOOPS, rs.GameMode.HEATSEEKER, rs.GameMode.SNOWDAY, rs.GameMode.THE_VOID):

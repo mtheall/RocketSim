@@ -29,7 +29,7 @@ jobs:
       - name: Build extension for ${{ matrix.os }}
         if: matrix.os != 'ubuntu-20.04'
         run: |
-          python3 setup.py build
+          python3 setup.py build -j 4
           python3 setup.py bdist_wheel --py-limited-api=cp34
 
       - name: Build extension for ${{ matrix.os }}
