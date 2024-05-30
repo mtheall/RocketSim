@@ -67,6 +67,9 @@ RSAPI struct MutatorConfig {
 	bool enableCarCarCollision = true;
 	bool enableCarBallCollision = true;
 
+	// Only used if the game mode has soccar goals (i.e. soccar, heatseeker, snowday)
+	float goalBaseThresholdY = RLConst::SOCCAR_GOAL_SCORE_BASE_THRESHOLD_Y;
+
 	MutatorConfig(GameMode gameMode);
 
 	void Serialize(DataStreamOut& out) const;
@@ -79,6 +82,6 @@ ballMaxSpeed, ballDrag, ballWorldFriction, ballWorldRestitution, jumpAccel, \
 jumpImmediateForce, boostAccel, boostUsedPerSecond, respawnDelay, \
 carSpawnBoostAmount, bumpCooldownTime, boostPadCooldown_Big, boostPadCooldown_Small, \
 ballHitExtraForceScale, bumpForceScale, ballRadius, unlimitedFlips, unlimitedDoubleJumps, \
-demoMode, enableTeamDemos, enableCarCarCollision, enableCarBallCollision
+demoMode, enableTeamDemos, enableCarCarCollision, enableCarBallCollision, goalBaseThresholdY
 
 RS_NS_END
