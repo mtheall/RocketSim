@@ -548,7 +548,7 @@ Arena::Arena(GameMode gameMode, const ArenaConfig& config, float tickRate) : _mu
 
 		bool isHoops = gameMode == GameMode::HOOPS;
 
-		auto toSpan = [](auto &val) { return std::span<const Vec, std::dynamic_extent> (std::begin (val), std::end (val)); };
+		auto toSpan = [](auto &val) { return std::span<const Vec, std::dynamic_extent> (&*std::begin (val), &*std::end (val)); };
 
 		std::span<const Vec> big   = isHoops ? toSpan (LOCS_BIG_HOOPS) : toSpan (LOCS_BIG_SOCCAR);
 		std::span<const Vec> small = isHoops ? toSpan (LOCS_SMALL_HOOPS) : toSpan (LOCS_SMALL_SOCCAR);
