@@ -5,8 +5,15 @@
 #include <cassert>
 #include <cstddef>
 
+// Python 3.9
 #if PY_VERSION_HEX < 0x03090000
 #define Py_IS_TYPE(ob_, type_) ((PyObject const *)(ob_)->ob_type == (PyObject const *)(type_))
+#endif
+
+// Python 3.10
+#if PY_VERSION_HEX < 0x030A0000
+#define Py_Is(x_, y_) ((x_) == (y_))
+#define Py_IsNone(ob_) Py_Is ((ob_), Py_None)
 #endif
 
 namespace RocketSim::Python
