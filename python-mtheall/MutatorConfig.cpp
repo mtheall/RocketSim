@@ -140,6 +140,11 @@ PyMemberDef MutatorConfig::Members[] = {
         .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, enableCarBallCollision),
         .flags  = 0,
         .doc    = "Enable car-ball collision"},
+    {.name      = "goal_base_threshold_y",
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::goalBaseThresholdY)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, goalBaseThresholdY),
+        .flags  = 0,
+        .doc    = "Goal threshold for soccar"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -206,7 +211,8 @@ __init__(self,
 	demo_mode: int = RocketSim.DemoMode.NORMAL,
 	enable_team_demos: bool = False,
 	enable_car_car_collision: bool = True,
-	enable_car_ball_collision: bool = True))"},
+	enable_car_ball_collision: bool = True),
+	goal_base_threshold_y: float = 5124.25))"},
     {0, nullptr},
 };
 
@@ -293,6 +299,7 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	static char enableTeamDemosKwd[]        = "enable_team_demos";
 	static char enableCarCarCollisionKwd[]  = "enable_car_car_collision";
 	static char enableCarBallCollisionKwd[] = "enable_car_ball_collision";
+	static char goalBaseThresholdYKwd[]     = "goal_base_threshold_y";
 
 	static char *dict[] = {gameModeKwd,
 	    gravityKwd,
@@ -322,6 +329,7 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	    enableTeamDemosKwd,
 	    enableCarCarCollisionKwd,
 	    enableCarBallCollisionKwd,
+	    goalBaseThresholdYKwd,
 	    nullptr};
 
 	int gameMode = static_cast<int> (RocketSim::GameMode::SOCCAR);
@@ -356,7 +364,7 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 
 		if (!PyArg_ParseTupleAndKeywords (args_,
 		        kwds_,
-		        "|iO!ffffffffffffffffffffppippp",
+		        "|iO!ffffffffffffffffffffppipppf",
 		        dict,
 		        &gameMode,
 		        Vec::Type,
@@ -386,7 +394,8 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 		        &demoMode,
 		        &enableTeamDemos,
 		        &enableCarCarCollision,
-		        &enableCarBallCollision))
+		        &enableCarBallCollision,
+		        &config.goalBaseThresholdY))
 			return -1;
 
 		// try again with parsed game mode
@@ -556,6 +565,10 @@ PyObject *MutatorConfig::Pickle (MutatorConfig *self_) noexcept
 
 	if (config.enableCarBallCollision != model.enableCarBallCollision &&
 	    !DictSetValue (dict.borrow (), "enable_car_ball_collision", PyBool_FromLong (config.enableCarBallCollision)))
+		return nullptr;
+
+	if (config.goalBaseThresholdY != model.goalBaseThresholdY &&
+	    !DictSetValue (dict.borrow (), "goal_base_threshold_y", PyFloat_FromDouble (config.goalBaseThresholdY)))
 		return nullptr;
 
 	return dict.gift ();

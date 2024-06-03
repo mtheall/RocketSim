@@ -18,14 +18,14 @@ def pickled(v):
 def random_bool() -> bool:
   return random.randint(0, 1) == 1
 
-def random_int() -> bool:
+def random_int() -> int:
   return random.randint(1, 1000)
 
-def random_float() -> float:
-  return random.uniform(-1.0, 1.0)
+def random_float(lo=-1.0, hi=1.0) -> float:
+  return random.uniform(lo, hi)
 
-def random_vec() -> rs.Vec:
-  return rs.Vec(random_float(), random_float(), random_float())
+def random_vec(lo=-1.0, hi=1.0) -> rs.Vec:
+  return rs.Vec(random_float(lo, hi), random_float(lo, hi), random_float(lo, hi))
 
 def random_mat() -> rs.RotMat:
   return rs.RotMat(random_vec(), random_vec(), random_vec())
@@ -1041,6 +1041,40 @@ class TestMutatorConfig(FuzzyTestCase):
     self.assertEqual(config_a.enable_team_demos,          config_b.enable_team_demos)
     self.assertEqual(config_a.enable_car_car_collision,   config_b.enable_car_car_collision)
     self.assertEqual(config_a.enable_car_ball_collision,  config_b.enable_car_ball_collision)
+    self.assertEqual(config_a.goal_base_threshold_y,      config_b.goal_base_threshold_y)
+
+  @staticmethod
+  def random():
+    return rs.MutatorConfig(
+      gravity                    = random_vec(),
+      car_mass                   = random_float(),
+      car_world_friction         = random_float(),
+      car_world_restitution      = random_float(),
+      ball_mass                  = random_float(),
+      ball_max_speed             = random_float(),
+      ball_drag                  = random_float(),
+      ball_world_friction        = random_float(),
+      ball_world_restitution     = random_float(),
+      jump_accel                 = random_float(),
+      jump_immediate_force       = random_float(),
+      boost_accel                = random_float(),
+      boost_used_per_second      = random_float(),
+      respawn_delay              = random_float(),
+      bump_cooldown_time         = random_float(),
+      boost_pad_cooldown_big     = random_float(),
+      boost_pad_cooldown_small   = random_float(),
+      car_spawn_boost_amount     = random_float(),
+      ball_hit_extra_force_scale = random_float(),
+      bump_force_scale           = random_float(),
+      ball_radius                = random_float(),
+      unlimited_flips            = random_bool(),
+      unlimited_double_jumps     = random_bool(),
+      demo_mode                  = random.randint(0, 2),
+      enable_team_demos          = random_bool(),
+      enable_car_car_collision   = random_bool(),
+      enable_car_ball_collision  = random_bool(),
+      goal_base_threshold_y      = random_float()
+    )
 
   def test_basic(self):
     config = rs.MutatorConfig(rs.GameMode.SOCCAR)
@@ -1050,107 +1084,22 @@ class TestMutatorConfig(FuzzyTestCase):
     config = rs.MutatorConfig(rs.GameMode.THE_VOID)
 
   def test_pickle(self):
-    config_a = rs.MutatorConfig(
-      gravity                    = random_vec(),
-      car_mass                   = random_float(),
-      car_world_friction         = random_float(),
-      car_world_restitution      = random_float(),
-      ball_mass                  = random_float(),
-      ball_max_speed             = random_float(),
-      ball_drag                  = random_float(),
-      ball_world_friction        = random_float(),
-      ball_world_restitution     = random_float(),
-      jump_accel                 = random_float(),
-      jump_immediate_force       = random_float(),
-      boost_accel                = random_float(),
-      boost_used_per_second      = random_float(),
-      respawn_delay              = random_float(),
-      bump_cooldown_time         = random_float(),
-      boost_pad_cooldown_big     = random_float(),
-      boost_pad_cooldown_small   = random_float(),
-      car_spawn_boost_amount     = random_float(),
-      ball_hit_extra_force_scale = random_float(),
-      bump_force_scale           = random_float(),
-      ball_radius                = random_float(),
-      unlimited_flips            = random_bool(),
-      unlimited_double_jumps     = random_bool(),
-      demo_mode                  = random.randint(0, 2),
-      enable_team_demos          = random_bool(),
-      enable_car_car_collision   = random_bool(),
-      enable_car_ball_collision  = random_bool()
-    )
+    config_a = TestMutatorConfig.random()
     config_b = pickled(config_a)
 
     self.assertIsNot(config_a.gravity, config_b.gravity)
     self.compare(config_a, config_b)
 
   def test_copy(self):
-    config_a = rs.MutatorConfig(
-      gravity                    = random_vec(),
-      car_mass                   = random_float(),
-      car_world_friction         = random_float(),
-      car_world_restitution      = random_float(),
-      ball_mass                  = random_float(),
-      ball_max_speed             = random_float(),
-      ball_drag                  = random_float(),
-      ball_world_friction        = random_float(),
-      ball_world_restitution     = random_float(),
-      jump_accel                 = random_float(),
-      jump_immediate_force       = random_float(),
-      boost_accel                = random_float(),
-      boost_used_per_second      = random_float(),
-      respawn_delay              = random_float(),
-      bump_cooldown_time         = random_float(),
-      boost_pad_cooldown_big     = random_float(),
-      boost_pad_cooldown_small   = random_float(),
-      car_spawn_boost_amount     = random_float(),
-      ball_hit_extra_force_scale = random_float(),
-      bump_force_scale           = random_float(),
-      ball_radius                = random_float(),
-      unlimited_flips            = random_bool(),
-      unlimited_double_jumps     = random_bool(),
-      demo_mode                  = random.randint(0, 2),
-      enable_team_demos          = random_bool(),
-      enable_car_car_collision   = random_bool(),
-      enable_car_ball_collision  = random_bool()
-    )
+    config_a = TestMutatorConfig.random()
     config_b = copy.copy(config_a)
 
     self.assertIs(config_a.gravity, config_b.gravity)
     self.compare(config_a, config_b)
 
   def test_deep_copy(self):
-    config_a = rs.MutatorConfig(
-      gravity                    = random_vec(),
-      car_mass                   = random_float(),
-      car_world_friction         = random_float(),
-      car_world_restitution      = random_float(),
-      ball_mass                  = random_float(),
-      ball_max_speed             = random_float(),
-      ball_drag                  = random_float(),
-      ball_world_friction        = random_float(),
-      ball_world_restitution     = random_float(),
-      jump_accel                 = random_float(),
-      jump_immediate_force       = random_float(),
-      boost_accel                = random_float(),
-      boost_used_per_second      = random_float(),
-      respawn_delay              = random_float(),
-      bump_cooldown_time         = random_float(),
-      boost_pad_cooldown_big     = random_float(),
-      boost_pad_cooldown_small   = random_float(),
-      car_spawn_boost_amount     = random_float(),
-      ball_hit_extra_force_scale = random_float(),
-      bump_force_scale           = random_float(),
-      ball_radius                = random_float(),
-      unlimited_flips            = random_bool(),
-      unlimited_double_jumps     = random_bool(),
-      demo_mode                  = random.randint(0, 2),
-      enable_team_demos          = random_bool(),
-      enable_car_car_collision   = random_bool(),
-      enable_car_ball_collision  = random_bool()
-    )
+    config_a = TestMutatorConfig.random()
     config_b = copy.deepcopy(config_a)
-
     self.assertIsNot(config_a.gravity, config_b.gravity)
     self.compare(config_a, config_b)
 
