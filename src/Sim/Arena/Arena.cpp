@@ -12,6 +12,7 @@
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btSphereShape.h"
 
 #include <array>
+#include <span>
 
 RS_NS_START
 RSAPI void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
@@ -547,24 +548,30 @@ Arena::Arena(GameMode gameMode, const ArenaConfig& config, float tickRate) : _mu
 
 		bool isHoops = gameMode == GameMode::HOOPS;
 
-		int amountSmall = isHoops ? LOCS_AMOUNT_SMALL_HOOPS : LOCS_AMOUNT_SMALL_SOCCAR;
-		_boostPads.reserve(LOCS_AMOUNT_BIG + amountSmall);
+		auto toSpan = [](auto &val) { return std::span<const Vec, std::dynamic_extent> (std::begin (val), std::end (val)); };
 
-		for (int i = 0; i < (LOCS_AMOUNT_BIG + amountSmall); i++) {
-			bool isBig = i < LOCS_AMOUNT_BIG;
+		std::span<const Vec> big   = isHoops ? toSpan (LOCS_BIG_HOOPS) : toSpan (LOCS_BIG_SOCCAR);
+		std::span<const Vec> small = isHoops ? toSpan (LOCS_SMALL_HOOPS) : toSpan (LOCS_SMALL_SOCCAR);
 
-			btVector3 pos;
-			if (isHoops) {
-				pos = isBig ? LOCS_BIG_HOOPS[i] : LOCS_SMALL_HOOPS[i - LOCS_AMOUNT_BIG];
-			} else {
-				pos = isBig ? LOCS_BIG_SOCCAR[i] : LOCS_SMALL_SOCCAR[i - LOCS_AMOUNT_BIG];
+		if (config.customBoostPads)
+		{
+			big   = toSpan (config.customBigBoostPads);
+			small = toSpan (config.customSmallBoostPads);
+		}
+
+		_boostPads.reserve(big.size() + small.size());
+
+		for (auto const &pads : {big, small})
+		{
+			for (auto const &pos : pads)
+			{
+				BoostPad* pad = BoostPad::_AllocBoostPad();
+				pad->_Setup(pads.data () == big.data (), pos);
+
+				_boostPads.push_back(pad);
+				if (!config.customBoostPads)
+					_boostPadGrid.Add(pad);
 			}
-
-			BoostPad* pad = BoostPad::_AllocBoostPad();
-			pad->_Setup(isBig, pos);
-
-			_boostPads.push_back(pad);
-			_boostPadGrid.Add(pad);
 		}
 	}
 
@@ -799,8 +806,15 @@ void Arena::Step(int ticksToSimulate) {
 		for (Car* car : _cars) {
 			car->_PostTickUpdate(gameMode, tickTime, _mutatorConfig);
 			car->_FinishPhysicsTick(_mutatorConfig);
-			if (hasArenaStuff)
-				_boostPadGrid.CheckCollision(car);
+			if (hasArenaStuff) {
+				if (_config.customBoostPads)
+				{
+					for (auto &pad : _boostPads)
+						pad->_CheckCollide(car);
+				}
+				else
+					_boostPadGrid.CheckCollision(car);
+			}
 		}
 
 		if (hasArenaStuff && !ballOnly)

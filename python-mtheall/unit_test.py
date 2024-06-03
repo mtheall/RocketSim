@@ -1103,6 +1103,184 @@ class TestMutatorConfig(FuzzyTestCase):
     self.assertIsNot(config_a.gravity, config_b.gravity)
     self.compare(config_a, config_b)
 
+class TestArenaConfig(FuzzyTestCase):
+  def compare(self, config_a, config_b):
+    self.assertEqual(config_a.memory_weight_mode,    config_b.memory_weight_mode)
+    self.assertEqual(config_a.min_pos,               config_a.min_pos)
+    self.assertEqual(config_a.max_pos,               config_a.max_pos)
+    self.assertEqual(config_a.max_aabb_len,          config_a.max_aabb_len)
+    self.assertEqual(config_a.no_ball_rot,           config_a.no_ball_rot)
+    self.assertEqual(config_a.use_custom_broadphase, config_a.use_custom_broadphase)
+    self.assertEqual(config_a.max_objects,           config_a.max_objects)
+
+    if config_a.custom_big_boost_pads is None and config_a.custom_small_boost_pads is None:
+      self.assertIsNone(config_b.custom_big_boost_pads)
+      self.assertIsNone(config_b.custom_small_boost_pads)
+    else:
+      if not config_a.custom_big_boost_pads is None:
+        self.assertEqual(len(config_a.custom_big_boost_pads), len(config_b.custom_big_boost_pads))
+        for a, b in zip(config_a.custom_big_boost_pads, config_b.custom_big_boost_pads):
+          self.assertEqual(a, b)
+
+      if not config_a.custom_small_boost_pads is None:
+        self.assertEqual(len(config_a.custom_small_boost_pads), len(config_b.custom_small_boost_pads))
+        for a, b in zip(config_a.custom_small_boost_pads, config_b.custom_small_boost_pads):
+          self.assertEqual(a, b)
+
+  @staticmethod
+  def random():
+    a = random_vec(-5000.0, -4000.0)
+    b = rs.Vec(abs(a.x), abs(a.y), abs(a.z))
+    return rs.ArenaConfig(
+      memory_weight_mode = random.randint (0, 1),
+      min_pos = a,
+      max_pos = b,
+      max_aabb_len = random.uniform(400.0, 500.0),
+      no_ball_rot = random_bool(),
+      use_custom_broadphase = random_bool(),
+      max_objects = random_int()
+    )
+
+  def test_basic(self):
+    config = rs.ArenaConfig()
+
+    for i in range(100):
+      config = TestArenaConfig.random()
+      arena = rs.Arena(config=config)
+      self.compare(config, arena.get_config())
+
+  def test_custom_boost_pads(self):
+    for i in range(10):
+      config = TestArenaConfig.random()
+
+      if random_bool():
+        config.custom_big_boost_pads = [random_vec(-4000, 4000) for i in range(random.randint(0, 3))]
+
+      if random_bool():
+        config.custom_small_boost_pads = [random_vec(-4000, 4000) for i in range(random.randint(0, 3))]
+
+      arena = rs.Arena(config=config)
+
+      # make sure this doesn't throw any errors
+      arena.get_gym_state()
+
+      if config.custom_big_boost_pads is None and config.custom_small_boost_pads is None:
+        continue
+
+      big   = config.custom_big_boost_pads or []
+      small = config.custom_small_boost_pads or []
+
+      pads = arena.get_boost_pads()
+      self.assertEqual(len(pads), len(big) + len(small))
+
+      for a, b in zip(pads, big + small):
+        self.assertEqual(a.get_pos(), b)
+
+    config = TestArenaConfig.random()
+    config.custom_big_boost_pads   = [rs.Vec(-2000.0, -2000.0, 73.0)]
+    config.custom_small_boost_pads = [rs.Vec( 2000.0,  2000.0, 70.0)]
+
+    arena = rs.Arena(config=config)
+    car = arena.add_car(rs.Team.BLUE)
+    arena.reset_kickoff(seed=999)
+
+    # drive toward the big boost but deplete
+    while car.get_state().boost > 0:
+      target_chase(config.custom_small_boost_pads[0], car)
+      arena.step()
+
+    # grab the big boost
+    for i in range(1000):
+      target_chase(config.custom_big_boost_pads[0], car)
+      arena.step()
+      if car.get_state().boost > 0:
+        break
+
+    self.assertEqual(car.get_state().boost, 100)
+
+    # drive toward the small boost but deplete
+    while car.get_state().boost > 0:
+      target_chase(config.custom_small_boost_pads[0], car)
+      arena.step()
+
+    # grab the small boost
+    for i in range(1000):
+      target_chase(config.custom_small_boost_pads[0], car)
+      arena.step()
+      if car.get_state().boost > 0:
+        break
+
+    self.assertEqual(car.get_state().boost, 12)
+
+  def test_pickle(self):
+    for i in range(10):
+      config_a = TestArenaConfig.random()
+      config_b = pickled(config_a)
+      self.assertIsNot(config_a.min_pos, config_b.min_pos)
+      self.assertIsNot(config_a.max_pos, config_b.max_pos)
+      self.compare(config_a, config_b)
+
+      if random_bool():
+        config_a.custom_big_boost_pads = [random_vec() for i in range(random_int())]
+
+      if random_bool():
+        config_a.custom_small_boost_pads = [random_vec() for i in range(random_int())]
+
+      config_b = pickled(config_a)
+      self.assertIsNot(config_a.min_pos, config_b.min_pos)
+      self.assertIsNot(config_a.max_pos, config_b.max_pos)
+      if not config_a.custom_big_boost_pads is None:
+        self.assertIsNot(config_a.custom_big_boost_pads, config_b.custom_big_boost_pads)
+      if not config_a.custom_small_boost_pads is None:
+        self.assertIsNot(config_a.custom_small_boost_pads, config_b.custom_small_boost_pads)
+      self.compare(config_a, config_b)
+
+  def test_copy(self):
+    for i in range(10):
+      config_a = TestArenaConfig.random()
+      config_b = copy.copy(config_a)
+      self.assertIs(config_a.min_pos, config_b.min_pos)
+      self.assertIs(config_a.max_pos, config_b.max_pos)
+      self.compare(config_a, config_b)
+
+      if random_bool():
+        config_a.custom_big_boost_pads = [random_vec() for i in range(random_int())]
+
+      if random_bool():
+        config_a.custom_small_boost_pads = [random_vec() for i in range(random_int())]
+
+      config_b = copy.copy(config_a)
+      self.assertIs(config_a.min_pos, config_b.min_pos)
+      self.assertIs(config_a.max_pos, config_b.max_pos)
+      if not config_a.custom_big_boost_pads is None:
+        self.assertIs(config_a.custom_big_boost_pads, config_b.custom_big_boost_pads)
+      if not config_a.custom_small_boost_pads is None:
+        self.assertIs(config_a.custom_small_boost_pads, config_b.custom_small_boost_pads)
+      self.compare(config_a, config_b)
+
+  def test_deep_copy(self):
+    for i in range(10):
+      config_a = TestArenaConfig.random()
+      config_b = copy.deepcopy(config_a)
+      self.assertIsNot(config_a.min_pos, config_b.min_pos)
+      self.assertIsNot(config_a.max_pos, config_b.max_pos)
+      self.compare(config_a, config_b)
+
+      if random_bool():
+        config_a.custom_big_boost_pads = [random_vec() for i in range(random_int())]
+
+      if random_bool():
+        config_a.custom_small_boost_pads = [random_vec() for i in range(random_int())]
+
+      config_b = copy.deepcopy(config_a)
+      self.assertIsNot(config_a.min_pos, config_b.min_pos)
+      self.assertIsNot(config_a.max_pos, config_b.max_pos)
+      if not config_a.custom_big_boost_pads is None:
+        self.assertIsNot(config_a.custom_big_boost_pads, config_b.custom_big_boost_pads)
+      if not config_a.custom_small_boost_pads is None:
+        self.assertIsNot(config_a.custom_small_boost_pads, config_b.custom_small_boost_pads)
+      self.compare(config_a, config_b)
+
 class TestArena(FuzzyTestCase):
   def compare(self, arena_a, arena_b):
     self.assertEqual(arena_a.game_mode,    arena_b.game_mode)

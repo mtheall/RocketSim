@@ -3,6 +3,8 @@
 #include "../../../DataStream/DataStreamOut.h"
 #include "../../../DataStream/DataStreamIn.h"
 
+#include <vector>
+
 RS_NS_START
 
 // Mode of speed/memory optimization for the arena
@@ -37,6 +39,10 @@ struct ArenaConfig {
 
 	// Maximum number of objects
 	int maxObjects = 512;
+
+	bool customBoostPads = false;
+	std::vector<Vec> customBigBoostPads;
+	std::vector<Vec> customSmallBoostPads;
 
 	void Serialize(DataStreamOut& out) const;
 	void Deserialize(DataStreamIn& in);

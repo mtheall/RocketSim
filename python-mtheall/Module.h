@@ -7,12 +7,14 @@
 
 #include "Math/Math.h"
 #include "Sim/Arena/Arena.h"
+#include "Sim/Arena/ArenaConfig/ArenaConfig.h"
 #include "Sim/BallPredTracker/BallPredTracker.h"
 #include "Sim/Car/Car.h"
 #include "Sim/GameEventTracker/GameEventTracker.h"
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -710,6 +712,41 @@ struct MutatorConfig
 	GETSET_DECLARE (MutatorConfig, gravity)
 };
 
+struct ArenaConfig
+{
+	PyObject_HEAD;
+
+	RocketSim::ArenaConfig config;
+
+	Vec *minPos;
+	Vec *maxPos;
+	PyObject *customBigBoostPads;
+	PyObject *customSmallBoostPads;
+
+	static PyTypeObject *Type;
+	static PyMemberDef Members[];
+	static PyMethodDef Methods[];
+	static PyGetSetDef GetSet[];
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+
+	static PyRef<ArenaConfig> NewFromArenaConfig (RocketSim::ArenaConfig const &config_ = {}) noexcept;
+	static bool InitFromArenaConfig (ArenaConfig *self_, RocketSim::ArenaConfig const &config_ = {}) noexcept;
+	static std::optional<RocketSim::ArenaConfig> ToArenaConfig (ArenaConfig *self_) noexcept;
+
+	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
+	static int Init (ArenaConfig *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static void Dealloc (ArenaConfig *self_) noexcept;
+	static PyObject *Pickle (ArenaConfig *self_) noexcept;
+	static PyObject *Unpickle (ArenaConfig *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (ArenaConfig *self_) noexcept;
+	static PyObject *DeepCopy (ArenaConfig *self_, PyObject *memo_) noexcept;
+
+	GETSET_DECLARE (ArenaConfig, memory_weight_mode);
+	GETSET_DECLARE (ArenaConfig, min_pos);
+	GETSET_DECLARE (ArenaConfig, max_pos);
+};
+
 struct Arena
 {
 	class ThreadPool;
@@ -774,6 +811,7 @@ struct Arena
 	static PyObject *GetBoostPads (Arena *self_) noexcept;
 	static PyObject *GetCarFromId (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;
 	static PyObject *GetCars (Arena *self_) noexcept;
+	static PyObject *GetConfig (Arena *self_) noexcept;
 	static PyObject *GetGymState (Arena *self_) noexcept;
 	static PyObject *GetMutatorConfig (Arena *self_) noexcept;
 	static PyObject *IsBallProbablyGoingIn (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept;

@@ -135,14 +135,6 @@ int getBoostPadIndex (RocketSim::BoostPad const *pad_, std::unordered_map<std::u
 	return it->second;
 }
 
-std::pair<std::uint32_t const *, std::size_t> getIndexMapping (RocketSim::GameMode gameMode_) noexcept
-{
-	if (gameMode_ == RocketSim::GameMode::HOOPS)
-		return {hoopsIndexMapping.data (), hoopsIndexMapping.size ()};
-
-	return {soccarIndexMapping.data (), soccarIndexMapping.size ()};
-}
-
 std::unordered_map<std::uint64_t, unsigned> const &getBoostMapping (RocketSim::GameMode gameMode_) noexcept
 {
 	if (gameMode_ == RocketSim::GameMode::HOOPS)
@@ -153,41 +145,50 @@ std::unordered_map<std::uint64_t, unsigned> const &getBoostMapping (RocketSim::G
 
 bool ensureBoostPadByIndex (RocketSim::Python::Arena *arena_) noexcept
 {
-	if (arena_->boostPads->empty () || arena_->boostPadsByIndex)
+	if (arena_->arena->GetArenaConfig ().customBoostPads)
 		return true;
 
-	arena_->boostPadsByIndex = new (std::nothrow)
-	    std::vector<RocketSim::Python::PyRef<RocketSim::Python::BoostPad>> (arena_->boostPads->size ());
-	if (!arena_->boostPadsByIndex)
+	if (arena_->boostPads->empty ())
+		return true;
+
+	try
 	{
-		PyErr_NoMemory ();
+		auto boostPadsByIndex = std::make_unique<std::vector<RocketSim::Python::PyRef<RocketSim::Python::BoostPad>>> (
+		    arena_->boostPads->size ());
+
+		auto const &boostMapping = getBoostMapping (arena_->arena->gameMode);
+		for (auto const &[ptr, pad] : *arena_->boostPads)
+		{
+			auto const index = getBoostPadIndex (ptr, boostMapping);
+			if (index < 0 || static_cast<unsigned> (index) > arena_->boostPads->size ())
+			{
+				PyErr_SetString (PyExc_ValueError, "Failed to map boost pad index");
+				return false;
+			}
+
+			boostPadsByIndex->operator[] (index) = pad;
+		}
+
+		for (auto const &pad : *boostPadsByIndex)
+		{
+			if (!pad)
+			{
+				PyErr_SetString (PyExc_ValueError, "Failed to map boost pad index");
+				return false;
+			}
+		}
+
+		*arena_->boostPadsByIndex = std::move (*boostPadsByIndex);
+	}
+	catch (std::exception const &err)
+	{
+		PyErr_SetString (PyExc_RuntimeError, err.what ());
 		return false;
 	}
-
-	auto const &boostMapping = getBoostMapping (arena_->arena->gameMode);
-	for (auto const &[ptr, pad] : *arena_->boostPads)
+	catch (...)
 	{
-		auto const index = getBoostPadIndex (ptr, boostMapping);
-		if (index < 0 || static_cast<unsigned> (index) > arena_->boostPads->size ())
-		{
-			delete arena_->boostPadsByIndex;
-			arena_->boostPadsByIndex = nullptr;
-			PyErr_SetString (PyExc_ValueError, "Failed to map boost pad index");
-			return false;
-		}
-
-		(*arena_->boostPadsByIndex)[index] = pad;
-	}
-
-	for (auto const &pad : *arena_->boostPadsByIndex)
-	{
-		if (!pad)
-		{
-			delete arena_->boostPadsByIndex;
-			arena_->boostPadsByIndex = nullptr;
-			PyErr_SetString (PyExc_ValueError, "Failed to map boost pad index");
-			return false;
-		}
+		PyErr_SetString (PyExc_RuntimeError, "Unknown exception");
+		return false;
 	}
 
 	return true;
@@ -476,6 +477,10 @@ Use RocketSim.CarConfig.OCTANE and friends for the int version of config)"},
         .ml_meth  = (PyCFunction)&Arena::CloneInto,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc   = R"(clone_into(self, target: RocketSim.Arena, copy_callbacks: bool = False))"},
+    {.ml_name     = "get_config",
+        .ml_meth  = (PyCFunction)&Arena::GetConfig,
+        .ml_flags = METH_NOARGS,
+        .ml_doc   = R"(get_config(self) -> RocketSim.ArenaConfig)"},
     {.ml_name     = "get_car_from_id",
         .ml_meth  = (PyCFunction)&Arena::GetCarFromId,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
@@ -658,7 +663,12 @@ PyType_Slot Arena::Slots[] = {
     {Py_tp_members, &Arena::Members},
     {Py_tp_getset, &Arena::GetSet},
     {Py_tp_doc, (void *)R"(Arena
-__init__(self, game_mode: int = RocketSim.GameMode.SOCCAR, memory_weight_mode = RocketSim.MemoryWeightMode.HEAVY, tick_rate: float = 120.0))"},
+__init__(self,
+	game_mode: int = RocketSim.GameMode.SOCCAR,
+	memory_weight_mode: int = RocketSim.MemoryWeightMode.HEAVY,
+	tick_rate: float = 120.0,
+	config: RocketSim.ArenaConfig = RocketSim.ArenaConfig())
+	Note: memory_weight_mode overrides config.memory_weight_mode if specified)"},
     {0, nullptr},
 };
 
@@ -682,7 +692,7 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	new (&self->threadPool) std::shared_ptr<Arena::ThreadPool>{};
 	self->cars                        = new (std::nothrow) std::map<std::uint32_t, PyRef<Car>>{};
 	self->boostPads                   = new (std::nothrow) std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
-	self->boostPadsByIndex            = nullptr;
+	self->boostPadsByIndex            = new (std::nothrow) std::vector<PyRef<BoostPad>>{};
 	self->ballPrediction              = nullptr;
 	self->gameEvent                   = nullptr;
 	self->ball                        = nullptr;
@@ -710,12 +720,13 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 	self->stepExceptionValue          = nullptr;
 	self->stepExceptionTraceback      = nullptr;
 
-	if (!self->cars || !self->boostPads)
+	if (!self->cars || !self->boostPads || !self->boostPadsByIndex)
 	{
 		self->arena.~shared_ptr ();
 		self->threadPool.~shared_ptr ();
 		delete self->cars;
 		delete self->boostPads;
+		delete self->boostPadsByIndex;
 
 		return PyErr_NoMemory ();
 	}
@@ -725,17 +736,22 @@ PyObject *Arena::New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) 
 
 int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
+	RocketSim::ArenaConfig arenaConfig{};
+
+	PyObject *config     = nullptr; // borrowed reference
 	int gameMode         = static_cast<int> (RocketSim::GameMode::SOCCAR);
-	int memoryWeightMode = static_cast<int> (RocketSim::ArenaMemWeightMode::HEAVY);
+	int memoryWeightMode = static_cast<int> (arenaConfig.memWeightMode);
 	float tickRate       = 120.0f;
 
 	static char gameModeKwd[]         = "game_mode";
 	static char memoryWeightModeKwd[] = "memory_weight_mode";
 	static char tickRateKwd[]         = "tick_rate";
+	static char configKwd[]           = "config";
 
-	static char *dict[] = {gameModeKwd, memoryWeightModeKwd, tickRateKwd, nullptr};
+	static char *dict[] = {gameModeKwd, memoryWeightModeKwd, tickRateKwd, configKwd, nullptr};
 
-	if (!PyArg_ParseTupleAndKeywords (args_, kwds_, "|iif", dict, &gameMode, &memoryWeightMode, &tickRate))
+	if (!PyArg_ParseTupleAndKeywords (
+	        args_, kwds_, "|iifO!", dict, &gameMode, &memoryWeightMode, &tickRate, ArenaConfig::Type, &config))
 		return -1;
 
 	try
@@ -766,7 +782,22 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		return -1;
 	}
 
-	switch (static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode))
+	// check if config was specified
+	if (config)
+	{
+		auto result = ArenaConfig::ToArenaConfig (PyCast<ArenaConfig> (config));
+		if (!result.has_value ())
+			return -1;
+
+		arenaConfig = std::move (result.value ());
+	}
+
+	// check if memory_weight_mode was specified
+	if ((args_ && PyTuple_Size (args_) >= 2 && PyTuple_GetItem (args_, 1)) ||
+	    (kwds_ && PyDict_GetItemString (kwds_, "memory_weight_mode")))
+		arenaConfig.memWeightMode = static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode);
+
+	switch (arenaConfig.memWeightMode)
 	{
 	case RocketSim::ArenaMemWeightMode::LIGHT:
 	case RocketSim::ArenaMemWeightMode::HEAVY:
@@ -796,9 +827,6 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 
 	try
 	{
-		RocketSim::ArenaConfig arenaConfig;
-		arenaConfig.memWeightMode = static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode);
-
 		auto arena = std::shared_ptr<RocketSim::Arena> (
 		    RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode), arenaConfig, tickRate));
 		if (!arena)
@@ -816,7 +844,8 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		if (!ball)
 			throw -1;
 
-		auto boostPads = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
+		auto boostPads        = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
+		auto boostPadsByIndex = std::vector<PyRef<BoostPad>>{};
 		for (auto const &pad : arena->GetBoostPads ())
 		{
 			auto ref = PyRef<BoostPad>::steal (BoostPad::New ());
@@ -824,13 +853,15 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 				throw -1;
 
 			ref->pad = pad;
-			boostPads.emplace (pad, std::move (ref));
+			boostPads.emplace (pad, ref);
+			boostPadsByIndex.emplace_back (std::move (ref));
 		}
 
 		// no exceptions thrown after this point
 		self_->arena = arena;
 		self_->cars->clear ();
-		*self_->boostPads = std::move (boostPads);
+		*self_->boostPads        = std::move (boostPads);
+		*self_->boostPadsByIndex = std::move (boostPadsByIndex);
 
 		PyRef<Ball>::assign (self_->ball, ball.borrowObject ());
 		self_->ball->arena = self_->arena;
@@ -867,7 +898,9 @@ int Arena::Init (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 	}
 	catch (...)
 	{
-		PyErr_SetString (PyExc_RuntimeError, "Unknown exception");
+		if (!PyErr_Occurred ())
+			PyErr_SetString (PyExc_RuntimeError, "Unknown exception");
+
 		return -1;
 	}
 }
@@ -940,35 +973,23 @@ PyObject *Arena::Pickle (Arena *self_) noexcept
 			return nullptr;
 	}
 
-	if (!self_->boostPads->empty ())
+	if (!self_->boostPadsByIndex->empty ())
 	{
-		auto pads = PyObjectRef::steal (PyList_New (self_->boostPads->size ()));
+		auto pads = PyObjectRef::steal (PyList_New (self_->boostPadsByIndex->size ()));
 		if (!pads)
 			return nullptr;
 
-		auto const &boostMapping = getBoostMapping (self_->arena->gameMode);
-		for (auto const &[ptr, pad] : *self_->boostPads)
+		for (unsigned idx = 0; idx < self_->boostPadsByIndex->size (); ++idx)
 		{
-			auto entry = BoostPadState::NewFromBoostPadState (pad->pad->GetState ());
+			auto const pad = self_->boostPadsByIndex->operator[] (idx)->pad;
+
+			auto entry = BoostPadState::NewFromBoostPadState (pad->GetState ());
 			if (!entry)
 				return nullptr;
 
-			auto const index = getBoostPadIndex (ptr, boostMapping);
-			if (index < 0 || index >= PyList_Size (pads.borrow ()))
-				continue;
-
 			// steals ref
-			if (PyList_SetItem (pads.borrow (), index, entry.giftObject ()) < 0)
+			if (PyList_SetItem (pads.borrow (), idx, entry.giftObject ()) < 0)
 				return nullptr;
-		}
-
-		for (unsigned i = 0; i < PyList_Size (pads.borrow ()); ++i)
-		{
-			if (!PyList_GetItem (pads.borrow (), i))
-			{
-				PyErr_SetString (PyExc_RuntimeError, "Failed to enumerate all boost pads");
-				return nullptr;
-			}
 		}
 
 		if (!DictSetValue (dict.borrow (), "boost_pads", pads.gift ()))
@@ -979,10 +1000,9 @@ PyObject *Arena::Pickle (Arena *self_) noexcept
 	    !DictSetValue (dict.borrow (), "game_mode", PyLong_FromLong (static_cast<long> (self_->arena->gameMode))))
 		return nullptr;
 
-	if (self_->arena->GetArenaConfig ().memWeightMode != RocketSim::ArenaMemWeightMode::HEAVY &&
-	    !DictSetValue (dict.borrow (),
-	        "memory_weight_mode",
-	        PyLong_FromLong (static_cast<long> (self_->arena->GetArenaConfig ().memWeightMode))))
+	if (!DictSetValue (dict.borrow (),
+	        "arena_config",
+	        ArenaConfig::NewFromArenaConfig (self_->arena->GetArenaConfig ()).giftObject ()))
 		return nullptr;
 
 	if (self_->arena->_lastCarID &&
@@ -1095,6 +1115,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	static char gameModeKwd[]                    = "game_mode";
 	static char memoryWeightModeKwd[]            = "memory_weight_mode";
 	static char lastCarIDKwd[]                   = "last_car_id";
+	static char arenaConfigKwd[]                 = "arena_config";
 	static char mutatorConfigKwd[]               = "mutator_config";
 	static char tickTimeKwd[]                    = "tick_time";
 	static char tickCountKwd[]                   = "tick_count";
@@ -1125,6 +1146,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	static char *dict[] = {gameModeKwd,
 	    memoryWeightModeKwd,
 	    lastCarIDKwd,
+	    arenaConfigKwd,
 	    mutatorConfigKwd,
 	    tickTimeKwd,
 	    tickCountKwd,
@@ -1153,7 +1175,8 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	    saveEventCallbackUserDataKwd,
 	    nullptr};
 
-	PyObject *mutatorConfig               = nullptr; // borrowed references
+	PyObject *arenaConfig                 = nullptr; // borrowed references
+	PyObject *mutatorConfig               = nullptr;
 	PyObject *ballState                   = nullptr;
 	PyObject *cars                        = nullptr;
 	PyObject *pads                        = nullptr;
@@ -1184,11 +1207,13 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 	int memoryWeightMode                  = static_cast<int> (RocketSim::ArenaMemWeightMode::HEAVY);
 	if (!PyArg_ParseTupleAndKeywords (dummy.borrow (),
 	        dict_,
-	        "|iikO!fKO!OOIIKKOOOOOOOOOOOOOO",
+	        "|iikO!O!fKO!OOIIKKOOOOOOOOOOOOOO",
 	        dict,
 	        &gameMode,
 	        &memoryWeightMode,
 	        &lastCarID,
+	        ArenaConfig::Type,
+	        &arenaConfig,
 	        MutatorConfig::Type,
 	        &mutatorConfig,
 	        &tickTime,
@@ -1304,11 +1329,22 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 	try
 	{
-		RocketSim::ArenaConfig arenaConfig;
-		arenaConfig.memWeightMode = static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode);
+		RocketSim::ArenaConfig config{};
+
+		// backwards compatibility
+		config.memWeightMode = static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode);
+
+		if (arenaConfig)
+		{
+			auto result = ArenaConfig::ToArenaConfig (PyCast<ArenaConfig> (arenaConfig));
+			if (!result.has_value ())
+				return nullptr;
+
+			config = std::move (result.value ());
+		}
 
 		auto arena = std::shared_ptr<RocketSim::Arena> (
-		    RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode), arenaConfig, 1.0f / tickTime));
+		    RocketSim::Arena::Create (static_cast<RocketSim::GameMode> (gameMode), config, 1.0f / tickTime));
 		if (!arena)
 			return PyErr_NoMemory ();
 
@@ -1328,7 +1364,10 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		if (cars)
 		{
 			if (!PySequence_Check (cars))
+			{
+				PyErr_SetString (PyExc_TypeError, "cars type must be a sequence");
 				return nullptr;
+			}
 
 			auto const numCars = PySequence_Size (cars);
 			for (unsigned i = 0; i < numCars; ++i)
@@ -1347,20 +1386,22 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		}
 
 		auto padMap = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
+		auto padVec = std::vector<PyRef<BoostPad>>{};
 		if (pads)
 		{
 			if (!PySequence_Check (pads))
+			{
+				PyErr_SetString (PyExc_TypeError, "boost_pads type must be a sequence");
 				return nullptr;
+			}
 
-			auto const &[indexMapping, indexMappingSize] = getIndexMapping (arena->gameMode);
+			auto const numPads = arena->GetBoostPads ().size ();
 
-			auto const numPads = PySequence_Size (pads);
-
-			if (numPads != indexMappingSize)
+			if (PySequence_Size (pads) != numPads)
 				return PyErr_Format (PyExc_KeyError,
 				    "Internal mapping error: expected %zu boost pads, got %zu",
-				    indexMappingSize,
-				    numPads);
+				    numPads,
+				    PySequence_Size (pads));
 
 			for (unsigned i = 0; i < numPads; ++i)
 			{
@@ -1368,23 +1409,8 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 				if (!pad)
 					return nullptr;
 
-				auto const [x, y] = extractKey (indexMapping[i]);
-
-				for (auto const p : arena->GetBoostPads ())
-				{
-					if (static_cast<int> (p->pos.x) == x && static_cast<int> (p->pos.y) == y)
-					{
-						pad->arena = arena;
-						pad->pad   = p;
-						break;
-					}
-				}
-
-				if (!pad->pad)
-				{
-					PyErr_SetString (PyExc_RuntimeError, "Failed to enumerate all boost pads");
-					return nullptr;
-				}
+				pad->arena = arena;
+				pad->pad   = arena->GetBoostPads ()[i];
 
 				auto state = PySequence_GetItem (pads, i);
 				if (!state)
@@ -1399,6 +1425,7 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 				pad->pad->SetState (BoostPadState::ToBoostPadState (PyCast<BoostPadState> (state)));
 
 				padMap[pad->pad] = pad;
+				padVec.emplace_back (std::move (pad));
 			}
 		}
 
@@ -1423,8 +1450,9 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 		self_->ball->arena = self_->arena;
 		self_->ball->ball  = self_->arena->ball;
 
-		*self_->cars      = std::move (carMap);
-		*self_->boostPads = std::move (padMap);
+		*self_->cars             = std::move (carMap);
+		*self_->boostPads        = std::move (padMap);
+		*self_->boostPadsByIndex = std::move (padVec);
 
 		self_->blueScore        = blueScore;
 		self_->orangeScore      = orangeScore;
@@ -1461,9 +1489,17 @@ PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 
 		Py_RETURN_NONE;
 	}
+	catch (std::exception const &err)
+	{
+		PyErr_SetString (PyExc_RuntimeError, err.what ());
+		return nullptr;
+	}
 	catch (...)
 	{
-		return PyErr_NoMemory ();
+		if (!PyErr_Occurred ())
+			PyErr_SetString (PyExc_RuntimeError, "Unknown exception");
+
+		return nullptr;
 	}
 }
 
@@ -1576,7 +1612,8 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		if (!ball)
 			return PyErr_NoMemory ();
 
-		auto boostPads = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
+		auto boostPads        = std::unordered_map<RocketSim::BoostPad *, PyRef<BoostPad>>{};
+		auto boostPadsByIndex = std::vector<PyRef<BoostPad>>{};
 		for (auto const &pad : arena->GetBoostPads ())
 		{
 			auto ref = PyRef<BoostPad>::steal (BoostPad::New ());
@@ -1584,7 +1621,8 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 				return PyErr_NoMemory ();
 
 			ref->pad = pad;
-			boostPads.emplace (pad, std::move (ref));
+			boostPads.emplace (pad, ref);
+			boostPadsByIndex.emplace_back (std::move (ref));
 		}
 
 		auto cars = std::map<std::uint32_t, PyRef<Car>>{};
@@ -1621,10 +1659,11 @@ PyObject *Arena::Clone (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 		}
 
 		// no exceptions thrown after this point
-		clone->arena      = arena;
-		clone->threadPool = self_->threadPool;
-		*clone->boostPads = std::move (boostPads);
-		*clone->cars      = std::move (cars);
+		clone->arena             = arena;
+		clone->threadPool        = self_->threadPool;
+		*clone->boostPads        = std::move (boostPads);
+		*clone->boostPadsByIndex = std::move (boostPadsByIndex);
+		*clone->cars             = std::move (cars);
 
 		PyRef<Ball>::assign (clone->ball, ball.borrowObject ());
 		clone->ball->arena = clone->arena;
@@ -1905,6 +1944,11 @@ PyObject *Arena::GetCars (Arena *self_) noexcept
 	return list.gift ();
 }
 
+PyObject *Arena::GetConfig (Arena *self_) noexcept
+{
+	return ArenaConfig::NewFromArenaConfig (self_->arena->GetArenaConfig ()).giftObject ();
+}
+
 PyObject *Arena::GetBallPrediction (Arena *self_, PyObject *args_, PyObject *kwds_) noexcept
 {
 	static char numStatesKwd[]    = "num_states";
@@ -2035,22 +2079,27 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 		PyTuple_SetItem (tuple.borrow (), 0, gameData.giftObject ());
 	}
 
+	if (!ensureBoostPadByIndex (self_))
+		return nullptr;
+
+	if (self_->boostPadsByIndex)
 	{
-		auto const &boostPads   = self_->arena->GetBoostPads ();
 		auto const numBoostPads = self_->arena->GetBoostPads ().size ();
+
+		if (self_->boostPadsByIndex->size () != numBoostPads)
+		{
+			PyErr_SetString (PyExc_RuntimeError, "Boost pads size mismatch");
+			return nullptr;
+		}
 
 		auto boostPadState = PyArrayRef (2, numBoostPads);
 		if (!boostPadState)
 			return nullptr;
 
-		auto const &boostMapping = getBoostMapping (self_->arena->gameMode);
-		for (unsigned i = 0; i < numBoostPads; ++i)
+		for (unsigned idx = 0; idx < numBoostPads; ++idx)
 		{
-			auto const &pad = boostPads[i];
-
-			auto const idx = getBoostPadIndex (pad, boostMapping);
-			if (idx < 0)
-				continue; // shouldn't happen
+			auto const pad = self_->boostPadsByIndex->operator[] (idx)->pad;
+			assert (pad);
 
 			auto const inv = numBoostPads - idx - 1;
 
@@ -2060,6 +2109,8 @@ PyObject *Arena::GetGymState (Arena *self_) noexcept
 
 		PyTuple_SetItem (tuple.borrow (), 1, boostPadState.giftObject ());
 	}
+	else
+		assert (self_->arena->GetBoostPads ().empty ());
 
 	{
 		auto ballState = PyArrayRef (2, 25);
@@ -2561,7 +2612,10 @@ PyObject *Arena::MultiStep (PyObject *dummy_, PyObject *args_, PyObject *kwds_) 
 		return nullptr;
 
 	if (!PySequence_Check (arenas))
+	{
+		PyErr_SetString (PyExc_TypeError, "arenas type must be a sequence");
 		return nullptr;
+	}
 
 	auto const count = PySequence_Size (arenas);
 	if (count == 0)
