@@ -344,6 +344,12 @@ PyObject *CarConfig::Pickle (CarConfig *self_) noexcept
 
 PyObject *CarConfig::Unpickle (CarConfig *self_, PyObject *dict_) noexcept
 {
+	if (!PyDict_Check (dict_))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict");
+		return nullptr;
+	}
+
 	auto const args = PyObjectRef::steal (PyTuple_New (0));
 	if (!args)
 		return nullptr;

@@ -190,6 +190,12 @@ PyObject *Car::InternalPickle (Car *self_) noexcept
 
 PyObject *Car::InternalUnpickle (std::shared_ptr<RocketSim::Arena> arena_, Car *self_, PyObject *dict_) noexcept
 {
+	if (!PyDict_Check (dict_))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict");
+		return nullptr;
+	}
+
 	auto const dummy = PyObjectRef::steal (PyTuple_New (0));
 	if (!dummy)
 		return nullptr;

@@ -221,7 +221,7 @@ PyObject *BallPredictor::Pickle (BallPredictor *self_) noexcept
 
 PyObject *BallPredictor::Unpickle (BallPredictor *self_, PyObject *dict_) noexcept
 {
-	if (!Py_IS_TYPE (dict_, &PyDict_Type))
+	if (!PyDict_Check (dict_))
 	{
 		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict");
 		return nullptr;

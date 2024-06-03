@@ -283,6 +283,12 @@ PyObject *BallState::Pickle (BallState *self_) noexcept
 
 PyObject *BallState::Unpickle (BallState *self_, PyObject *dict_) noexcept
 {
+	if (!PyDict_Check (dict_))
+	{
+		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict");
+		return nullptr;
+	}
+
 	auto const args = PyObjectRef::steal (PyTuple_New (0));
 	if (!args)
 		return nullptr;

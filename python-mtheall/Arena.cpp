@@ -1102,7 +1102,7 @@ PyObject *Arena::Pickle (Arena *self_) noexcept
 
 PyObject *Arena::Unpickle (Arena *self_, PyObject *dict_) noexcept
 {
-	if (!Py_IS_TYPE (dict_, &PyDict_Type))
+	if (!PyDict_Check (dict_))
 	{
 		PyErr_SetString (PyExc_ValueError, "Pickled object is not a dict");
 		return nullptr;
