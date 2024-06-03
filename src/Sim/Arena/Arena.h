@@ -92,10 +92,10 @@ public:
 		btSequentialImpulseConstraintSolver constraintSolver;
 	} _bulletWorldParams;
 
-	btRigidBody* _worldCollisionRBs;
-	size_t _worldCollisionRBAmount;
-	btBvhTriangleMeshShape* _worldCollisionBvhShapes;
-	btStaticPlaneShape* _worldCollisionPlaneShapes;
+	btRigidBody* _worldCollisionRBs = NULL;
+	size_t _worldCollisionRBAmount = 0;
+	btBvhTriangleMeshShape* _worldCollisionBvhShapes = NULL;
+	btStaticPlaneShape* _worldCollisionPlaneShapes = NULL;
 
 	struct {
 		BallTouchEventFn func = nullptr;
