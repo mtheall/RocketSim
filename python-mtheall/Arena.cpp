@@ -128,7 +128,7 @@ auto const hoopsBoostMapping  = buildBoostMapping (hoopsIndexMapping);
 
 int getBoostPadIndex (RocketSim::BoostPad const *pad_, std::unordered_map<std::uint64_t, unsigned> const &map_) noexcept
 {
-	auto const it = map_.find (makeKey (pad_->pos.x, pad_->pos.y));
+	auto const it = map_.find (makeKey (pad_->config.pos.x, pad_->config.pos.y));
 	if (it == std::end (map_))
 		return -1;
 
@@ -145,7 +145,7 @@ std::unordered_map<std::uint64_t, unsigned> const &getBoostMapping (RocketSim::G
 
 bool ensureBoostPadByIndex (RocketSim::Python::Arena *arena_) noexcept
 {
-	if (arena_->arena->GetArenaConfig ().customBoostPads)
+	if (arena_->arena->GetArenaConfig ().useCustomBoostPads)
 		return true;
 
 	if (arena_->boostPads->empty ())
@@ -1790,7 +1790,8 @@ PyObject *Arena::CloneInto (Arena *self_, PyObject *args_, PyObject *kwds_) noex
 
 		for (unsigned i = 0; i < padsCount; ++i)
 		{
-			if (padsB[i]->pad->isBig != padsA[i]->pad->isBig || padsB[i]->pad->pos != padsA[i]->pad->pos)
+			if (padsB[i]->pad->config.isBig != padsA[i]->pad->config.isBig ||
+			    padsB[i]->pad->config.pos != padsA[i]->pad->config.pos)
 			{
 				PyErr_SetString (PyExc_ValueError, "Boost pad mismatch");
 				return nullptr;

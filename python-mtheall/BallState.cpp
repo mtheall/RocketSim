@@ -177,7 +177,7 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	RocketSim::BallState state{};
 
 	PyObject *pos    = nullptr; // borrowed references
-	PyObject *rotMat = nullptr; // borrowed references
+	PyObject *rotMat = nullptr;
 	PyObject *vel    = nullptr;
 	PyObject *angVel = nullptr;
 

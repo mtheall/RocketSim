@@ -84,7 +84,7 @@ void BoostPad::Dealloc (BoostPad *self_) noexcept
 
 PyObject *BoostPad::Getis_big (BoostPad *self_, void *) noexcept
 {
-	if (self_->pad->isBig)
+	if (self_->pad->config.isBig)
 		Py_RETURN_TRUE;
 
 	Py_RETURN_FALSE;
@@ -92,7 +92,7 @@ PyObject *BoostPad::Getis_big (BoostPad *self_, void *) noexcept
 
 PyObject *BoostPad::GetPos (BoostPad *self_) noexcept
 {
-	auto pos = Vec::NewFromVec (self_->pad->pos);
+	auto pos = Vec::NewFromVec (self_->pad->config.pos);
 	if (!pos)
 		return nullptr;
 

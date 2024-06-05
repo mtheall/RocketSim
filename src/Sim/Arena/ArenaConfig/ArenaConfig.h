@@ -3,7 +3,7 @@
 #include "../../../DataStream/DataStreamOut.h"
 #include "../../../DataStream/DataStreamIn.h"
 
-#include <vector>
+#include "../../BoostPad/BoostPad.h"
 
 RS_NS_START
 
@@ -13,6 +13,12 @@ enum class ArenaMemWeightMode : byte {
 	HEAVY, // ~1,263KB per arena with 4 cars
 	LIGHT  // ~383KB per arena with 4 cars
 	// Measurements last updated 2024/5/9
+};
+
+// Custom boost pad
+struct CustomBoostPad {
+	Vec pos    = Vec(0, 0, 0);
+	bool isBig = false;
 };
 
 struct ArenaConfig {
@@ -40,9 +46,10 @@ struct ArenaConfig {
 	// Maximum number of objects
 	int maxObjects = 512;
 
-	bool customBoostPads = false;
-	std::vector<Vec> customBigBoostPads;
-	std::vector<Vec> customSmallBoostPads;
+	// Use a custom list of boost pads (customBoostPads) instead of the normal one
+	// NOTE: This will disable the boost pad grid and will thus worsen performance
+	bool useCustomBoostPads = false;
+	std::vector<BoostPadConfig> customBoostPads = {}; // Custom boost pads to use, if useCustomBoostPads
 
 	void Serialize(DataStreamOut& out) const;
 	void Deserialize(DataStreamIn& in);

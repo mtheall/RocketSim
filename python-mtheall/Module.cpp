@@ -182,6 +182,7 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 	MAKE_TYPE (BallPredictor);
 	MAKE_TYPE (BallState);
 	MAKE_TYPE (BoostPad);
+	MAKE_TYPE (BoostPadConfig);
 	MAKE_TYPE (BoostPadState);
 	MAKE_TYPE (Car);
 	MAKE_TYPE (CarConfig);

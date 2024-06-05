@@ -405,6 +405,35 @@ struct Ball
 	static PyObject *SetState (Ball *self_, PyObject *args_, PyObject *kwds_) noexcept;
 };
 
+struct BoostPadConfig
+{
+	PyObject_HEAD;
+
+	RocketSim::BoostPadConfig config;
+	Vec *pos;
+
+	static PyTypeObject *Type;
+	static PyMemberDef Members[];
+	static PyMethodDef Methods[];
+	static PyGetSetDef GetSet[];
+	static PyType_Slot Slots[];
+	static PyType_Spec Spec;
+
+	static PyRef<BoostPadConfig> NewFromBoostPadConfig (RocketSim::BoostPadConfig const &config_ = {}) noexcept;
+	static bool InitFromBoostPadConfig (BoostPadConfig *self_, RocketSim::BoostPadConfig const &config_ = {}) noexcept;
+	static RocketSim::BoostPadConfig ToBoostPadConfig (BoostPadConfig *self_) noexcept;
+
+	static PyObject *New (PyTypeObject *subtype_, PyObject *args_, PyObject *kwds_) noexcept;
+	static int Init (BoostPadConfig *self_, PyObject *args_, PyObject *kwds_) noexcept;
+	static void Dealloc (BoostPadConfig *self_) noexcept;
+	static PyObject *Pickle (BoostPadConfig *self_) noexcept;
+	static PyObject *Unpickle (BoostPadConfig *self_, PyObject *dict_) noexcept;
+	static PyObject *Copy (BoostPadConfig *self_) noexcept;
+	static PyObject *DeepCopy (BoostPadConfig *self_, PyObject *memo_) noexcept;
+
+	GETSET_DECLARE (BoostPadConfig, pos);
+};
+
 struct BoostPadState
 {
 	PyObject_HEAD;
@@ -720,8 +749,7 @@ struct ArenaConfig
 
 	Vec *minPos;
 	Vec *maxPos;
-	PyObject *customBigBoostPads;
-	PyObject *customSmallBoostPads;
+	PyObject *customBoostPads;
 
 	static PyTypeObject *Type;
 	static PyMemberDef Members[];

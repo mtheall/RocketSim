@@ -16,7 +16,7 @@ bool checkCustomBoostPads (PyObject *input_, bool setError_) noexcept
 
 	for (int i = 0; i < size; ++i)
 	{
-		if (!Py_IS_TYPE (PySequence_GetItem (input_, i), RocketSim::Python::Vec::Type))
+		if (!Py_IS_TYPE (PySequence_GetItem (input_, i), RocketSim::Python::BoostPadConfig::Type))
 		{
 			if (setError_)
 				PyErr_SetString (PyExc_TypeError, "Invalid type for custom boost pads");
@@ -28,7 +28,7 @@ bool checkCustomBoostPads (PyObject *input_, bool setError_) noexcept
 	return true;
 }
 
-RocketSim::Python::PyObjectRef convert (std::vector<RocketSim::Vec> const &input_) noexcept
+RocketSim::Python::PyObjectRef convert (std::vector<RocketSim::BoostPadConfig> const &input_) noexcept
 {
 	using namespace RocketSim::Python;
 
@@ -38,35 +38,35 @@ RocketSim::Python::PyObjectRef convert (std::vector<RocketSim::Vec> const &input
 
 	for (unsigned i = 0; i < input_.size (); ++i)
 	{
-		auto vec = Vec::NewFromVec (input_[i]);
-		if (!vec)
+		auto config = BoostPadConfig::NewFromBoostPadConfig (input_[i]);
+		if (!config)
 			return nullptr;
 
 		// steals ref
-		if (PyList_SetItem (output.borrow (), i, vec.giftObject ()) < 0)
+		if (PyList_SetItem (output.borrow (), i, config.giftObject ()) < 0)
 			return nullptr;
 	}
 
 	return output;
 }
 
-std::vector<RocketSim::Vec> convert (PyObject *input_) noexcept
+std::vector<RocketSim::BoostPadConfig> convert (PyObject *input_) noexcept
 {
 	using namespace RocketSim::Python;
 
-	std::vector<RocketSim::Vec> output;
+	std::vector<RocketSim::BoostPadConfig> output;
 
 	output.resize (PySequence_Size (input_));
 
 	for (unsigned i = 0; i < output.size (); ++i)
 	{
-		auto const vec = PySequence_GetItem (input_, i);
+		auto const config = PySequence_GetItem (input_, i);
 
-		assert (Py_IS_TYPE (vec, Vec::Type));
-		if (!Py_IS_TYPE (vec, Vec::Type))
+		assert (Py_IS_TYPE (config, BoostPadConfig::Type));
+		if (!Py_IS_TYPE (config, BoostPadConfig::Type))
 			return {};
 
-		output[i] = Vec::ToVec (PyCast<Vec> (vec));
+		output[i] = BoostPadConfig::ToBoostPadConfig (PyCast<BoostPadConfig> (config));
 	}
 
 	return output;
@@ -99,16 +99,11 @@ PyMemberDef ArenaConfig::Members[] = {
         .offset = offsetof (ArenaConfig, config) + offsetof (RocketSim::ArenaConfig, maxObjects),
         .flags  = 0,
         .doc    = "Maximum number of objects"},
-    {.name      = "custom_big_boost_pads",
+    {.name      = "custom_boost_pads",
         .type   = T_OBJECT,
-        .offset = offsetof (ArenaConfig, customBigBoostPads),
+        .offset = offsetof (ArenaConfig, customBoostPads),
         .flags  = 0,
-        .doc    = "Custom big boost pads"},
-    {.name      = "custom_small_boost_pads",
-        .type   = T_OBJECT,
-        .offset = offsetof (ArenaConfig, customSmallBoostPads),
-        .flags  = 0,
-        .doc    = "Custom big boost pads"},
+        .doc    = "Custom boost pads"},
     {.name = nullptr, .type = 0, .offset = 0, .flags = 0, .doc = nullptr},
 };
 
@@ -145,7 +140,7 @@ PyType_Slot ArenaConfig::Slots[] = {
     {Py_tp_members, &ArenaConfig::Members},
     {Py_tp_methods, &ArenaConfig::Methods},
     {Py_tp_getset, &ArenaConfig::GetSet},
-    {Py_tp_doc, (void *)R"(ArenaConfig
+    {Py_tp_doc, (void *)R"(Arena config
 __init__(self,
 	memory_weight_mode: int = RocketSim.MemoryWeightMode.HEAVY,
 	min_pos: RocketSim.Vec = RocketSim.Vec(-4500.0, -6000.0, 0.0),
@@ -153,7 +148,8 @@ __init__(self,
 	max_aabb_len: float = 370.0,
 	no_ball_rot: bool = True,
 	use_custom_broadphase: bool = True,
-	max_objects: int = 512))"},
+	max_objects: int = 512),
+	custom_boost_pads: Union[None, Sequence[RocketSim.BoostPadConfig]]))"},
     {0, nullptr},
 };
 
@@ -176,27 +172,24 @@ PyRef<ArenaConfig> ArenaConfig::NewFromArenaConfig (RocketSim::ArenaConfig const
 
 bool ArenaConfig::InitFromArenaConfig (ArenaConfig *self_, RocketSim::ArenaConfig const &config_) noexcept
 {
-	auto minPos               = Vec::NewFromVec (config_.minPos);
-	auto maxPos               = Vec::NewFromVec (config_.maxPos);
-	auto customBigBoostPads   = PyObjectRef::incRef (Py_None);
-	auto customSmallBoostPads = PyObjectRef::incRef (Py_None);
+	auto minPos          = Vec::NewFromVec (config_.minPos);
+	auto maxPos          = Vec::NewFromVec (config_.maxPos);
+	auto customBoostPads = PyObjectRef::incRef (Py_None);
 
 	if (!minPos || !maxPos)
 		return false;
 
-	if (config_.customBoostPads)
+	if (config_.useCustomBoostPads)
 	{
-		customBigBoostPads   = convert (config_.customBigBoostPads);
-		customSmallBoostPads = convert (config_.customSmallBoostPads);
+		customBoostPads = convert (config_.customBoostPads);
 
-		if (!customBigBoostPads || !customSmallBoostPads)
+		if (!customBoostPads)
 			return false;
 	}
 
 	PyRef<Vec>::assign (self_->minPos, minPos.borrowObject ());
 	PyRef<Vec>::assign (self_->maxPos, maxPos.borrowObject ());
-	PyObjectRef::assign (self_->customBigBoostPads, customBigBoostPads.borrow ());
-	PyObjectRef::assign (self_->customSmallBoostPads, customSmallBoostPads.borrow ());
+	PyObjectRef::assign (self_->customBoostPads, customBoostPads.borrow ());
 
 	self_->config = config_;
 
@@ -210,32 +203,17 @@ std::optional<RocketSim::ArenaConfig> ArenaConfig::ToArenaConfig (ArenaConfig *s
 	config.minPos = Vec::ToVec (self_->minPos);
 	config.maxPos = Vec::ToVec (self_->maxPos);
 
-	config.customBoostPads = false;
-	config.customBigBoostPads.clear ();
-	config.customSmallBoostPads.clear ();
+	config.useCustomBoostPads = false;
 
-	if (self_->customBigBoostPads && self_->customSmallBoostPads &&
-	    (!Py_IsNone (self_->customBigBoostPads) || !Py_IsNone (self_->customSmallBoostPads)))
+	if (self_->customBoostPads && !Py_IsNone (self_->customBoostPads))
 	{
 		try
 		{
-			config.customBoostPads = true;
+			if (!checkCustomBoostPads (self_->customBoostPads, true))
+				return std::nullopt;
 
-			if (!Py_IsNone (self_->customBigBoostPads))
-			{
-				if (!checkCustomBoostPads (self_->customBigBoostPads, true))
-					return std::nullopt;
-
-				config.customBigBoostPads = convert (self_->customBigBoostPads);
-			}
-
-			if (!Py_IsNone (self_->customSmallBoostPads))
-			{
-				if (!checkCustomBoostPads (self_->customSmallBoostPads, true))
-					return std::nullopt;
-
-				config.customSmallBoostPads = convert (self_->customSmallBoostPads);
-			}
+			config.useCustomBoostPads = true;
+			config.customBoostPads    = convert (self_->customBoostPads);
 		}
 		catch (...)
 		{
@@ -255,10 +233,9 @@ PyObject *ArenaConfig::New (PyTypeObject *subtype_, PyObject *args_, PyObject *k
 	if (!self)
 		return nullptr;
 
-	self->minPos               = nullptr;
-	self->maxPos               = nullptr;
-	self->customBigBoostPads   = nullptr;
-	self->customSmallBoostPads = nullptr;
+	self->minPos          = nullptr;
+	self->maxPos          = nullptr;
+	self->customBoostPads = nullptr;
 
 	return self.giftObject ();
 }
@@ -267,23 +244,21 @@ int ArenaConfig::Init (ArenaConfig *self_, PyObject *args_, PyObject *kwds_) noe
 {
 	RocketSim::ArenaConfig config{};
 
-	PyObject *minPos               = nullptr; // borrowed references
-	PyObject *maxPos               = nullptr;
-	PyObject *noBallRot            = nullptr;
-	PyObject *useCustomBroadphase  = nullptr;
-	PyObject *customBigBoostPads   = Py_None;
-	PyObject *customSmallBoostPads = Py_None;
-	int memoryWeightMode           = static_cast<int> (config.memWeightMode);
+	PyObject *minPos              = nullptr; // borrowed references
+	PyObject *maxPos              = nullptr;
+	PyObject *noBallRot           = nullptr;
+	PyObject *useCustomBroadphase = nullptr;
+	PyObject *customBoostPads     = Py_None;
+	int memoryWeightMode          = static_cast<int> (config.memWeightMode);
 
-	static char memoryWeightModeKwd[]     = "memory_weight_mode";
-	static char minPosKwd[]               = "min_pos";
-	static char maxPosKwd[]               = "max_pos";
-	static char maxAABBLenKwd[]           = "max_aabb_len";
-	static char noBallRotKwd[]            = "no_ball_rot";
-	static char useCustomBroadphaseKwd[]  = "use_custom_broadphase";
-	static char maxObjectsKwd[]           = "max_objects";
-	static char customBigBoostPadsKwd[]   = "custom_big_boost_pads";
-	static char customSmallBoostPadsKwd[] = "custom_small_boost_pads";
+	static char memoryWeightModeKwd[]    = "memory_weight_mode";
+	static char minPosKwd[]              = "min_pos";
+	static char maxPosKwd[]              = "max_pos";
+	static char maxAABBLenKwd[]          = "max_aabb_len";
+	static char noBallRotKwd[]           = "no_ball_rot";
+	static char useCustomBroadphaseKwd[] = "use_custom_broadphase";
+	static char maxObjectsKwd[]          = "max_objects";
+	static char customBoostPadsKwd[]     = "custom_boost_pads";
 
 	static char *dict[] = {memoryWeightModeKwd,
 	    minPosKwd,
@@ -292,8 +267,7 @@ int ArenaConfig::Init (ArenaConfig *self_, PyObject *args_, PyObject *kwds_) noe
 	    noBallRotKwd,
 	    useCustomBroadphaseKwd,
 	    maxObjectsKwd,
-	    customBigBoostPadsKwd,
-	    customSmallBoostPadsKwd,
+	    customBoostPadsKwd,
 	    nullptr};
 
 	if (!PyArg_ParseTupleAndKeywords (args_,
@@ -309,8 +283,7 @@ int ArenaConfig::Init (ArenaConfig *self_, PyObject *args_, PyObject *kwds_) noe
 	        &noBallRot,
 	        &useCustomBroadphase,
 	        &config.maxObjects,
-	        &customBigBoostPads,
-	        &customSmallBoostPads))
+	        &customBoostPads))
 		return -1;
 
 	config.memWeightMode = static_cast<RocketSim::ArenaMemWeightMode> (memoryWeightMode);
@@ -338,24 +311,13 @@ int ArenaConfig::Init (ArenaConfig *self_, PyObject *args_, PyObject *kwds_) noe
 	if (useCustomBroadphase)
 		config.useCustomBroadphase = PyObject_IsTrue (useCustomBroadphase);
 
-	if (!Py_IsNone (customBigBoostPads))
+	if (!Py_IsNone (customBoostPads))
 	{
-		if (!checkCustomBoostPads (customBigBoostPads, true))
+		if (!checkCustomBoostPads (customBoostPads, true))
 			return -1;
 
-		config.customBigBoostPads = convert (customBigBoostPads);
+		config.customBoostPads = convert (customBoostPads);
 	}
-
-	if (!Py_IsNone (customSmallBoostPads))
-	{
-		if (!checkCustomBoostPads (customSmallBoostPads, true))
-			return -1;
-
-		config.customSmallBoostPads = convert (customSmallBoostPads);
-	}
-
-	if (!Py_IsNone (customBigBoostPads) || !Py_IsNone (customSmallBoostPads))
-		config.customBoostPads = true;
 
 	if (!InitFromArenaConfig (self_, config))
 		return -1;
@@ -367,8 +329,7 @@ void ArenaConfig::Dealloc (ArenaConfig *self_) noexcept
 {
 	Py_XDECREF (self_->minPos);
 	Py_XDECREF (self_->maxPos);
-	Py_XDECREF (self_->customBigBoostPads);
-	Py_XDECREF (self_->customSmallBoostPads);
+	Py_XDECREF (self_->customBoostPads);
 
 	auto const tp_free = (freefunc)PyType_GetSlot (Type, Py_tp_free);
 	tp_free (self_);
@@ -395,12 +356,8 @@ PyObject *ArenaConfig::Pickle (ArenaConfig *self_) noexcept
 	    !DictSetValue (dict.borrow (), "max_pos", PyNewRef (self_->maxPos)))
 		return nullptr;
 
-	if (self_->customBigBoostPads && checkCustomBoostPads (self_->customBigBoostPads, false) &&
-	    !DictSetValue (dict.borrow (), "custom_big_boost_pads", PyNewRef (self_->customBigBoostPads)))
-		return nullptr;
-
-	if (self_->customSmallBoostPads && checkCustomBoostPads (self_->customSmallBoostPads, false) &&
-	    !DictSetValue (dict.borrow (), "custom_small_boost_pads", PyNewRef (self_->customSmallBoostPads)))
+	if (self_->customBoostPads && checkCustomBoostPads (self_->customBoostPads, false) &&
+	    !DictSetValue (dict.borrow (), "custom_boost_pads", PyNewRef (self_->customBoostPads)))
 		return nullptr;
 
 	if (self_->config.maxAABBLen != model.maxAABBLen &&
@@ -448,8 +405,7 @@ PyObject *ArenaConfig::Copy (ArenaConfig *self_) noexcept
 
 	PyRef<Vec>::assign (config->minPos, reinterpret_cast<PyObject *> (self_->minPos));
 	PyRef<Vec>::assign (config->maxPos, reinterpret_cast<PyObject *> (self_->maxPos));
-	PyObjectRef::assign (config->customBigBoostPads, self_->customBigBoostPads);
-	PyObjectRef::assign (config->customSmallBoostPads, self_->customSmallBoostPads);
+	PyObjectRef::assign (config->customBoostPads, self_->customBoostPads);
 
 	auto result = ToArenaConfig (self_);
 	if (!result.has_value ())
@@ -474,23 +430,14 @@ PyObject *ArenaConfig::DeepCopy (ArenaConfig *self_, PyObject *memo_) noexcept
 	if (!config->maxPos)
 		return nullptr;
 
-	if (self_->customBigBoostPads && !Py_IsNone (self_->customBigBoostPads))
+	if (self_->customBoostPads && !Py_IsNone (self_->customBoostPads))
 	{
-		PyObjectRef::assign (config->customBigBoostPads, PyDeepCopy (self_->customBigBoostPads, memo_));
-		if (!config->customBigBoostPads)
+		PyObjectRef::assign (config->customBoostPads, PyDeepCopy (self_->customBoostPads, memo_));
+		if (!config->customBoostPads)
 			return nullptr;
 	}
 	else
-		PyObjectRef::assign (config->customBigBoostPads, Py_None);
-
-	if (self_->customSmallBoostPads && !Py_IsNone (self_->customSmallBoostPads))
-	{
-		PyObjectRef::assign (config->customSmallBoostPads, PyDeepCopy (self_->customSmallBoostPads, memo_));
-		if (!config->customSmallBoostPads)
-			return nullptr;
-	}
-	else
-		PyObjectRef::assign (config->customSmallBoostPads, Py_None);
+		PyObjectRef::assign (config->customBoostPads, Py_None);
 
 	auto result = ToArenaConfig (self_);
 	if (!result.has_value ())
