@@ -26,11 +26,10 @@ void Car::SetState(const CarState& state) {
 	btTransform rbTransform;
 	rbTransform.setOrigin(state.pos * UU_TO_BT);
 	rbTransform.setBasis(state.rotMat);
-
 	_rigidBody.getWorldTransform() = rbTransform;
-
 	_rigidBody.m_linearVelocity = state.vel * UU_TO_BT;
 	_rigidBody.m_angularVelocity = state.angVel;
+	_rigidBody.updateInertiaTensor();
 
 	_velocityImpulseCache = { 0, 0, 0 };
 
@@ -92,14 +91,21 @@ void Car::_PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig&
 	// Do first part of the btVehicleRL update (update wheel transforms, do traces, calculate friction impulses) 
 	_bulletVehicle.updateVehicleFirst(tickTime, grid);
 
-
 	btMatrix3x3 basis = _rigidBody.getWorldTransform().m_basis;
 
 	bool jumpPressed = controls.jump && !_internalState.lastControls.jump;
 
+	// Update wheelsWithContact
 	int numWheelsInContact = 0;
-	for (int i = 0; i < 4; i++)
-		numWheelsInContact += _bulletVehicle.m_wheelInfo[i].m_raycastInfo.m_isInContact;
+	for (int i = 0; i < 4; i++) {
+		bool inContact = _bulletVehicle.m_wheelInfo[i].m_raycastInfo.m_isInContact;
+		_internalState.wheelsWithContact[i] = inContact;
+		numWheelsInContact += inContact;
+	}
+
+	{ // Update isOnGround
+		_internalState.isOnGround = numWheelsInContact >= 3;
+	}
 
 	float forwardSpeed_UU = _bulletVehicle.getForwardSpeed() * BT_TO_UU;
 	_UpdateWheels(tickTime, mutatorConfig, numWheelsInContact, forwardSpeed_UU);
@@ -132,18 +138,6 @@ void Car::_PostTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig
 		return;
 
 	_internalState.rotMat = _rigidBody.getWorldTransform().m_basis;
-
-	// Update wheelsWithContact
-	int numWheelsInContact = 0;
-	for (int i = 0; i < 4; i++) {
-		bool inContact = _bulletVehicle.m_wheelInfo[i].m_raycastInfo.m_isInContact;
-		_internalState.wheelsWithContact[i] = inContact;
-		numWheelsInContact += inContact;
-	}
-
-	{ // Update isOnGround
-		_internalState.isOnGround = numWheelsInContact >= 3;
-	}
 
 	{ // Update supersonic
 		float speedSquared = (_rigidBody.m_linearVelocity * BT_TO_UU).length2();
@@ -448,7 +442,7 @@ void Car::_UpdateWheels(float tickTime, const MutatorConfig& mutatorConfig, int 
 				if (_internalState.handbrakeVal) {
 					float handbrakeAmount = _internalState.handbrakeVal;
 
-					latFriction *= (HANDBRAKE_LAT_FRICTION_FACTOR_CURVE.GetOutput(latFriction) - 1) * handbrakeAmount + 1;
+					latFriction *= (HANDBRAKE_LAT_FRICTION_FACTOR_CURVE.GetOutput(frictionCurveInput) - 1) * handbrakeAmount + 1;
 					longFriction *= (HANDBRAKE_LONG_FRICTION_FACTOR_CURVE.GetOutput(frictionCurveInput) - 1) * handbrakeAmount + 1;
 				} else {
 					longFriction = 1; // If we aren't powersliding, it's not scaled down
@@ -506,13 +500,13 @@ void Car::_UpdateBoost(float tickTime, const MutatorConfig& mutatorConfig, float
 	// Apply boosting force and consume boost
 	if (_internalState.boost > 0 && _internalState.timeSpentBoosting > 0) {
 		_internalState.boost = RS_MAX(_internalState.boost - mutatorConfig.boostUsedPerSecond * tickTime, 0);
-
-		float forceScale = 1;
-		if (_internalState.isOnGround && forwardSpeed_UU > BOOST_ACCEL_GROUND_DECAY_MIN_VEL)
-			forceScale = (1 - BOOST_ACCEL_GROUND_DECAY_AMOUNT);
-
-		_rigidBody.applyCentralForce(GetForwardDir() * mutatorConfig.boostAccel * forceScale * CAR_MASS_BT);
+		_rigidBody.applyCentralForce(
+			(_internalState.isOnGround ? mutatorConfig.boostAccelGround : mutatorConfig.boostAccelAir) * UU_TO_BT
+			* GetForwardDir() * CAR_MASS_BT
+		);
 	}
+
+	_internalState.boost = RS_MIN(_internalState.boost, RLConst::BOOST_MAX);
 }
 
 void Car::_UpdateJump(float tickTime, const MutatorConfig& mutatorConfig, bool jumpPressed) {
@@ -524,6 +518,7 @@ void Car::_UpdateJump(float tickTime, const MutatorConfig& mutatorConfig, bool j
 			// TODO: RL does something similar to this time-pad, but not exactly the same
 		} else {
 			_internalState.hasJumped = false;
+			_internalState.jumpTime = 0;
 		}
 	}
 
@@ -556,6 +551,9 @@ void Car::_UpdateJump(float tickTime, const MutatorConfig& mutatorConfig, bool j
 		}
 
 		_rigidBody.applyCentralForce(totalJumpForce * UU_TO_BT * CAR_MASS_BT);
+	}
+
+	if (_internalState.isJumping || _internalState.hasJumped) {
 		_internalState.jumpTime += tickTime;
 	}
 }
@@ -644,7 +642,7 @@ void Car::_UpdateAirTorque(float tickTime, const MutatorConfig& mutatorConfig, b
 	}
 
 	if (controls.throttle != 0)
-		_rigidBody.applyCentralForce(GetForwardDir() * controls.throttle * THROTTLE_AIR_FORCE * CAR_MASS_BT);
+		_rigidBody.applyCentralForce(GetForwardDir() * controls.throttle * THROTTLE_AIR_ACCEL * UU_TO_BT * CAR_MASS_BT);
 }
 
 void Car::_UpdateDoubleJumpOrFlip(float tickTime, const MutatorConfig& mutatorConfig, bool jumpPressed, float forwardSpeed_UU) {

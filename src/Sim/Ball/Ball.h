@@ -65,7 +65,7 @@ public:
 
 	void _BulletSetup(GameMode gameMode, btDynamicsWorld* bulletWorld, const MutatorConfig& mutatorConfig, bool noRot);
 
-	bool groundStickApplied = false;
+	bool _groundStickApplied = false;
 	Vec _velocityImpulseCache = { 0,0,0 };
 	void _FinishPhysicsTick(const MutatorConfig& mutatorConfig);
 

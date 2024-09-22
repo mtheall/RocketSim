@@ -47,11 +47,9 @@ namespace RLConst {
 		BOOST_MAX = 100.f,
 		BOOST_USED_PER_SECOND = BOOST_MAX / 3,
 		BOOST_MIN_TIME = 0.1f, // Minimum time we can be boosting for
-		BOOST_ACCEL = 21.2f,
+		BOOST_ACCEL_GROUND = 2975/3.f, // uu/s for vel (on the ground)
+		BOOST_ACCEL_AIR = 3175/3.f, // uu/s for vel (airborne)
 		BOOST_SPAWN_AMOUNT = BOOST_MAX / 3,
-
-		BOOST_ACCEL_GROUND_DECAY_MIN_VEL = 600.f,
-		BOOST_ACCEL_GROUND_DECAY_AMOUNT = 0.072f,
 
 		CAR_MAX_ANG_SPEED = 5.5f, // Car can never exceed this angular velocity (radians/s)
 
@@ -77,7 +75,7 @@ namespace RLConst {
 		STOPPING_FORWARD_VEL = 25.f, // If we are costing with less than this forward vel, we full-brake
 		COASTING_BRAKE_FACTOR = 0.15f, // How much the brake is applied when costing
 		THROTTLE_DEADZONE = 0.001f, // Throttle input of less than this is ignored
-		THROTTLE_AIR_FORCE = (1 / 0.75f),
+		THROTTLE_AIR_ACCEL = 200/3.f,
 
 		JUMP_ACCEL = 4375.f / 3.f,
 		JUMP_IMMEDIATE_FORCE = 875.f / 3.f,
@@ -109,7 +107,7 @@ namespace RLConst {
 		SOCCAR_GOAL_SCORE_BASE_THRESHOLD_Y = 5124.25f,
 		HOOPS_GOAL_SCORE_THRESHOLD_Z = 270.f,
 
-		CAR_TORQUE_SCALE = 0.09587f,
+		CAR_TORQUE_SCALE = 2 * M_PI / (1 << 16) * 1000,
 
 		CAR_AUTOFLIP_IMPULSE = 200,
 		CAR_AUTOFLIP_TORQUE = 50,
@@ -158,9 +156,12 @@ namespace RLConst {
 			HORIZONTAL_BLEND = 1.45f, // Interpolation of horizontal (X+Y) turning
 			VERTICAL_BLEND = 0.78f, // Interpolation of vertical (Z) turning
 			SPEED_BLEND = 0.3f, // Interpolation of acceleration towards target speed
-			MAX_TURN_PITCH = 0.671f,
-			MAX_SPEED = 4600, // Different from BALL_MAX_SPEED
-			WALL_BOUNCE_CHANGE_NORMAL_Y = 0.75f; // Threshold of wall collision normal Y to change goal targets
+			MAX_TURN_PITCH = 7000 * M_PI / (1 << 15), // Maximum pitch angle of turning
+			MAX_SPEED = 4600, // Maximum speed the ball can seek at (different from BALL_MAX_SPEED)
+			WALL_BOUNCE_CHANGE_Y_THRESH = 300, // Threshold of wall collision Y backwall distance to change goal targets
+			WALL_BOUNCE_CHANGE_Y_NORMAL = 0.5f, // Threshold of Y normal to trigger bounce-back
+			WALL_BOUNCE_FORCE_SCALE = 1 / 3.f, // Scale of the extra wall bounce impulse (TODO: ???)
+			WALL_BOUNCE_UP_FRAC = 0.3f; // Fraction of upward bounce impulse that goes straight up
 
 		// Flip for orange team
 		constexpr Vec
@@ -280,6 +281,7 @@ namespace RLConst {
 
 	constexpr int
 		CAR_SPAWN_LOCATION_AMOUNT = 5,
+		CAR_SPAWN_LOCATION_AMOUNT_HEATSEEKER = 4,
 		CAR_RESPAWN_LOCATION_AMOUNT = 4;
 
 	struct CarSpawnPos {
@@ -296,6 +298,14 @@ namespace RLConst {
 			{  -256, -3840, M_PI_4 * 2 },
 			{   256, -3840, M_PI_4 * 2 },
 			{     0, -4608, M_PI_4 * 2 }
+	};
+
+	const static CarSpawnPos
+		CAR_SPAWN_LOCATIONS_HEATSEEKER[CAR_SPAWN_LOCATION_AMOUNT_HEATSEEKER] = {
+			{ -1000, -4620, M_PI / 2 },
+			{  1000, -4620, M_PI / 2 },
+			{ -2000, -4620, M_PI / 2 },
+			{  2000, -4620, M_PI / 2 },
 	};
 
 	const static CarSpawnPos
