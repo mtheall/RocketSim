@@ -219,6 +219,7 @@ __init__(self
 	handbrake_val: float = 0.0,
 	is_auto_flipping: bool = False,
 	auto_flip_timer: float = 0.0,
+	auto_flip_torque_scale: float = 0.0,
 	has_world_contact: bool = False,
 	world_contact_normal: RocketSim.Vec = RocketSim.Vec(),
 	car_contact_id: int = 0,
@@ -339,6 +340,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char handbrakeValKwd[]            = "handbrake_val";
 	static char isAutoFlippingKwd[]          = "is_auto_flipping";
 	static char autoFlipTimerKwd[]           = "auto_flip_timer";
+	static char autoFlipTorqueScaleKwd[]     = "auto_flip_torque_scale";
 	static char hasWorldContactKwd[]         = "has_world_contact";
 	static char worldContactNormalKwd[]      = "world_contact_normal";
 	static char carContactIDKwd[]            = "car_contact_id";
@@ -373,6 +375,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    handbrakeValKwd,
 	    isAutoFlippingKwd,
 	    autoFlipTimerKwd,
+	    autoFlipTorqueScaleKwd,
 	    hasWorldContactKwd,
 	    worldContactNormalKwd,
 	    carContactIDKwd,
@@ -413,7 +416,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	unsigned long long updateCounter = state.updateCounter;
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!pOpppO!ffppffffpffpfpO!kfpfO!O!K$O!",
+	        "|O!O!O!O!pOpppO!ffppffffpffpffpO!kfpfO!O!K$O!",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -443,6 +446,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        &state.handbrakeVal,
 	        &isAutoFlipping,
 	        &state.autoFlipTimer,
+	        &state.autoFlipTorqueScale,
 	        &hasWorldContact,
 	        Vec::Type,
 	        &worldContactNormal,
@@ -633,6 +637,10 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 
 	if (state.autoFlipTimer != model.autoFlipTimer &&
 	    !DictSetValue (dict.borrow (), "auto_flip_timer", PyFloat_FromDouble (state.autoFlipTimer)))
+		return nullptr;
+
+	if (state.autoFlipTorqueScale != model.autoFlipTorqueScale &&
+	    !DictSetValue (dict.borrow (), "auto_flip_timer", PyFloat_FromDouble (state.autoFlipTorqueScale)))
 		return nullptr;
 
 	if (state.worldContact.hasContact != model.worldContact.hasContact &&

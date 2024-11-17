@@ -272,7 +272,7 @@ int ArenaConfig::Init (ArenaConfig *self_, PyObject *args_, PyObject *kwds_) noe
 
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|iO!O!fOOiOO",
+	        "|iO!O!fOOiO",
 	        dict,
 	        &memoryWeightMode,
 	        Vec::Type,
@@ -316,7 +316,8 @@ int ArenaConfig::Init (ArenaConfig *self_, PyObject *args_, PyObject *kwds_) noe
 		if (!checkCustomBoostPads (customBoostPads, true))
 			return -1;
 
-		config.customBoostPads = convert (customBoostPads);
+		config.useCustomBoostPads = true;
+		config.customBoostPads    = convert (customBoostPads);
 	}
 
 	if (!InitFromArenaConfig (self_, config))

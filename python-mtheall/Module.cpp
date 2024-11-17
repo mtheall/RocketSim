@@ -56,7 +56,7 @@ void InitInternal (char const *path_)
 	if (!path_)
 		path_ = std::getenv ("RS_COLLISION_MESHES");
 
-	RocketSim::Init (path_ ? path_ : COLLISION_MESH_BASE_PATH);
+	RocketSim::Init (path_ ? path_ : COLLISION_MESH_BASE_PATH, true);
 
 	inited = true;
 }

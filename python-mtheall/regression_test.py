@@ -8,6 +8,8 @@ import numpy as np
 import pickle
 import unittest
 
+from unit_test import FuzzyTestCase, random_vec, random_int, TestBallState, TestCarState
+
 # simple actor that drives straight toward a target
 def target_chase(target_pos: rs.Vec, car: rs.Car):
   target_pos = glm.vec3(*target_pos.as_tuple())
@@ -23,7 +25,7 @@ def target_chase(target_pos: rs.Vec, car: rs.Car):
 
   car.set_controls(rs.CarControls(throttle=1.0, steer=steer, boost=True, handbrake=abs(steer)==1.0))
 
-class TestRegression(unittest.TestCase):
+class TestRegression(FuzzyTestCase):
   def test_multiple_demos_one_tick(self):
     arena = rs.Arena(rs.GameMode.SOCCAR)
 
@@ -279,6 +281,63 @@ class TestRegression(unittest.TestCase):
       arena.step()
       x = arena.ball.get_state().pos.x
       self.assertLess(x + radius, 4096)
+
+  def test_determinism(self):
+    initial_ball_state = rs.BallState(
+      pos     = random_vec(),
+      vel     = random_vec(),
+      ang_vel = random_vec()
+    )
+
+    arena = rs.Arena(config=rs.ArenaConfig(custom_boost_pads=[]))
+    car_a = arena.add_car(rs.Team.BLUE)
+    car_b = arena.add_car(rs.Team.ORANGE)
+
+    arena.reset_kickoff()
+    initial_car_state_a = car_a.get_state()
+    initial_car_state_b = car_b.get_state()
+
+    self.assertEqual(len(arena.get_boost_pads()), 0)
+
+    def run():
+      arena = rs.Arena(config=rs.ArenaConfig(custom_boost_pads=[]))
+
+      ball  = arena.ball
+      car_a = arena.add_car(rs.Team.BLUE)
+      car_b = arena.add_car(rs.Team.ORANGE)
+
+      arena.reset_kickoff()
+
+      ball.set_state(initial_ball_state)
+      car_a.set_state(initial_car_state_a)
+      car_b.set_state(initial_car_state_b)
+
+      ball_states  = []
+      car_states_a = []
+      car_states_b = []
+
+      for i in range(120 * 60):
+        target_chase(car_a.get_state().pos, car_b)
+        target_chase(car_b.get_state().pos, car_a)
+        arena.step()
+
+        ball_states.append(ball.get_state())
+        car_states_a.append(car_a.get_state())
+        car_states_b.append(car_b.get_state())
+
+      return (ball_states, car_states_a, car_states_b)
+
+    test_states = run()
+    for i in range(1):
+      new_states = run ()
+      for j in range(len(test_states[0])):
+        try:
+          TestBallState.compare(self, test_states[0][j], new_states[0][j])
+          TestCarState.compare(self, test_states[1][j], new_states[1][j])
+          TestCarState.compare(self, test_states[2][j], new_states[2][j])
+        except Exception as e:
+          print(f"Failed iteration {i} step {j}")
+          raise e
 
 if __name__ == "__main__":
   unittest.main()

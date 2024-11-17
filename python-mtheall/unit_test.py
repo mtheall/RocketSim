@@ -1060,7 +1060,8 @@ class TestMutatorConfig(FuzzyTestCase):
     self.assertEqual(config_a.ball_world_restitution,     config_b.ball_world_restitution)
     self.assertEqual(config_a.jump_accel,                 config_b.jump_accel)
     self.assertEqual(config_a.jump_immediate_force,       config_b.jump_immediate_force)
-    self.assertEqual(config_a.boost_accel,                config_b.boost_accel)
+    self.assertEqual(config_a.boost_accel_ground,         config_b.boost_accel_ground)
+    self.assertEqual(config_a.boost_accel_air,            config_b.boost_accel_air)
     self.assertEqual(config_a.boost_used_per_second,      config_b.boost_used_per_second)
     self.assertEqual(config_a.respawn_delay,              config_b.respawn_delay)
     self.assertEqual(config_a.bump_cooldown_time,         config_b.bump_cooldown_time)
@@ -1092,7 +1093,8 @@ class TestMutatorConfig(FuzzyTestCase):
       ball_world_restitution     = random_float(),
       jump_accel                 = random_float(),
       jump_immediate_force       = random_float(),
-      boost_accel                = random_float(),
+      boost_accel_ground         = random_float(),
+      boost_accel_air            = random_float(),
       boost_used_per_second      = random_float(),
       respawn_delay              = random_float(),
       bump_cooldown_time         = random_float(),
@@ -1787,6 +1789,8 @@ class TestArena(FuzzyTestCase):
 
     car1 = arena.add_car(rs.Team.BLUE)
     car2 = arena.add_car(rs.Team.ORANGE)
+
+    arena.reset_kickoff()
 
     ball_state = arena.ball.get_state()
     ball_state.pos = rs.Vec(0.0, 4000.0, ball_state.pos.z)

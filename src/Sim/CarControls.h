@@ -14,7 +14,7 @@ struct CarControls {
 	float pitch = 0.0f, yaw = 0.0f, roll = 0.0f;
 
 	// Boolean action inputs
-	bool boost = false, jump = false, handbrake = false;
+	bool jump = false, boost = false, handbrake = false;
 
 	// Maybe someday...
 	// bool useItem;

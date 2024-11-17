@@ -45,11 +45,16 @@ PyMemberDef MutatorConfig::Members[] = {
         .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, ballWorldRestitution),
         .flags  = 0,
         .doc    = "Ball world restitution"},
-    {.name      = "boost_accel",
-        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::boostAccel)>::type,
-        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, boostAccel),
+    {.name      = "boost_accel_ground",
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::boostAccelGround)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, boostAccelGround),
         .flags  = 0,
-        .doc    = "Boost accel"},
+        .doc    = "Boost accel ground"},
+    {.name      = "boost_accel_air",
+        .type   = TypeHelper<decltype (RocketSim::MutatorConfig::boostAccelAir)>::type,
+        .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, boostAccelAir),
+        .flags  = 0,
+        .doc    = "Boost accel air"},
     {.name      = "boost_pad_cooldown_big",
         .type   = TypeHelper<decltype (RocketSim::MutatorConfig::boostPadCooldown_Big)>::type,
         .offset = offsetof (MutatorConfig, config) + offsetof (RocketSim::MutatorConfig, boostPadCooldown_Big),
@@ -196,7 +201,9 @@ __init__(self,
 	ball_world_restitution: float = <dependent on game_mode>,
 	jump_accel: float = 4375.0 / 3.0,
 	jump_immediate_force: float = 875.0 / 3.0,
-	boost_accel: float = 21.2,
+	boost_accel: float = 21.2 <deprecated>,
+	boost_accel_ground: float = 2975.0 / 3.0,
+	boost_accel_air: float = 3175.0 / 3.0,
 	boost_used_per_second: float = 100.0 / 3.0,
 	respawn_delay: float = 3.0,
 	bump_cooldown_time: float = 0.25,
@@ -284,6 +291,8 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	static char jumpAccelKwd[]              = "jump_accel";
 	static char jumpImmediateForceKwd[]     = "jump_immediate_force";
 	static char boostAccelKwd[]             = "boost_accel";
+	static char boostAccelGroundKwd[]       = "boost_accel_ground";
+	static char boostAccelAirKwd[]          = "boost_accel_air";
 	static char boostUsedPerSecondKwd[]     = "boost_used_per_second";
 	static char respawnDelayKwd[]           = "respawn_delay";
 	static char bumpCooldownTimeKwd[]       = "bump_cooldown_time";
@@ -314,6 +323,8 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 	    jumpAccelKwd,
 	    jumpImmediateForceKwd,
 	    boostAccelKwd,
+	    boostAccelGroundKwd,
+	    boostAccelAirKwd,
 	    boostUsedPerSecondKwd,
 	    respawnDelayKwd,
 	    bumpCooldownTimeKwd,
@@ -361,10 +372,13 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 		int enableTeamDemos        = config.enableTeamDemos;
 		int enableCarCarCollision  = config.enableCarCarCollision;
 		int enableCarBallCollision = config.enableCarBallCollision;
+		PyObject *boostAccel       = nullptr;
+		PyObject *boostAccelGround = nullptr;
+		PyObject *boostAccelAir    = nullptr;
 
 		if (!PyArg_ParseTupleAndKeywords (args_,
 		        kwds_,
-		        "|iO!ffffffffffffffffffffppipppf",
+		        "|iO!ffffffffffOOOfffffffffppipppf",
 		        dict,
 		        &gameMode,
 		        Vec::Type,
@@ -379,7 +393,9 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 		        &config.ballWorldRestitution,
 		        &config.jumpAccel,
 		        &config.jumpImmediateForce,
-		        &config.boostAccel,
+		        &boostAccel,
+		        &boostAccelGround,
+		        &boostAccelAir,
 		        &config.boostUsedPerSecond,
 		        &config.respawnDelay,
 		        &config.bumpCooldownTime,
@@ -401,6 +417,12 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 		// try again with parsed game mode
 		if (i == 0 && static_cast<RocketSim::GameMode> (gameMode) != RocketSim::GameMode::SOCCAR)
 			continue;
+
+		if (boostAccel && (boostAccelGround || boostAccelAir))
+		{
+			PyErr_SetString (PyExc_ValueError, "boost_accel is deprecated");
+			return -1;
+		}
 
 		config.demoMode = static_cast<RocketSim::DemoMode> (demoMode);
 
@@ -424,6 +446,35 @@ int MutatorConfig::Init (MutatorConfig *self_, PyObject *args_, PyObject *kwds_)
 		config.enableTeamDemos        = enableTeamDemos;
 		config.enableCarCarCollision  = enableCarCarCollision;
 		config.enableCarBallCollision = enableCarBallCollision;
+
+		if (boostAccel)
+		{
+			auto const value = PyFloat_AsDouble (boostAccel);
+			if (value == -1.0 && PyErr_Occurred ())
+				return -1;
+
+			// expect values at the old scale
+			config.boostAccelGround = value * 120.0f - 160.0f;
+			config.boostAccelAir    = value * 120.0f;
+		}
+
+		if (boostAccelGround)
+		{
+			auto const value = PyFloat_AsDouble (boostAccelGround);
+			if (value == -1.0 && PyErr_Occurred ())
+				return -1;
+
+			config.boostAccelGround = value;
+		}
+
+		if (boostAccelAir)
+		{
+			auto const value = PyFloat_AsDouble (boostAccelAir);
+			if (value == -1.0 && PyErr_Occurred ())
+				return -1;
+
+			config.boostAccelAir = value;
+		}
 
 		if (!InitFromMutatorConfig (self_, config))
 			return -1;
@@ -502,8 +553,12 @@ PyObject *MutatorConfig::Pickle (MutatorConfig *self_) noexcept
 	    !DictSetValue (dict.borrow (), "jump_immediate_force", PyFloat_FromDouble (config.jumpImmediateForce)))
 		return nullptr;
 
-	if (config.boostAccel != model.boostAccel &&
-	    !DictSetValue (dict.borrow (), "boost_accel", PyFloat_FromDouble (config.boostAccel)))
+	if (config.boostAccelGround != model.boostAccelGround &&
+	    !DictSetValue (dict.borrow (), "boost_accel_ground", PyFloat_FromDouble (config.boostAccelGround)))
+		return nullptr;
+
+	if (config.boostAccelAir != model.boostAccelAir &&
+	    !DictSetValue (dict.borrow (), "boost_accel_air", PyFloat_FromDouble (config.boostAccelAir)))
 		return nullptr;
 
 	if (config.boostUsedPerSecond != model.boostUsedPerSecond &&

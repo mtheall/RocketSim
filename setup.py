@@ -78,7 +78,7 @@ RocketSim = Extension(
   py_limited_api = True,
   define_macros = [
     ("PY_SSIZE_T_CLEAN", "1"),
-    ("Py_LIMITED_API", "0x03040000"),
+    ("Py_LIMITED_API", "0x03080000"),
     ("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION"),
     ("PY_ARRAY_UNIQUE_SYMBOL", "RocketSim_ARRAY_API"),
     ("NO_IMPORT_ARRAY", "1"),
