@@ -1167,7 +1167,7 @@ class TestArenaConfig(FuzzyTestCase):
       max_aabb_len = random.uniform(400.0, 500.0),
       no_ball_rot = random_bool(),
       use_custom_broadphase = random_bool(),
-      max_objects = random_int()
+      max_objects = 100 + random_int()
     )
 
     if custom_boost_pads:
