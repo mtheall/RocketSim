@@ -18,10 +18,7 @@ RocketSim::Python::PyRef<PyArrayObject> makeArray (unsigned dim0_, unsigned dim1
 {
 	static bool const imported = importNumpy ();
 	if (!imported)
-	{
-		PyErr_SetString (PyExc_ImportError, "Failed to import numpy");
 		return nullptr;
-	}
 
 	npy_intp dims[2] = {dim0_, dim1_};
 
