@@ -24,7 +24,7 @@ if(WIN32)
 
 	if(NOT CYGWIN)
 		set_target_properties(${PROJECT_NAME} PROPERTIES
-			SUFFIX .dyn
+			SUFFIX .pyd
 		)
 	endif()
 else()

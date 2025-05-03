@@ -3,6 +3,7 @@
 #include "RocketSim.h"
 
 #include <concepts>
+#include <cstdio>
 #include <exception>
 #include <span>
 
@@ -235,7 +236,27 @@ struct PyModuleDef Module = {
 
 extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 {
-	PyEval_InitThreads ();
+	auto const version = [] {
+		auto const versionString = Py_GetVersion ();
+		if (!versionString)
+			return 0;
+
+		int major;
+		int minor;
+		if (std::sscanf (versionString, "%d.%d", &major, &minor) != 2)
+			return 0;
+
+		if (major < 0 || major > 255)
+			return 0;
+
+		if (minor < 0 || minor > 255)
+			return 0;
+
+		return (major << 24) | (minor << 16);
+	}();
+
+	if (version < 0x03070000)
+		PyEval_InitThreads ();
 
 	auto m = RocketSim::Python::PyObjectRef::steal (PyModule_Create (&Module));
 	if (!m)
@@ -365,9 +386,58 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 		if (!namespaceType)
 			return nullptr;
 
+		auto namespaceTuple = PyObjectRef::steal (PyTuple_Pack (1, namespaceType.borrow ()));
+		if (!namespaceTuple)
+			return nullptr;
+
+		auto const createNamespace = [&] {
+			if (version >= 0x030A0000)
+			{
+				return std::function<PyObjectRef ()> ([&] () -> PyObjectRef {
+					auto const obj = PyObjectRef::steal (((newfunc)PyType_GetSlot (namespaceType.borrow (),
+					    Py_tp_new)) (namespaceType.borrow (), namespaceTuple.borrow (), nullptr));
+
+					auto const result = ((initproc)PyType_GetSlot (namespaceType.borrow (), Py_tp_init)) (
+					    obj.borrow (), emptyTuple.borrow (), nullptr);
+					if (result != 0)
+						return nullptr;
+
+					return obj;
+				});
+			}
+
+			return std::function<PyObjectRef ()> (
+			    [&,
+			        newNamespace =
+			            PyObjectRef::steal (PyObject_GetAttrString (namespaceType.borrowObject (), "__new__")),
+			        initNamespace = PyObjectRef::steal (
+			            PyObject_GetAttrString (namespaceType.borrowObject (), "__init__"))] () -> PyObjectRef {
+				    if (!newNamespace || !initNamespace || !PyCallable_Check (newNamespace.borrow ()) ||
+				        !PyCallable_Check (initNamespace.borrow ()))
+					    return nullptr;
+
+				    auto const obj =
+				        PyObjectRef::steal (PyObject_Call (newNamespace.borrow (), namespaceTuple.borrow (), nullptr));
+				    if (!obj)
+					    return nullptr;
+
+				    auto const args = PyObjectRef::steal (PyTuple_Pack (1, obj.borrow ()));
+				    if (!args)
+					    return nullptr;
+
+				    auto const result =
+				        PyObjectRef::steal (PyObject_Call (initNamespace.borrow (), args.borrow (), nullptr));
+				    if (!result)
+					    return nullptr;
+
+				    return obj;
+			    });
+		}();
+
 		// RLConst
-		auto rlConst = PyObjectRef::steal (((newfunc)PyType_GetSlot (namespaceType.borrow (), Py_tp_alloc)) (
-		    namespaceType.borrow (), emptyTuple.borrow (), nullptr));
+		auto rlConst = createNamespace ();
+		if (!rlConst)
+			return nullptr;
 
 #define ATTR_OBJECT(parent_, ns_, x_) SET_TYPE_ATTR (parent_.borrow (), #x_, BuildObject (RocketSim::ns_::x_))
 #define ATTR_LIST(parent_, ns_, x_) SET_TYPE_ATTR (parent_.borrow (), #x_, BuildList (std::span (RocketSim::ns_::x_)))
@@ -462,8 +532,9 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 
 		{
 			// BTVehicle
-			auto btVehicle = PyObjectRef::steal (((newfunc)PyType_GetSlot (namespaceType.borrow (), Py_tp_alloc)) (
-			    namespaceType.borrow (), emptyTuple.borrow (), nullptr));
+			auto btVehicle = createNamespace ();
+			if (!btVehicle)
+				return nullptr;
 
 			ATTR_OBJECT (btVehicle, RLConst::BTVehicle, SUSPENSION_FORCE_SCALE_FRONT);
 			ATTR_OBJECT (btVehicle, RLConst::BTVehicle, SUSPENSION_FORCE_SCALE_BACK);
@@ -478,8 +549,9 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 
 		{
 			// Heatseeker
-			auto heatseeker = PyObjectRef::steal (((newfunc)PyType_GetSlot (namespaceType.borrow (), Py_tp_alloc)) (
-			    namespaceType.borrow (), emptyTuple.borrow (), nullptr));
+			auto heatseeker = createNamespace ();
+			if (!heatseeker)
+				return nullptr;
 
 			ATTR_OBJECT (heatseeker, RLConst::Heatseeker, INITIAL_TARGET_SPEED);
 			ATTR_OBJECT (heatseeker, RLConst::Heatseeker, TARGET_SPEED_INCREMENT);
@@ -502,8 +574,9 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 
 		{
 			// Snowday
-			auto snowday = PyObjectRef::steal (((newfunc)PyType_GetSlot (namespaceType.borrow (), Py_tp_alloc)) (
-			    namespaceType.borrow (), emptyTuple.borrow (), nullptr));
+			auto snowday = createNamespace ();
+			if (!snowday)
+				return nullptr;
 
 			ATTR_OBJECT (snowday, RLConst::Snowday, PUCK_RADIUS);
 			ATTR_OBJECT (snowday, RLConst::Snowday, PUCK_HEIGHT);
@@ -521,8 +594,9 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 
 		{
 			// BoostPads
-			auto boostPads = PyObjectRef::steal (((newfunc)PyType_GetSlot (namespaceType.borrow (), Py_tp_alloc)) (
-			    namespaceType.borrow (), emptyTuple.borrow (), nullptr));
+			auto boostPads = createNamespace ();
+			if (!boostPads)
+				return nullptr;
 
 			ATTR_OBJECT (boostPads, RLConst::BoostPads, CYL_HEIGHT);
 			ATTR_OBJECT (boostPads, RLConst::BoostPads, CYL_RAD_BIG);

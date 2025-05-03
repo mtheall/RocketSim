@@ -7,18 +7,16 @@
 
 namespace
 {
-bool importNumpy ()
-{
-	import_array1 (false);
-
-	return true;
-}
-
 RocketSim::Python::PyRef<PyArrayObject> makeArray (unsigned dim0_, unsigned dim1_)
 {
-	static bool const imported = importNumpy ();
+	static bool imported = false;
 	if (!imported)
-		return nullptr;
+	{
+		if (PyArray_ImportNumPyAPI () != 0)
+			return nullptr;
+
+		imported = true;
+	}
 
 	npy_intp dims[2] = {dim0_, dim1_};
 
