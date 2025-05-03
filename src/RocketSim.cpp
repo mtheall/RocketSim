@@ -48,31 +48,32 @@ RocketSimStage RocketSim::GetStage() {
 }
 
 std::vector<btBvhTriangleMeshShape*>& RocketSim::GetArenaCollisionShapes(GameMode gameMode) {
-	static std::vector<btBvhTriangleMeshShape*> arenaCollisionMeshes;
-	static std::vector<btBvhTriangleMeshShape*> arenaCollisionMeshes_hoops;
+	static std::map<GameMode, std::vector<btBvhTriangleMeshShape*>> arenaCollisionMeshes;
+	switch (gameMode) {
+	case GameMode::HOOPS:
+	case GameMode::DROPSHOT:
+	case GameMode::THE_VOID:
+		break;
 
-	return (gameMode == GameMode::HOOPS ? arenaCollisionMeshes_hoops : arenaCollisionMeshes);
-}
-
-#ifndef RS_NO_SUSPCOLGRID
-static SuspensionCollisionGrid
-	suspColGrids_soccar[] = { {GameMode::SOCCAR, true}, {GameMode::SOCCAR, false} },
-	suspColGrids_hoops[]  = { {GameMode::HOOPS,  true}, {GameMode::HOOPS,  false} };
-SuspensionCollisionGrid& RocketSim::GetDefaultSuspColGrid(GameMode gameMode, bool isLight) {
-	if (gameMode == GameMode::HOOPS) {
-		return suspColGrids_hoops[isLight];
-	} else {
-		return suspColGrids_soccar[isLight];
+	default:
+		gameMode = GameMode::SOCCAR;
+		break;
 	}
+
+	return arenaCollisionMeshes[gameMode];
 }
-#endif
 
 void RocketSim::Init(std::filesystem::path collisionMeshesFolder, bool silent) {
 
 	std::map<GameMode, std::vector<FileData>> meshFileMap = {};
 
-	for (int i = 0; i < 2; i++) { // Load collision meshes for soccar and hoops
-		GameMode gameMode = (i > 0) ? GameMode::HOOPS : GameMode::SOCCAR;
+	constexpr GameMode GAMEMODES_WITH_UNIQUE_MESHES[] = {
+		GameMode::SOCCAR,
+		GameMode::HOOPS,
+		GameMode::DROPSHOT,
+	};
+
+	for (GameMode gameMode : GAMEMODES_WITH_UNIQUE_MESHES) { // Load collision meshes for soccar and hoops
 		auto& meshes = GetArenaCollisionShapes(gameMode);
 
 		std::filesystem::path basePath = collisionMeshesFolder;
@@ -117,10 +118,12 @@ void RocketSim::InitFromMem(const std::map<GameMode, std::vector<FileData>>& mes
 		if (!silent)
 			RS_LOG("Initializing RocketSim version " RS_VERSION ", created by ZealanL...");
 
-
 		stage = RocketSimStage::INITIALIZING;
 
 		uint64_t startMS = RS_CUR_MS();
+
+		// Init dropshot stuff
+		DropshotTiles::Init();
 
 		for (auto& mapPair : meshFilesMap) { // Load collision meshes for soccar and hoops
 			GameMode gameMode = mapPair.first;
@@ -178,27 +181,8 @@ void RocketSim::InitFromMem(const std::map<GameMode, std::vector<FileData>>& mes
 			RS_LOG(MSG_PREFIX << "Finished loading arena collision meshes:");
 			RS_LOG(" > Soccar: " << GetArenaCollisionShapes(GameMode::SOCCAR).size());
 			RS_LOG(" > Hoops: " << GetArenaCollisionShapes(GameMode::HOOPS).size());
+			RS_LOG(" > Dropshot: " << GetArenaCollisionShapes(GameMode::DROPSHOT).size());
 		}
-
-#ifndef RS_NO_SUSPCOLGRID
-		{ // Set up suspension collision grid
-			for (int i = 0; i < 2; i++) {
-				GameMode gameMode = i > 0 ? GameMode::HOOPS : GameMode::SOCCAR;
-				auto& meshes = GetArenaCollisionShapes(gameMode);
-
-				if (!meshes.empty()) {
-					if (!silent)
-						RS_LOG("Building collision suspension grids from " << GAMEMODE_STRS[(int)gameMode] << " arena meshes...");
-
-					for (int j = 0; j < 2; j++) {
-						auto& grid = GetDefaultSuspColGrid(gameMode, j);
-						grid.Allocate();
-						grid.SetupWorldCollision(meshes);
-					}
-				}
-			}
-		}
-#endif
 
 
 		uint64_t elapsedMS = RS_CUR_MS() - startMS;

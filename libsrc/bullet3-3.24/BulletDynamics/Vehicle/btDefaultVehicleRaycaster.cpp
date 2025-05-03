@@ -34,7 +34,7 @@ void* btDefaultVehicleRaycaster::castRay(const btVector3& from, const btVector3&
 	//	RayResultCallback& resultCallback;
 
 	btCollisionWorld::ClosestRayResultCallback rayCallback(from, to, ignoreObj);
-	rayCallback.m_collisionFilterGroup = btBroadphaseProxy::CharacterFilter;
+	rayCallback.m_collisionFilterGroup = btBroadphaseProxy::CharacterFilter | addedFilterMask;
 	rayCallback.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
 
 	m_dynamicsWorld->rayTest(from, to, rayCallback);

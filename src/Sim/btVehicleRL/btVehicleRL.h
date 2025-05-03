@@ -74,8 +74,9 @@ public:
 
 	btVehicleRL() {}
 
-	//constructor to create a car from an existing rigidbody
-	btVehicleRL(const btVehicleTuning& tuning, btRigidBody* chassis, btVehicleRaycaster* raycaster, btDynamicsWorld* world);
+	btVehicleRL(const btVehicleTuning& tuning,
+		btRigidBody* chassis, btVehicleRaycaster* raycaster, btDynamicsWorld* world,
+		int addedRayCollisionMask);
 
 	virtual ~btVehicleRL();
 
@@ -86,9 +87,9 @@ public:
 
 	const btTransform& getChassisWorldTransform() const;
 
-	float rayCast(btWheelInfoRL& wheel, struct SuspensionCollisionGrid* grid);
+	float rayCast(btWheelInfoRL& wheel);
 
-	void updateVehicleFirst(float step, struct SuspensionCollisionGrid* grid);
+	void updateVehicleFirst(float step);
 	void updateVehicleSecond(float step);
 
 	void resetSuspension();

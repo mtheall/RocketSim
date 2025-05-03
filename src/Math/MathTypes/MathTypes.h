@@ -11,7 +11,12 @@ struct RS_ALIGN_16 Vec {
 
 	constexpr Vec() = default;
 
-	constexpr Vec(float x, float y, float z, float _w = 0) : x(x), y(y), z(z), _w(_w) {}
+	constexpr Vec(float x, float y, float z) : x(x), y(y), z(z), _w(0) {}
+
+protected:
+	// Internal 4th-component constructor for SIMD operations
+	constexpr Vec(float x, float y, float z, float w) : x(x), y(y), z(z), _w(w) {}
+public:
 
 	Vec(const btVector3& bulletVec) {
 		*(btVector3*)this = bulletVec;
@@ -106,21 +111,23 @@ struct RS_ALIGN_16 Vec {
 		return *(btVector3*)(this);
 	}
 
-	RSAPI Vec operator+(const Vec& other) const;
-	RSAPI Vec operator-(const Vec& other) const;
-	RSAPI Vec operator*(const Vec& other) const;
-	RSAPI Vec operator/(const Vec& other) const;
+	Vec operator+(const Vec& other) const;
+	Vec operator-(const Vec& other) const;
+	Vec operator*(const Vec& other) const;
+	Vec operator/(const Vec& other) const;
 
-	RSAPI Vec& operator+=(const Vec& other);
-	RSAPI Vec& operator-=(const Vec& other);
-	RSAPI Vec& operator*=(const Vec& other);
-	RSAPI Vec& operator/=(const Vec& other);
+	Vec& operator+=(const Vec& other);
+	Vec& operator-=(const Vec& other);
+	Vec& operator*=(const Vec& other);
+	Vec& operator/=(const Vec& other);
 
-	RSAPI Vec operator*(float val) const;
-	RSAPI Vec operator/(float val) const;
+	Vec operator*(float val) const;
+	Vec operator/(float val) const;
 
-	RSAPI Vec& operator*=(float val);
-	RSAPI Vec& operator/=(float val);
+	Vec& operator*=(float val);
+	Vec& operator/=(float val);
+	friend Vec operator*(float val, const Vec& vec);
+	friend Vec operator/(float val, const Vec& vec);
 
 	bool operator<(const Vec& other) const {
 		return (x < other.x) && (y < other.y) && (z < other.z);
@@ -215,17 +222,17 @@ struct RS_ALIGN_16 RotMat {
 		return result;
 	}
 
-	RSAPI RotMat operator+(const RotMat& other) const;
-	RSAPI RotMat operator-(const RotMat& other) const;
+	RotMat operator+(const RotMat& other) const;
+	RotMat operator-(const RotMat& other) const;
 
-	RSAPI RotMat& operator+=(const RotMat& other);
-	RSAPI RotMat& operator-=(const RotMat& other);
+	RotMat& operator+=(const RotMat& other);
+	RotMat& operator-=(const RotMat& other);
 
-	RSAPI RotMat operator*(float val) const;
-	RSAPI RotMat operator/(float val) const;
+	RotMat operator*(float val) const;
+	RotMat operator/(float val) const;
 
-	RSAPI RotMat& operator*=(float val);
-	RSAPI RotMat& operator/=(float val);
+	RotMat& operator*=(float val);
+	RotMat& operator/=(float val);
 
 	bool operator==(const RotMat& other) const {
 		return
@@ -281,14 +288,14 @@ struct Angle {
 
 	Angle(float yaw = 0, float pitch = 0, float roll = 0) : yaw(yaw), pitch(pitch), roll(roll) {}
 
-	RSAPI static Angle FromRotMat(RotMat mat);
-	RSAPI RotMat ToRotMat() const;
+	static Angle FromRotMat(RotMat mat);
+	RotMat ToRotMat() const;
 
-	RSAPI static Angle FromVec(const Vec& forward);
-	RSAPI Vec GetForwardVec() const;
+	static Angle FromVec(const Vec& forward);
+	Vec GetForwardVec() const;
 
 	// Limits yaw/pitch/roll to [-pi,pi]/[-pi/2,pi/2]/[-pi,pi] while still representing the same rotation
-	RSAPI void NormalizeFix();
+	void NormalizeFix();
 
 	bool operator==(const Angle& other) const {
 		return (yaw == other.yaw) && (pitch == other.pitch) && (roll == other.roll);

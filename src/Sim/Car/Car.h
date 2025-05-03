@@ -19,13 +19,14 @@ struct CarState : public PhysState {
 	// Incremented every update, reset when SetState() is called
 	// Used for telling if a stateset occured
 	// Not serialized
-	uint64_t updateCounter = 0;
+	uint64_t tickCountSinceUpdate = 0;
 
 	// True if 3 or more wheels have contact
 	bool isOnGround = true;
 
 	// Whether each of the 4 wheels have contact
 	// First two are front
+	// If your car has 3 wheels, the 4th bool will always be false
 	bool wheelsWithContact[4] = {}; 
 
 	// Whether we jumped to get into the air
@@ -62,9 +63,13 @@ struct CarState : public PhysState {
 	// Goes from 0 to 100
 	float boost = RLConst::BOOST_SPAWN_AMOUNT;
 
-	// Added to replicate minimum boosting time
-	// NOTE: Will be used even when we have no boost
-	float timeSpentBoosting = 0;
+	// Used for recharge boost, counts up from 0 on spawn (in seconds)
+	float timeSinceBoosted = 0.f;
+
+	// True if we boosted that tick
+	// There exists a minimum boosting time, thus why we must track boosting time
+	bool isBoosting = false;
+	float boostingTime = 0;
 
 	bool isSupersonic = false;
 
@@ -117,7 +122,7 @@ struct CarState : public PhysState {
 #define CARSTATE_SERIALIZATION_FIELDS \
 pos, rotMat, vel, angVel, isOnGround, hasJumped, hasDoubleJumped, hasFlipped, \
 flipRelTorque, jumpTime, isFlipping, flipTime, isJumping, airTimeSinceJump, \
-boost, timeSpentBoosting, supersonicTime, handbrakeVal, isAutoFlipping, \
+boost, isBoosting, boostingTime, timeSinceBoosted, supersonicTime, handbrakeVal, isAutoFlipping, \
 autoFlipTimer, autoFlipTorqueScale, isDemoed, demoRespawnTimer, lastControls, \
 worldContact.hasContact, worldContact.contactNormal, \
 carContact.otherCarID, carContact.cooldownTimer
@@ -143,8 +148,8 @@ public:
 	// The controls to simulate the car with
 	CarControls controls;
 
-	RSAPI CarState GetState();
-	RSAPI void SetState(const CarState& state);
+	CarState GetState();
+	void SetState(const CarState& state);
 
 	void Demolish(float respawnDelay = RLConst::DEMO_RESPAWN_TIME);
 
@@ -176,7 +181,7 @@ public:
 		return _internalState.rotMat.up;
 	}
 
-	void _PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig& mutatorConfig, struct SuspensionCollisionGrid* grid);
+	void _PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig& mutatorConfig);
 	void _PostTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig& mutatorConfig);
 
 	Vec _velocityImpulseCache = { 0,0,0 };
@@ -187,7 +192,7 @@ public:
 	// For construction by Arena
 	static Car* _AllocateCar() { return new Car(); }
 
-	RSAPI void Serialize(DataStreamOut& out);
+	void Serialize(DataStreamOut& out);
 	void _Deserialize(DataStreamIn& in);
 
 	Car(const Car& other) = delete;

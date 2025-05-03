@@ -9,16 +9,21 @@
 
 #include "../../../libsrc/bullet3-3.24/BulletDynamics/Dynamics/btRigidBody.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btSphereShape.h"
+#include "../Arena/DropshotTiles/DropshotTiles.h"
 
 class btDynamicsWorld;
 
 RS_NS_START
 
+class Arena;
+class Car;
+using BallTouchEventFn = void(*)(class Arena* arena, Car *car, void* userInfo);
+
 struct BallState : public PhysState {
 	// Incremented every update, reset when SetState() is called
 	// Used for telling if a stateset occured
 	// Not serialized
-	uint64_t updateCounter = 0;
+	uint64_t tickCountSinceUpdate = 0;
 
 	struct HeatseekerInfo {
 		// Which net the ball should seek towards
@@ -28,8 +33,22 @@ struct BallState : public PhysState {
 		float curTargetSpeed = RLConst::Heatseeker::INITIAL_TARGET_SPEED;
 		float timeSinceHit = 0;
 	};
-
 	HeatseekerInfo hsInfo;
+
+	struct DropshotInfo {
+		// Charge level number, which controls the radius of damage when hitting tiles
+		// 1 = damages r=1 -> 1 tile
+		// 2 = damages r=2 -> 7 tiles
+		// 3 = damages r=3 -> 19 tiles
+		int chargeLevel = 1;
+
+		float accumulatedHitForce = 0; // Resets when a tile is damaged
+		float yTargetDir = 0; // Which side of the field the ball can damage (0=none, -1=blue, 1=orange)
+		
+		bool hasDamaged = false;
+		uint64_t lastDamageTick; // Only valid if hasDamaged
+	};
+	DropshotInfo dsInfo;
 
 	std::uint32_t lastHitCarID = 0;
 
@@ -45,14 +64,15 @@ struct BallState : public PhysState {
 
 #define BALLSTATE_SERIALIZATION_FIELDS \
 pos, rotMat, vel, angVel, \
-hsInfo.yTargetDir, hsInfo.curTargetSpeed, hsInfo.timeSinceHit
+hsInfo.yTargetDir, hsInfo.curTargetSpeed, hsInfo.timeSinceHit, \
+dsInfo.chargeLevel, dsInfo.accumulatedHitForce, dsInfo.yTargetDir, dsInfo.hasDamaged, dsInfo.lastDamageTick \
 
 class Ball {
 public:
 
 	BallState _internalState;
-	RSAPI BallState GetState();
-	RSAPI void SetState(const BallState& state);
+	BallState GetState();
+	void SetState(const BallState& state);
 
 	btRigidBody _rigidBody;
 	btCollisionShape* _collisionShape;
@@ -69,19 +89,34 @@ public:
 	Vec _velocityImpulseCache = { 0,0,0 };
 	void _FinishPhysicsTick(const MutatorConfig& mutatorConfig);
 
-	RSAPI bool IsSphere() const;
+	bool IsSphere() const;
 
 	// Returns radius in BulletPhysics units
-	RSAPI float GetRadiusBullet() const;
+	float GetRadiusBullet() const;
 
 	// Returns radius in Unreal Engine units (uu)
 	float GetRadius() const {
 		return GetRadiusBullet() * BT_TO_UU;
 	}
 
+	// Returns mass
+	float GetMass() const;
+
 	void _PreTickUpdate(GameMode gameMode, float tickTime);
-	void _OnHit(GameMode gameMode, class Car* car);
+	void _OnHit(
+		class Car* car, Vec relPos,
+		float& outFriction, float& outRestitution,
+		GameMode gameMode, const MutatorConfig& mutatorConfig, uint64_t tickCount,
+		Arena *arena,
+		BallTouchEventFn ballTouchEventFunc,
+		void* ballTouchEventUserInfo
+	);
 	void _OnWorldCollision(GameMode gameMode, Vec normal, float tickTime);
+	// Returns true if the tiles state was modified
+	bool _OnDropshotTileCollision(
+		DropshotTilesState& tilesState, int tileTotalIndex, const btCollisionObject* tileObj, 
+		uint64_t tickCount, float tickTime
+	);
 		
 	Ball(const Ball& other) = delete;
 	Ball& operator=(const Ball& other) = delete;

@@ -324,6 +324,9 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 		    "SNOWDAY",
 		    PyObjectRef::steal (PyLong_FromLong (static_cast<long> (RocketSim::GameMode::SNOWDAY))));
 		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
+		    "DROPSHOT",
+		    PyObjectRef::steal (PyLong_FromLong (static_cast<long> (RocketSim::GameMode::DROPSHOT))));
+		SET_TYPE_ATTR (RocketSim::Python::GameMode::Type,
 		    "THE_VOID",
 		    PyObjectRef::steal (PyLong_FromLong (static_cast<long> (RocketSim::GameMode::THE_VOID))));
 
@@ -464,7 +467,7 @@ extern "C" Py_EXPORTED_SYMBOL PyObject *PyInit_RocketSim () noexcept
 		ATTR_OBJECT (rlConst, RLConst, BALL_DRAG);
 		ATTR_OBJECT (rlConst, RLConst, BALL_FRICTION);
 		ATTR_OBJECT (rlConst, RLConst, BALL_RESTITUTION);
-		ATTR_OBJECT (rlConst, RLConst, BALL_HOOPS_Z_VEL);
+		ATTR_OBJECT (rlConst, RLConst, BALL_HOOPS_LAUNCH_Z_VEL);
 		ATTR_OBJECT (rlConst, RLConst, CAR_MAX_SPEED);
 		ATTR_OBJECT (rlConst, RLConst, BALL_MAX_SPEED);
 		ATTR_OBJECT (rlConst, RLConst, BOOST_MAX);

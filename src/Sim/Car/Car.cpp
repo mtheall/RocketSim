@@ -1,8 +1,8 @@
 #include "Car.h"
 #include "../../RLConst.h"
-#include "../SuspensionCollisionGrid/SuspensionCollisionGrid.h"
 
 #include "../../../libsrc/bullet3-3.24/BulletDynamics/Dynamics/btDynamicsWorld.h"
+#include "../CollisionMasks.h"
 
 RS_NS_START
 
@@ -34,7 +34,7 @@ void Car::SetState(const CarState& state) {
 	_velocityImpulseCache = { 0, 0, 0 };
 
 	_internalState = state;
-	_internalState.updateCounter = 0;
+	_internalState.tickCountSinceUpdate = 0;
 }
 
 void Car::Demolish(float respawnDelay) {
@@ -57,7 +57,7 @@ void Car::Respawn(GameMode gameMode, int seed, float boostAmount) {
 	this->SetState(newState);
 }
 
-void Car::_PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig& mutatorConfig, SuspensionCollisionGrid* grid) {
+void Car::_PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig& mutatorConfig) {
 	using namespace RLConst;
 
 #ifndef RS_MAX_SPEED
@@ -65,7 +65,7 @@ void Car::_PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig&
 	controls.ClampFix();
 #endif
 
-	assert(_bulletVehicle.getNumWheels() == 4);
+	assert(_bulletVehicle.getNumWheels() == 4 || _bulletVehicle.getNumWheels() == 3);
 
 	{ // Update simulation state
 		if (_internalState.isDemoed) {
@@ -89,7 +89,7 @@ void Car::_PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig&
 		return; // No other updates need to occur
 
 	// Do first part of the btVehicleRL update (update wheel transforms, do traces, calculate friction impulses) 
-	_bulletVehicle.updateVehicleFirst(tickTime, grid);
+	_bulletVehicle.updateVehicleFirst(tickTime);
 
 	btMatrix3x3 basis = _rigidBody.getWorldTransform().m_basis;
 
@@ -97,7 +97,7 @@ void Car::_PreTickUpdate(GameMode gameMode, float tickTime, const MutatorConfig&
 
 	// Update wheelsWithContact
 	int numWheelsInContact = 0;
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < _bulletVehicle.m_wheelInfo.size(); i++) {
 		bool inContact = _bulletVehicle.m_wheelInfo[i].m_raycastInfo.m_isInContact;
 		_internalState.wheelsWithContact[i] = inContact;
 		numWheelsInContact += inContact;
@@ -191,7 +191,7 @@ void Car::_FinishPhysicsTick(const MutatorConfig& mutatorConfig) {
 		_rigidBody.m_angularVelocity = angVel;
 	}
 
-	_internalState.updateCounter++;
+	_internalState.tickCountSinceUpdate++;
 }
 
 void Car::_BulletSetup(GameMode gameMode, btDynamicsWorld* bulletWorld, const MutatorConfig& mutatorConfig) {
@@ -225,19 +225,22 @@ void Car::_BulletSetup(GameMode gameMode, btDynamicsWorld* bulletWorld, const Mu
 
 	// Disable gyroscopic force
 	_rigidBody.m_rigidbodyFlags = 0;
+	
+	// We want our car and our suspension rays to collide with the dropshot floor
+	int extraCollisionMask = CollisionMasks::DROPSHOT_FLOOR;
 
 	// Add rigidbody to world
 	int mask = btBroadphaseProxy::AllFilter;
 	if (!mutatorConfig.enableCarCarCollision)
 		mask &= ~btBroadphaseProxy::CharacterFilter;
-	bulletWorld->addRigidBody(&_rigidBody, btBroadphaseProxy::CharacterFilter, mask);
+	bulletWorld->addRigidBody(&_rigidBody, btBroadphaseProxy::CharacterFilter, mask | extraCollisionMask);
 
 	{ // Set up actual vehicle stuff
 		_bulletVehicleRaycaster = btDefaultVehicleRaycaster(bulletWorld);
 
 		btVehicleRL::btVehicleTuning tuning = btVehicleRL::btVehicleTuning();
 
-		_bulletVehicle = btVehicleRL(tuning, &_rigidBody, &_bulletVehicleRaycaster, bulletWorld);
+		_bulletVehicle = btVehicleRL(tuning, &_rigidBody, &_bulletVehicleRaycaster, bulletWorld, extraCollisionMask);
 
 		// Match RL with X forward, Y right, Z up
 		_bulletVehicle.setCoordinateSystem(1, 2, 0);
@@ -246,8 +249,12 @@ void Car::_BulletSetup(GameMode gameMode, btDynamicsWorld* bulletWorld, const Mu
 		btVector3 wheelDirectionCS(0, 0, -1), wheelAxleCS(0, -1, 0);
 
 		{ // Set up wheels
-			for (int i = 0; i < 4; i++) {
+			int numWheels = 4;//config.threeWheels ? 3 : 4;
+			for (int i = 0; i < numWheels; i++) {
 				bool front = i < 2;
+				if (numWheels == 3)
+					front = i == 0;
+
 				bool left = i % 2;
 
 				float radius = front ? config.frontWheels.wheelRadius : config.backWheels.wheelRadius;
@@ -338,7 +345,7 @@ void Car::_UpdateWheels(float tickTime, const MutatorConfig& mutatorConfig, int 
 	float absForwardSpeed_UU = abs(forwardSpeed_UU);
 
 	bool wheelsHaveWorldContact = false;
-	for (int i = 0; i < 4; i++)
+	for (int i = 0; i < _bulletVehicle.m_wheelInfo.size(); i++)
 		wheelsHaveWorldContact |= _bulletVehicle.m_wheelInfo[i].m_isInContactWithWorld;
 
 	{ // Increase/decrease handbrake value from input
@@ -391,14 +398,14 @@ void Car::_UpdateWheels(float tickTime, const MutatorConfig& mutatorConfig, int 
 
 		float driveEngineForce = engineThrottle * (THROTTLE_TORQUE_AMOUNT * UU_TO_BT) * driveSpeedScale;
 		float driveBrakeForce = realBrake * (BRAKE_TORQUE_AMOUNT * UU_TO_BT);
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < _bulletVehicle.m_wheelInfo.size(); i++) {
 			_bulletVehicle.m_wheelInfo[i].m_engineForce = driveEngineForce;
 			_bulletVehicle.m_wheelInfo[i].m_brake = driveBrakeForce;
 		}
 	}
 
 	{ // Update steering
-		float steerAngle = STEER_ANGLE_FROM_SPEED_CURVE.GetOutput(absForwardSpeed_UU);
+		float steerAngle = (config.threeWheels ? STEER_ANGLE_FROM_SPEED_CURVE_THREEWHEEL : STEER_ANGLE_FROM_SPEED_CURVE).GetOutput(absForwardSpeed_UU);
 
 		if (_internalState.handbrakeVal) {
 			steerAngle +=
@@ -412,7 +419,7 @@ void Car::_UpdateWheels(float tickTime, const MutatorConfig& mutatorConfig, int 
 	}
 
 	{ // Update friction
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < _bulletVehicle.m_wheelInfo.size(); i++) {
 			auto& wheel = _bulletVehicle.m_wheelInfo[i];
 			if (wheel.m_raycastInfo.m_groundObject) {
 
@@ -436,7 +443,7 @@ void Car::_UpdateWheels(float tickTime, const MutatorConfig& mutatorConfig, int 
 				if (baseFriction > 5)
 					frictionCurveInput = baseFriction / (abs(crossVec.dot(longDir)) + baseFriction);
 
-				float latFriction = LAT_FRICTION_CURVE.GetOutput(frictionCurveInput);
+				float latFriction = (config.threeWheels ? LAT_FRICTION_CURVE_THREEWHEEL : LAT_FRICTION_CURVE).GetOutput(frictionCurveInput);
 				float longFriction = LONG_FRICTION_CURVE.GetOutput(frictionCurveInput);
 
 				if (_internalState.handbrakeVal) {
@@ -471,7 +478,7 @@ void Car::_UpdateWheels(float tickTime, const MutatorConfig& mutatorConfig, int 
 
 		bool fullStick = (realThrottle != 0) || (absForwardSpeed_UU > STOPPING_FORWARD_VEL);
 
-		float stickyForceScale = 0.5f;
+		float stickyForceScale = config.threeWheels ? 0 : 0.5f;
 		if (fullStick)
 			stickyForceScale += 1 - abs(upwardsDir.z());
 
@@ -482,28 +489,47 @@ void Car::_UpdateWheels(float tickTime, const MutatorConfig& mutatorConfig, int 
 void Car::_UpdateBoost(float tickTime, const MutatorConfig& mutatorConfig, float forwardSpeed_UU) {
 	using namespace RLConst;
 
-	{ // Update boosting timer
-		if (_internalState.timeSpentBoosting > 0) {
-			if (!controls.boost && _internalState.timeSpentBoosting >= BOOST_MIN_TIME) {
-				_internalState.timeSpentBoosting = 0;
+	bool hasBoost = _internalState.boost > 0;
+
+	if (hasBoost) { // Update boosting timer
+		if (_internalState.isBoosting) {
+			if (controls.boost || _internalState.boostingTime < BOOST_MIN_TIME) {
+				// Keep boosting
+				_internalState.isBoosting = true;
 			} else {
-				_internalState.timeSpentBoosting += tickTime;
+				_internalState.isBoosting = false;
 			}
 		} else {
 			if (controls.boost) {
-				// Start boosting (even if we dont have any)
-				_internalState.timeSpentBoosting = tickTime;
+				// Start boosting
+				_internalState.isBoosting = controls.boost;
 			}
 		}
+	} else {
+		_internalState.isBoosting = false;
+	}
+
+	if (_internalState.isBoosting) {
+		_internalState.boostingTime += tickTime;
+	} else {
+		_internalState.boostingTime = 0;
 	}
 
 	// Apply boosting force and consume boost
-	if (_internalState.boost > 0 && _internalState.timeSpentBoosting > 0) {
+	if (_internalState.isBoosting) {
 		_internalState.boost = RS_MAX(_internalState.boost - mutatorConfig.boostUsedPerSecond * tickTime, 0);
 		_rigidBody.applyCentralForce(
 			(_internalState.isOnGround ? mutatorConfig.boostAccelGround : mutatorConfig.boostAccelAir) * UU_TO_BT
 			* GetForwardDir() * CAR_MASS_BT
 		);
+		_internalState.timeSinceBoosted = 0;
+	} else {
+		_internalState.timeSinceBoosted += tickTime;
+
+		// Recharge boost
+		if (mutatorConfig.rechargeBoostEnabled)
+			if (_internalState.timeSinceBoosted >= mutatorConfig.rechargeBoostDelay)
+				_internalState.boost += mutatorConfig.rechargeBoostPerSecond * tickTime;
 	}
 
 	_internalState.boost = RS_MIN(_internalState.boost, RLConst::BOOST_MAX);
@@ -523,7 +549,7 @@ void Car::_UpdateJump(float tickTime, const MutatorConfig& mutatorConfig, bool j
 	}
 
 	if (_internalState.isJumping) {
-		if (_internalState.jumpTime < JUMP_MIN_TIME || controls.jump && _internalState.jumpTime < JUMP_MAX_TIME) {
+		if (_internalState.jumpTime < JUMP_MIN_TIME || (controls.jump && _internalState.jumpTime < JUMP_MAX_TIME)) {
 			// Continue jump
 			_internalState.isJumping = true;
 		} else {
@@ -712,29 +738,21 @@ void Car::_UpdateDoubleJumpOrFlip(float tickTime, const MutatorConfig& mutatorCo
 								shouldDodgeBackwards = (dodgeDir.x() >= 0.0f) != (forwardSpeed_UU >= 0.0f);
 							}
 
-							btVector3 initalDodgeVel = dodgeDir * FLIP_INITIAL_VEL_SCALE;
+							Vec initalDodgeVel = dodgeDir * FLIP_INITIAL_VEL_SCALE;
 
 							float maxSpeedScaleX =
 								shouldDodgeBackwards ? FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE : FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE;
 
-							initalDodgeVel.x() *= ((maxSpeedScaleX - 1) * forwardSpeedRatio) + 1.f;
-							initalDodgeVel.y() *= ((FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE - 1) * forwardSpeedRatio) + 1.f;
+							initalDodgeVel.x *= ((maxSpeedScaleX - 1) * forwardSpeedRatio) + 1.f;
+							initalDodgeVel.y *= ((FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE - 1) * forwardSpeedRatio) + 1.f;
 
 							if (shouldDodgeBackwards)
-								initalDodgeVel.x() *= FLIP_BACKWARD_IMPULSE_SCALE_X;
+								initalDodgeVel.x *= FLIP_BACKWARD_IMPULSE_SCALE_X;
 
-							btVector3 forwardDir = GetForwardDir();
-							float forwardAng = atan2f(forwardDir.y(), forwardDir.x());
+							Vec forwardDir2D = GetForwardDir().To2D().Normalized();
+							Vec rightDir2D = Vec(-forwardDir2D.y, forwardDir2D.x, 0.f);
 
-							btVector3
-								xVelDir = { cosf(forwardAng), -sinf(forwardAng), 0.f },
-								yVelDir = { sinf(forwardAng), cosf(forwardAng), 0.f };
-
-							btVector3 finalDeltaVel = {
-								initalDodgeVel.dot(xVelDir),
-								initalDodgeVel.dot(yVelDir),
-								0.f
-							};
+							Vec finalDeltaVel = initalDodgeVel.x * forwardDir2D + initalDodgeVel.y * rightDir2D;
 
 							_rigidBody.applyCentralImpulse(finalDeltaVel * UU_TO_BT * CAR_MASS_BT);
 						}

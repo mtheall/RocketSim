@@ -23,10 +23,15 @@ PyTypeObject *CarState::Type = nullptr;
 
 PyMemberDef CarState::Members[] = {
     {.name      = "update_counter",
-        .type   = TypeHelper<decltype (RocketSim::CarState::updateCounter)>::type,
-        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, updateCounter),
+        .type   = TypeHelper<decltype (RocketSim::CarState::tickCountSinceUpdate)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, tickCountSinceUpdate),
         .flags  = 0,
-        .doc    = "Update counter (ticks since last state set)"},
+        .doc    = "Update counter (ticks since last state set)\nDeprecated: use tick_count_since_update"},
+    {.name      = "tick_count_since_update",
+        .type   = TypeHelper<decltype (RocketSim::CarState::tickCountSinceUpdate)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, tickCountSinceUpdate),
+        .flags  = 0,
+        .doc    = "Tick count since update"},
     {.name      = "is_on_ground",
         .type   = TypeHelper<decltype (RocketSim::CarState::isOnGround)>::type,
         .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isOnGround),
@@ -83,10 +88,15 @@ PyMemberDef CarState::Members[] = {
         .flags  = 0,
         .doc    = "Boost"},
     {.name      = "time_spent_boosting",
-        .type   = TypeHelper<decltype (RocketSim::CarState::timeSpentBoosting)>::type,
-        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, timeSpentBoosting),
+        .type   = TypeHelper<decltype (RocketSim::CarState::boostingTime)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, boostingTime),
         .flags  = 0,
-        .doc    = "Time spent boosting"},
+        .doc    = "Time spent boosting\nDeprecated: use boosting_time"},
+    {.name      = "boosting_time",
+        .type   = TypeHelper<decltype (RocketSim::CarState::boostingTime)>::type,
+        .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, boostingTime),
+        .flags  = 0,
+        .doc    = "Boosting time"},
     {.name      = "is_supersonic",
         .type   = TypeHelper<decltype (RocketSim::CarState::isSupersonic)>::type,
         .offset = offsetof (CarState, state) + offsetof (RocketSim::CarState, isSupersonic),
@@ -213,7 +223,7 @@ __init__(self
 	air_time: float = 0.0,
 	air_time_since_jump: float = 0.0,
 	boost: float = 33.3,
-	time_spent_boosting: float = 0.0,
+	boosting_time: float = 0.0,
 	is_supersonic: bool = False,
 	supersonic_time: float = 0.0,
 	handbrake_val: float = 0.0,
@@ -228,7 +238,7 @@ __init__(self
 	demo_respawn_timer: float = 0.0,
 	ball_hit_info: RocketSim.BallHitInfo = RocketSim.BallHitInfo(),
 	last_controls: RocketSim.CarControls = RocketSim.CarControls(),
-	update_counter: int = 0))"},
+	tick_count_since_update: int = 0))"},
     {0, nullptr},
 };
 
@@ -334,7 +344,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char airTimeKwd[]                 = "air_time";
 	static char airTimeSinceJumpKwd[]        = "air_time_since_jump";
 	static char boostKwd[]                   = "boost";
-	static char timeSpentBoostingKwd[]       = "time_spent_boosting";
+	static char boostingTimeKwd[]            = "boosting_time";
 	static char isSupersonicKwd[]            = "is_supersonic";
 	static char supersonicTimeKwd[]          = "supersonic_time";
 	static char handbrakeValKwd[]            = "handbrake_val";
@@ -349,8 +359,10 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	static char demoRespawnTimerKwd[]        = "demo_respawn_timer";
 	static char ballHitInfoKwd[]             = "ball_hit_info";
 	static char lastControlsKwd[]            = "last_controls";
-	static char updateCounterKwd[]           = "update_counter";
+	static char tickCountSinceUpdateKwd[]    = "tick_count_since_update";
 	static char lastRelDodgeTorqueKwd[]      = "last_rel_dodge_torque";
+	static char updateCounterKwd[]           = "update_counter";
+	static char timeSpentBoostingKwd[]       = "time_spent_boosting";
 
 	static char *dict[] = {posKwd,
 	    rotMatKwd,
@@ -369,7 +381,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    airTimeKwd,
 	    airTimeSinceJumpKwd,
 	    boostKwd,
-	    timeSpentBoostingKwd,
+	    boostingTimeKwd,
 	    isSupersonicKwd,
 	    supersonicTimeKwd,
 	    handbrakeValKwd,
@@ -384,8 +396,10 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	    demoRespawnTimerKwd,
 	    ballHitInfoKwd,
 	    lastControlsKwd,
-	    updateCounterKwd,
+	    tickCountSinceUpdateKwd,
 	    lastRelDodgeTorqueKwd,
+	    updateCounterKwd,
+	    timeSpentBoostingKwd,
 	    nullptr};
 
 	RocketSim::CarState state{};
@@ -412,11 +426,11 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	int hasWorldContact = state.worldContact.hasContact;
 	int isDemoed        = state.isDemoed;
 
-	unsigned long carContactID       = state.carContact.otherCarID;
-	unsigned long long updateCounter = state.updateCounter;
+	unsigned long carContactID              = state.carContact.otherCarID;
+	unsigned long long tickCountSinceUpdate = state.tickCountSinceUpdate;
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!pOpppO!ffppffffpffpffpO!kfpfO!O!K$O!",
+	        "|O!O!O!O!pOpppO!ffppffffpffpffpO!kfpfO!O!K$O!Kf",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -440,7 +454,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        &state.airTime,
 	        &state.airTimeSinceJump,
 	        &state.boost,
-	        &state.timeSpentBoosting,
+	        &state.boostingTime,
 	        &isSupersonic,
 	        &state.supersonicTime,
 	        &state.handbrakeVal,
@@ -458,9 +472,11 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	        &ballHitInfo,
 	        CarControls::Type,
 	        &lastControls,
-	        &updateCounter,
+	        &tickCountSinceUpdate,
 	        Vec::Type,
-	        &lastRelDodgeTorque))
+	        &lastRelDodgeTorque,
+	        &tickCountSinceUpdate,
+	        &state.boostingTime))
 		return -1;
 
 	if (pos)
@@ -508,7 +524,7 @@ int CarState::Init (CarState *self_, PyObject *args_, PyObject *kwds_) noexcept
 	state.isAutoFlipping          = isAutoFlipping;
 	state.worldContact.hasContact = hasWorldContact;
 	state.isDemoed                = isDemoed;
-	state.updateCounter           = updateCounter;
+	state.tickCountSinceUpdate    = tickCountSinceUpdate;
 
 	state.carContact.otherCarID = carContactID;
 
@@ -544,8 +560,9 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 	RocketSim::CarState const model{};
 	auto const state = ToCarState (self_);
 
-	if (state.updateCounter != model.updateCounter &&
-	    !DictSetValue (dict.borrow (), "update_counter", PyLong_FromUnsignedLongLong (state.updateCounter)))
+	if (state.tickCountSinceUpdate != model.tickCountSinceUpdate &&
+	    !DictSetValue (
+	        dict.borrow (), "tick_count_since_update", PyLong_FromUnsignedLongLong (state.tickCountSinceUpdate)))
 		return nullptr;
 
 	if (state.pos != model.pos && !DictSetValue (dict.borrow (), "pos", PyNewRef (self_->pos)))
@@ -615,8 +632,8 @@ PyObject *CarState::Pickle (CarState *self_) noexcept
 	if (state.boost != model.boost && !DictSetValue (dict.borrow (), "boost", PyFloat_FromDouble (state.boost)))
 		return nullptr;
 
-	if (state.timeSpentBoosting != model.timeSpentBoosting &&
-	    !DictSetValue (dict.borrow (), "time_spent_boosting", PyFloat_FromDouble (state.timeSpentBoosting)))
+	if (state.boostingTime != model.boostingTime &&
+	    !DictSetValue (dict.borrow (), "boosting_time", PyFloat_FromDouble (state.boostingTime)))
 		return nullptr;
 
 	if (state.isSupersonic != model.isSupersonic &&

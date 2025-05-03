@@ -13,7 +13,7 @@ enum class DemoMode : byte {
 	DISABLED
 };
 
-RSAPI struct MutatorConfig {
+struct MutatorConfig {
 
 	Vec gravity = Vec(0, 0, RLConst::GRAVITY_Z);
 
@@ -62,6 +62,10 @@ RSAPI struct MutatorConfig {
 		unlimitedFlips = false,
 		unlimitedDoubleJumps = false;
 
+	bool rechargeBoostEnabled = false;
+	float rechargeBoostPerSecond = RLConst::RECHARGE_BOOST_PER_SECOND;
+	float rechargeBoostDelay = RLConst::RECHARGE_BOOST_DELAY;
+
 	DemoMode demoMode = DemoMode::NORMAL;
 	bool enableTeamDemos = false;
 
@@ -83,6 +87,7 @@ ballMaxSpeed, ballDrag, ballWorldFriction, ballWorldRestitution, jumpAccel, \
 jumpImmediateForce, boostAccelGround, boostAccelAir, boostUsedPerSecond, respawnDelay, \
 carSpawnBoostAmount, bumpCooldownTime, boostPadCooldown_Big, boostPadCooldown_Small, \
 ballHitExtraForceScale, bumpForceScale, ballRadius, unlimitedFlips, unlimitedDoubleJumps, \
-demoMode, enableTeamDemos, enableCarCarCollision, enableCarBallCollision, goalBaseThresholdY
+rechargeBoostEnabled, rechargeBoostPerSecond, rechargeBoostDelay, \
+demoMode, enableTeamDemos, enableCarCarCollision, enableCarBallCollision,goalBaseThresholdY
 
 RS_NS_END

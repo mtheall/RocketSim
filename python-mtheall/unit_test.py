@@ -98,7 +98,8 @@ class TestGameMode(FuzzyTestCase):
     self.assertEqual(rs.GameMode.HOOPS, 1)
     self.assertEqual(rs.GameMode.HEATSEEKER, 2)
     self.assertEqual(rs.GameMode.SNOWDAY, 3)
-    self.assertEqual(rs.GameMode.THE_VOID, 4)
+    self.assertEqual(rs.GameMode.DROPSHOT, 4)
+    self.assertEqual(rs.GameMode.THE_VOID, 5)
 
 class TestTeam(FuzzyTestCase):
   def test_values(self):

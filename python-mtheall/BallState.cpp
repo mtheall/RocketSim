@@ -9,10 +9,15 @@ PyTypeObject *BallState::Type = nullptr;
 
 PyMemberDef BallState::Members[] = {
     {.name      = "update_counter",
-        .type   = TypeHelper<decltype (RocketSim::BallState::updateCounter)>::type,
-        .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, updateCounter),
+        .type   = TypeHelper<decltype (RocketSim::BallState::tickCountSinceUpdate)>::type,
+        .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, tickCountSinceUpdate),
         .flags  = 0,
-        .doc    = "Update counter (ticks since last state set)"},
+        .doc    = "Update counter (ticks since last state set)\nDeprecated: use tick_count_since_update"},
+    {.name      = "tick_count_since_update",
+        .type   = TypeHelper<decltype (RocketSim::BallState::tickCountSinceUpdate)>::type,
+        .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, tickCountSinceUpdate),
+        .flags  = 0,
+        .doc    = "Tick count since update"},
     {.name      = "last_hit_car_id",
         .type   = TypeHelper<decltype (RocketSim::BallState::lastHitCarID)>::type,
         .offset = offsetof (BallState, state) + offsetof (RocketSim::BallState, lastHitCarID),
@@ -80,7 +85,7 @@ __init__(self,
 	heatseeker_target_speed: float = 2900.0,
 	heatseeker_time_since_hit: float = 0.0,
 	last_hit_car_id: int = 0,
-	update_counter: int = 0))"},
+	tick_count_since_update: int = 0))"},
     {0, nullptr},
 };
 
@@ -161,6 +166,7 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	static char heatseekerTargetSpeedKwd[]  = "heatseeker_target_speed";
 	static char heatseekerTimeSinceHitKwd[] = "heatseeker_time_since_hit";
 	static char lastHitCarIDKwd[]           = "last_hit_car_id";
+	static char tickCountSinceUpdateKwd[]   = "tick_count_since_update";
 	static char updateCounterKwd[]          = "update_counter";
 
 	static char *dict[] = {posKwd,
@@ -171,6 +177,7 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	    heatseekerTargetSpeedKwd,
 	    heatseekerTimeSinceHitKwd,
 	    lastHitCarIDKwd,
+	    tickCountSinceUpdateKwd,
 	    updateCounterKwd,
 	    nullptr};
 
@@ -181,12 +188,12 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	PyObject *vel    = nullptr;
 	PyObject *angVel = nullptr;
 
-	unsigned long carId              = state.lastHitCarID;
-	unsigned long long updateCounter = state.updateCounter;
+	unsigned long carId                     = state.lastHitCarID;
+	unsigned long long tickCountSinceUpdate = state.tickCountSinceUpdate;
 
 	if (!PyArg_ParseTupleAndKeywords (args_,
 	        kwds_,
-	        "|O!O!O!O!fffkK",
+	        "|O!O!O!O!fffkK$K",
 	        dict,
 	        Vec::Type,
 	        &pos,
@@ -200,7 +207,8 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	        &state.hsInfo.curTargetSpeed,
 	        &state.hsInfo.timeSinceHit,
 	        &carId,
-	        &updateCounter))
+	        &tickCountSinceUpdate,
+	        &tickCountSinceUpdate))
 		return -1;
 
 	if (pos)
@@ -212,8 +220,8 @@ int BallState::Init (BallState *self_, PyObject *args_, PyObject *kwds_) noexcep
 	if (angVel)
 		state.angVel = Vec::ToVec (PyCast<Vec> (angVel));
 
-	state.lastHitCarID  = carId;
-	state.updateCounter = updateCounter;
+	state.lastHitCarID         = carId;
+	state.tickCountSinceUpdate = tickCountSinceUpdate;
 
 	if (!InitFromBallState (self_, state))
 		return -1;
@@ -243,8 +251,9 @@ PyObject *BallState::Pickle (BallState *self_) noexcept
 	RocketSim::BallState const model{};
 	auto const state = ToBallState (self_);
 
-	if (state.updateCounter != model.updateCounter &&
-	    !DictSetValue (dict.borrow (), "update_counter", PyLong_FromUnsignedLongLong (state.updateCounter)))
+	if (state.tickCountSinceUpdate != model.tickCountSinceUpdate &&
+	    !DictSetValue (
+	        dict.borrow (), "tick_count_since_update", PyLong_FromUnsignedLongLong (state.tickCountSinceUpdate)))
 		return nullptr;
 
 	if (Vec::ToVec (self_->pos) != model.pos && !DictSetValue (dict.borrow (), "pos", PyNewRef (self_->pos)))

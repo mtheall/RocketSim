@@ -1,6 +1,6 @@
 #pragma once
 
-#define RS_VERSION "2.1.1"
+#define RS_VERSION "2.2"
 
 #include <cstdint>
 #include <cstdlib>
@@ -71,16 +71,6 @@ typedef uint8_t byte;
 	exit(EXIT_FAILURE); \
 }
 
-#if 0 // FOR FUTURE USE: Exports/imports setup
-#ifdef ROCKETSIM_EXPORTS
-#define RSAPI __declspec(dllexport)
-#else
-#define RSAPI __declspec(dllimport)
-#endif
-#else
-#define RSAPI
-#endif
-
 #define RS_ALIGN_16 alignas(16)
 
 #ifndef RS_NO_NAMESPACE
@@ -106,6 +96,3 @@ constexpr uint32_t __RS_GET_VERSION_ID() {
 #define RS_VERSION_ID (__RS_GET_VERSION_ID())
 
 #define RS_IS_BIG_ENDIAN (std::endian::native == std::endian::big)
-
-// TODO: Remove more permanently
-#define RS_NO_SUSPCOLGRID

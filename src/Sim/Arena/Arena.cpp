@@ -10,10 +10,11 @@
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btBoxShape.h"
 #include "../../../libsrc/bullet3-3.24/BulletCollision/CollisionShapes/btSphereShape.h"
+#include "DropshotTiles/DropshotTiles.h"
 
 RS_NS_START
 
-RSAPI void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
+void Arena::SetMutatorConfig(const MutatorConfig& mutatorConfig) {
 
 	bool
 		ballChanged = mutatorConfig.ballRadius != this->_mutatorConfig.ballRadius || mutatorConfig.ballMass != this->_mutatorConfig.ballMass,
@@ -163,6 +164,9 @@ void Arena::ResetToRandomKickoff(int seed) {
 	} else if (gameMode == GameMode::HEATSEEKER) {
 		CAR_SPAWN_LOCATIONS = CAR_SPAWN_LOCATIONS_HEATSEEKER;
 		CAR_RESPAWN_LOCATIONS = CAR_RESPAWN_LOCATIONS_SOCCAR;
+	} else if (gameMode == GameMode::DROPSHOT) {
+		CAR_SPAWN_LOCATIONS = CAR_SPAWN_LOCATIONS_DROPSHOT;
+		CAR_RESPAWN_LOCATIONS = CAR_RESPAWN_LOCATIONS_DROPSHOT;
 	}
 
 	std::vector<Car*> blueCars, orangeCars;
@@ -176,10 +180,10 @@ void Arena::ResetToRandomKickoff(int seed) {
 
 		CarSpawnPos spawnPos;
 	
-		if (i < CAR_SPAWN_LOCATION_AMOUNT) {
+		if (i < locationAmount) {
 			spawnPos = CAR_SPAWN_LOCATIONS[RS_MIN(kickoffOrder[i], locationAmount - 1)];
 		} else {
-			int respawnPosIdx = (i - (CAR_SPAWN_LOCATION_AMOUNT)) % CAR_RESPAWN_LOCATION_AMOUNT;
+			int respawnPosIdx = (i - (locationAmount)) % locationAmount;
 			spawnPos = CAR_RESPAWN_LOCATIONS[respawnPosIdx];
 
 			// Extra offset to add to multiple cars spawning at the same respawn point,
@@ -197,8 +201,8 @@ void Arena::ResetToRandomKickoff(int seed) {
 
 			if (i < teamCars.size()) {
 				CarState spawnState;
+				spawnState.boost = _mutatorConfig.carSpawnBoostAmount;
 				spawnState.pos = { spawnPos.x, spawnPos.y, CAR_SPAWN_REST_Z };
-				
 				Angle angle = Angle(spawnPos.yawAng, 0, 0);
 				spawnState.isOnGround = true;
 
@@ -223,18 +227,40 @@ void Arena::ResetToRandomKickoff(int seed) {
 	} else if (gameMode == GameMode::SNOWDAY) {
 		// Don't freeze
 		ballState.vel.z = FLT_EPSILON;
-	} else if (gameMode == GameMode::HOOPS) {
-		ballState.vel.z = BALL_HOOPS_Z_VEL;
 	}
 	ball->SetState(ballState);
 
+	// Reset boost pads
 	for (BoostPad* boostPad : _boostPads)
 		boostPad->SetState(BoostPadState());
+
+	// Reset tile states
+	if (gameMode == GameMode::DROPSHOT)
+		SetDropshotTilesState({});
 
 	if (seed != -1) {
 		// Custom random engine was created for this seed, so we need to free it
 		delete randEngine;
 	}
+}
+
+void Arena::SetDropshotTilesState(const DropshotTilesState& state) {
+	for (int teamIdx = 0; teamIdx <= 1; teamIdx++) {
+		for (int tileIdx = 0; tileIdx < RLConst::Dropshot::NUM_TILES_PER_TEAM; tileIdx++) {
+			auto& newState = state.states[teamIdx][tileIdx];
+
+			int rbIndex = tileIdx + (RLConst::Dropshot::NUM_TILES_PER_TEAM * teamIdx);
+			assert(rbIndex < _worldDropshotTileRBs.size());
+			auto dropshotTileRB = _worldDropshotTileRBs[rbIndex];
+			if (newState.damageState == DropshotTileState::STATE_BROKEN) {
+				dropshotTileRB->m_collisionFlags |= btCollisionObject::CF_NO_CONTACT_RESPONSE;
+			} else {
+				dropshotTileRB->m_collisionFlags &= ~btCollisionObject::CF_NO_CONTACT_RESPONSE;
+			}
+		}
+	}
+
+	_dropshotTilesState = state;
 }
 
 bool Arena::_BulletContactAddedCallback(
@@ -284,12 +310,19 @@ bool Arena::_BulletContactAddedCallback(
 			arenaInst->
 				_BtCallback_OnCarWorldCollision(car, (btCollisionObject*)bodyB->getUserPointer(), contactPoint);
 		}
+	} else if (userIndexA == BT_USERINFO_TYPE_BALL && userIndexB == BT_USERINFO_TYPE_DROPSHOT_TILE) {
+
+		Arena* arenaInst = (Arena*)bodyB->getUserPointer();
+		arenaInst->ball->_OnDropshotTileCollision(
+			arenaInst->_dropshotTilesState, bodyB->getUserIndex2(), bodyB, arenaInst->tickCount, arenaInst->tickTime
+		);
+
 	} else if (userIndexA == BT_USERINFO_TYPE_BALL && userIndexB == -1) {
 		// Ball + World
 		Arena* arenaInst = (Arena*)bodyB->getUserPointer();
 		arenaInst->ball->_OnWorldCollision(arenaInst->gameMode, contactPoint.m_normalWorldOnB, arenaInst->tickTime);
 		
-		// Set as special
+		// Set as special (unless in snowday)
 		if (arenaInst->gameMode != GameMode::SNOWDAY)
 			contactPoint.m_isSpecial = true;
 	}
@@ -305,59 +338,8 @@ bool Arena::_BulletContactAddedCallback(
 void Arena::_BtCallback_OnCarBallCollision(Car* car, Ball* ball, btManifoldPoint& manifoldPoint, bool ballIsBodyA) {
 	using namespace RLConst;
 
-	auto carState = car->GetState();
-	auto ballState = ball->GetState();
-
-	// Manually override manifold friction/restitution
-	manifoldPoint.m_combinedFriction = CARBALL_COLLISION_FRICTION;
-	manifoldPoint.m_combinedRestitution = CARBALL_COLLISION_RESTITUTION;
-
-	auto& ballHitInfo = car->_internalState.ballHitInfo;
-
-	ballHitInfo.isValid = true;
-
-	ballHitInfo.relativePosOnBall = (ballIsBodyA ? manifoldPoint.m_localPointA : manifoldPoint.m_localPointB) * BT_TO_UU;
-	ballHitInfo.tickCountWhenHit = this->tickCount;
-
-	ballHitInfo.ballPos = ballState.pos;
-	ballHitInfo.extraHitVel = Vec();
-
-	ball->_internalState.lastHitCarID = car->id;
-
-	if (_ballTouchCallback.func)
-		_ballTouchCallback.func(this, car, _ballTouchCallback.userInfo);
-
-	// Once we do an extra car-ball impulse, we need to wait at least 1 tick to do it again
-	if ((tickCount > ballHitInfo.tickCountWhenExtraImpulseApplied + 1) || (ballHitInfo.tickCountWhenExtraImpulseApplied > tickCount)) {
-		ballHitInfo.tickCountWhenExtraImpulseApplied = this->tickCount;
-	} else {
-		// Don't do multiple extra impulses in a row
-		return;
-	}
-
-	btVector3 carForward = car->GetForwardDir();
-	btVector3 relPos = ballState.pos - carState.pos;
-	btVector3 relVel = ballState.vel - carState.vel;
-
-	float relSpeed = RS_MIN(relVel.length(), BALL_CAR_EXTRA_IMPULSE_MAXDELTAVEL_UU);
-
-	if (relSpeed > 0) {
-		bool extraZScale = 
-			gameMode == GameMode::HOOPS && 
-			carState.isOnGround &&
-			carState.rotMat.up.z > BALL_CAR_EXTRA_IMPULSE_Z_SCALE_HOOPS_NORMAL_Z_THRESH;
-		float zScale = extraZScale ? BALL_CAR_EXTRA_IMPULSE_Z_SCALE_HOOPS_GROUND : BALL_CAR_EXTRA_IMPULSE_Z_SCALE;
-		btVector3 hitDir = (relPos * btVector3(1, 1, zScale)).safeNormalized();
-		btVector3 forwardDirAdjustment = carForward * hitDir.dot(carForward) * (1 - BALL_CAR_EXTRA_IMPULSE_FORWARD_SCALE);
-		hitDir = (hitDir - forwardDirAdjustment).safeNormalized();
-		btVector3 addedVel = (hitDir * relSpeed) * BALL_CAR_EXTRA_IMPULSE_FACTOR_CURVE.GetOutput(relSpeed) * _mutatorConfig.ballHitExtraForceScale;
-		ballHitInfo.extraHitVel = addedVel;
-
-		// Velocity won't be actually added until the end of this tick
-		ball->_velocityImpulseCache += addedVel * UU_TO_BT;
-	}
-
-	ball->_OnHit(gameMode, car);
+	Vec relBallPos = (ballIsBodyA ? manifoldPoint.m_localPointA : manifoldPoint.m_localPointB) * BT_TO_UU;
+	ball->_OnHit(car, relBallPos, manifoldPoint.m_combinedFriction, manifoldPoint.m_combinedRestitution, gameMode, _mutatorConfig, tickCount, this, _ballTouchCallback.func, _ballTouchCallback.userInfo);
 }
 
 void Arena::_BtCallback_OnCarCarCollision(Car* car1, Car* car2, btManifoldPoint& manifoldPoint) {
@@ -453,7 +435,7 @@ void Arena::_BtCallback_OnCarWorldCollision(Car* car, btCollisionObject* world, 
 	manifoldPoint.m_combinedRestitution = _mutatorConfig.carWorldRestitution;
 }
 
-Arena::Arena(GameMode gameMode, const ArenaConfig& config, float tickRate) : _mutatorConfig(gameMode), _config(config), _suspColGrid(gameMode) {
+Arena::Arena(GameMode gameMode, const ArenaConfig& config, float tickRate) : _mutatorConfig(gameMode), _config(config) {
 
 	// Tickrate must be from 15 to 120tps
 	assert(tickRate >= 15 && tickRate <= 120);
@@ -482,7 +464,7 @@ Arena::Arena(GameMode gameMode, const ArenaConfig& config, float tickRate) : _mu
 		_bulletWorldParams.constraintSolver = btSequentialImpulseConstraintSolver();
 
 		_bulletWorldParams.overlappingPairCache = new btHashedOverlappingPairCache();
-
+		
 		if (_config.useCustomBroadphase) {
 			float cellSizeMultiplier = 1;
 			if (_config.memWeightMode == ArenaMemWeightMode::LIGHT) {
@@ -520,25 +502,12 @@ Arena::Arena(GameMode gameMode, const ArenaConfig& config, float tickRate) : _mu
 	if (loadArenaStuff) {
 		_SetupArenaCollisionShapes();
 
-#ifndef RS_NO_SUSPCOLGRID
-		_suspColGrid = RocketSim::GetDefaultSuspColGrid(gameMode, memWeightMode == ArenaMemWeightMode::LIGHT);
-		_suspColGrid.defaultWorldCollisionRB = &_worldCollisionRBs[0];
-#endif
-
 		// Give arena collision shapes the proper restitution/friction values
-		for (size_t i = 0; i < _worldCollisionRBAmount; i++) {
-			btRigidBody* rb = &_worldCollisionRBs[i];
-			// TODO: Move to RLConst
-			rb->setRestitution(0.3f);
-			rb->setFriction(0.6f);
+		for (auto* rb : _worldCollisionRBs) {
+			rb->setRestitution(RLConst::ARENA_COLLISION_BASE_RESTITUTION);
+			rb->setFriction(RLConst::ARENA_COLLISION_BASE_FRICTION);
 			rb->setRollingFriction(0.f);
 		}
-	} else {
-		_worldCollisionRBs = NULL;
-		_worldCollisionRBAmount = 0;
-		
-		_worldCollisionBvhShapes = NULL;
-		_worldCollisionPlaneShapes = NULL;
 	}
 
 	{ // Initialize ball
@@ -548,7 +517,7 @@ Arena::Arena(GameMode gameMode, const ArenaConfig& config, float tickRate) : _mu
 		ball->SetState(BallState());
 	}
 
-	if (loadArenaStuff) { // Initialize boost pads
+	if (loadArenaStuff && gameMode != GameMode::DROPSHOT) { // Initialize boost pads
 		using namespace RLConst::BoostPads;
 
 		if (_config.useCustomBoostPads) {
@@ -632,7 +601,6 @@ Arena* Arena::DeserializeNew(DataStreamIn& in) {
 	float tickTime;
 	uint64_t tickCount;
 	uint32_t lastCarID;
-	ArenaMemWeightMode memWeightMode;
 
 	in.ReadMultiple(gameMode, tickTime, tickCount, lastCarID);
 
@@ -709,14 +677,14 @@ Arena* Arena::Clone(bool copyCallbacks) {
 	}
 	
 	newArena->ball->SetState(this->ball->GetState());
-	newArena->ball->_internalState.updateCounter = this->ball->_internalState.updateCounter;
+	newArena->ball->_internalState.tickCountSinceUpdate = this->ball->_internalState.tickCountSinceUpdate;
 	newArena->ball->_velocityImpulseCache = this->ball->_velocityImpulseCache;
 
 	for (Car* car : this->_cars) {
 		Car* newCar = newArena->AddCar(car->team, car->config);
 		
 		newCar->SetState(car->GetState());
-		newCar->_internalState.updateCounter = car->_internalState.updateCounter;
+		newCar->_internalState.tickCountSinceUpdate = car->_internalState.tickCountSinceUpdate;
 		newCar->id = car->id;
 		newCar->controls = car->controls;
 		newCar->_velocityImpulseCache = car->_velocityImpulseCache;
@@ -763,45 +731,9 @@ void Arena::Step(int ticksToSimulate) {
 		bool ballOnly = _cars.empty();
 
 		bool hasArenaStuff = (gameMode != GameMode::THE_VOID);
-		bool shouldUpdateSuspColGrid = hasArenaStuff && !ballOnly;
-		if (shouldUpdateSuspColGrid) {
-#ifndef RS_NO_SUSPCOLGRID
-			{ // Add dynamic bodies to suspension grid
-				for (Car* car : _cars) {
-					if (car->_internalState.isDemoed)
-						continue;
-
-					btVector3 min, max;
-					car->_rigidBody.getAabb(min, max);
-					_suspColGrid.UpdateDynamicCollisions(min, max, false);
-				}
-
-				btVector3 min, max;
-				ball->_rigidBody.getAabb(min, max);
-				_suspColGrid.UpdateDynamicCollisions(min, max, false);
-			}
-#endif
-		}
-
-		for (Car* car : _cars) {
-			SuspensionCollisionGrid* suspColGridPtr;
-#ifdef RS_NO_SUSPCOLGRID
-			suspColGridPtr = NULL;
-#else
-			if (shouldUpdateSuspColGrid) {
-				suspColGridPtr = &_suspColGrid;
-			} else {
-				suspColGridPtr = NULL;
-			}
-#endif
-			car->_PreTickUpdate(gameMode, tickTime, _mutatorConfig, suspColGridPtr);
-		}
-
-		if (shouldUpdateSuspColGrid) {
-#ifndef RS_NO_SUSPCOLGRID
-			_suspColGrid.ClearDynamicCollisions();
-#endif
-		}
+		
+		for (Car* car : _cars)
+			car->_PreTickUpdate(gameMode, tickTime, _mutatorConfig);
 
 		if (hasArenaStuff && !ballOnly) {
 			for (BoostPad* pad : _boostPads)
@@ -839,6 +771,13 @@ void Arena::Step(int ticksToSimulate) {
 		}
 
 		ball->_FinishPhysicsTick(_mutatorConfig);
+
+		// Sync tiles state after the tick ends.
+		// We don't want to sync the state on tile damage, 
+		//	because that would cause the ball to immediately fall through the newly-broken tile.
+		if (gameMode == GameMode::DROPSHOT)
+			if (ball->_internalState.dsInfo.lastDamageTick && ball->_internalState.dsInfo.lastDamageTick == tickCount)
+				SetDropshotTilesState(_dropshotTilesState);
 
 		if (_goalScoreCallback.func != NULL) { // Potentially fire goal score callback
 			if (IsBallScored()) {
@@ -989,7 +928,7 @@ bool Arena::IsBallProbablyGoingIn(float maxTime, float extraMargin, Team* goalTe
 	}
 }
 
-RSAPI bool Arena::IsBallScored() const {
+bool Arena::IsBallScored() const {
 	switch (gameMode) {
 	case GameMode::SOCCAR:
 	case GameMode::HEATSEEKER:
@@ -1008,6 +947,14 @@ RSAPI bool Arena::IsBallScored() const {
 
 			Vec ballPos = ball->_rigidBody.getWorldTransform().m_origin * BT_TO_UU;
 			return BallWithinHoopsGoalXYMarginSq(ballPos.x, ballPos.y) < 0;
+		} else {
+			return false;
+		}
+	}
+	case GameMode::DROPSHOT:
+	{
+		if ((ball->_rigidBody.getWorldTransform().m_origin.z() * BT_TO_UU) < -(_mutatorConfig.ballRadius * 1.75f)) {
+			return true;
 		} else {
 			return false;
 		}
@@ -1047,17 +994,41 @@ Arena::~Arena() {
 		}
 	}
 
-	delete[] _worldCollisionRBs;
-	delete[] _worldCollisionPlaneShapes;
-	delete[] _worldCollisionBvhShapes;
+	// Remove all rigidbodies and collision shapes that we own
+	for (auto rb : _worldCollisionRBs) {
+		auto shape = rb->getCollisionShape();
+		
+		bool isBvh = dynamic_cast<btBvhTriangleMeshShape*>(shape);
+		if (isBvh) {
+			// Don't free BVH shapes because we don't own them
+		} else {
+			delete shape;
+		}
+
+		delete rb;
+	}
 
 	delete _bulletWorldParams.overlappingPairCache;
 	delete _bulletWorldParams.broadphase;
 }
 
+btRigidBody* Arena::_AddStaticCollisionShape(btCollisionShape* shape, btVector3 posBT, int group, int mask) {
+	btRigidBody* shapeRB = new btRigidBody(0, NULL, shape);
+	shapeRB->setWorldTransform(btTransform(btMatrix3x3::getIdentity(), posBT));
+	shapeRB->setUserPointer(this);
+	if (group || mask) {
+		_bulletWorld.addRigidBody(shapeRB, group, mask);
+	} else {
+		_bulletWorld.addRigidBody(shapeRB);
+	}
+	_worldCollisionRBs.push_back(shapeRB);
+	return shapeRB;
+}
+
 void Arena::_SetupArenaCollisionShapes() {
 	assert(gameMode != GameMode::THE_VOID);
 	bool isHoops = gameMode == GameMode::HOOPS;
+	bool isDropShot = gameMode == GameMode::DROPSHOT;
 
 	auto collisionMeshes = RocketSim::GetArenaCollisionShapes(gameMode);
 
@@ -1067,14 +1038,6 @@ void Arena::_SetupArenaCollisionShapes() {
 			"the mesh files should be in " << RocketSim::_collisionMeshesFolder
 		)
 	}
-
-	_worldCollisionBvhShapes = new btBvhTriangleMeshShape[collisionMeshes.size()];
-
-	size_t planeAmount = isHoops ? 6 : 4;
-	_worldCollisionPlaneShapes = new btStaticPlaneShape[planeAmount];
-
-	_worldCollisionRBAmount = collisionMeshes.size() + planeAmount;
-	_worldCollisionRBs = new btRigidBody[_worldCollisionRBAmount];
 
 	for (size_t i = 0; i < collisionMeshes.size(); i++) {
 		auto mesh = collisionMeshes[i];
@@ -1094,10 +1057,12 @@ void Arena::_SetupArenaCollisionShapes() {
 			}
 		}
 
-		_AddStaticCollisionShape(i, i, mesh, _worldCollisionBvhShapes, btVector3(0,0,0), isHoopsNet);
+		int mask = isHoopsNet ? CollisionMasks::HOOPS_NET : 0;
+		_worldCollisionBvhShapes.push_back(mesh);
+		_AddStaticCollisionShape(mesh, btVector3(0, 0, 0), mask, mask);
 
 		// Don't free the BVH when we deconstruct this arena
-		_worldCollisionBvhShapes[i].m_ownsBvh = false;
+		mesh->m_ownsBvh = false;
 	}
 
 	{ // Add arena collision planes (floor/walls/ceiling)
@@ -1106,59 +1071,54 @@ void Arena::_SetupArenaCollisionShapes() {
 		float 
 			extentX = isHoops ? ARENA_EXTENT_X_HOOPS : ARENA_EXTENT_X,
 			extentY = isHoops ? ARENA_EXTENT_Y_HOOPS : ARENA_EXTENT_Y,
-			height  = isHoops ? ARENA_HEIGHT_HOOPS : ARENA_HEIGHT;
+			height  = isDropShot ? ARENA_HEIGHT_DROPSHOT : (isHoops ? ARENA_HEIGHT_HOOPS : ARENA_HEIGHT);
 
-		// TODO: This is all very repetitive and silly
+		auto fnAddPlane = [&](Vec posUU, Vec normal, int mask = 0) {
+			assert(normal.Length() == 1);
+			auto planeShape = new btStaticPlaneShape(normal, 0);
+
+			_worldCollisionPlaneShapes.push_back(planeShape);
+			_AddStaticCollisionShape(
+				planeShape,
+				posUU * UU_TO_BT,
+				mask, mask
+			);
+		};
 
 		// Floor
-		auto floorShape = btStaticPlaneShape(btVector3(0, 0, 1), 0);
-		_AddStaticCollisionShape(
-			collisionMeshes.size() + 0,
-			0,
-			&floorShape, _worldCollisionPlaneShapes
-		);
-		
-		// Ceiling
-		auto ceilingShape = btStaticPlaneShape(btVector3(0, 0, -1), 0);
-		_AddStaticCollisionShape(
-			collisionMeshes.size() + 1,
-			1,
-			&ceilingShape, _worldCollisionPlaneShapes,
-			Vec(0, 0, height) * UU_TO_BT
-		);
+		fnAddPlane(Vec(0, 0, isDropShot ? RLConst::FLOOR_HEIGHT_DROPSHOT : 0), Vec(0, 0, 1), isDropShot ? CollisionMasks::DROPSHOT_FLOOR : 0);
 
-		// Side walls
-		auto leftWallShape = btStaticPlaneShape(btVector3(1, 0, 0), 0);
-		_AddStaticCollisionShape(
-			collisionMeshes.size() + 2,
-			2,
-			&leftWallShape, _worldCollisionPlaneShapes,
-			Vec(-extentX, 0, height / 2) * UU_TO_BT
-		);
-		auto rightWallShape = btStaticPlaneShape(btVector3(-1, 0, 0), 0);
-		_AddStaticCollisionShape(
-			collisionMeshes.size() + 3,
-			3,
-			&rightWallShape, _worldCollisionPlaneShapes,
-			Vec(extentX, 0, height / 2) * UU_TO_BT
-		);
+		// Ceiling
+		fnAddPlane(Vec(0, 0, height), Vec(0, 0, -1), 0);
+
+		if (!isDropShot) {
+			// Side walls
+			fnAddPlane(Vec(-extentX, 0, height / 2), btVector3( 1, 0, 0));
+			fnAddPlane(Vec(extentX, 0, height / 2),  btVector3(-1, 0, 0));
+		}
+		
 
 		if (isHoops) {
 			// Y walls
-			auto blueWallShape = btStaticPlaneShape(btVector3(0, 1, 0), 0);
-			_AddStaticCollisionShape(
-				collisionMeshes.size() + 4,
-				4,
-				&blueWallShape, _worldCollisionPlaneShapes,
-				Vec(0, -extentY, height / 2) * UU_TO_BT
-			);
-			auto orangeWallShape = btStaticPlaneShape(btVector3(0, -1, 0), 0);
-			_AddStaticCollisionShape(
-				collisionMeshes.size() + 5,
-				5,
-				&orangeWallShape, _worldCollisionPlaneShapes,
-				Vec(0, extentY, height / 2) * UU_TO_BT
-			);
+			fnAddPlane(Vec(0, -extentY, height / 2), btVector3(0,  1, 0));
+			fnAddPlane(Vec(0, extentY, height / 2),  btVector3(0, -1, 0));
+		}
+	}
+
+	if (isDropShot) {
+		// Add tiles
+		auto tileShapes = DropshotTiles::MakeTileShapes();
+		for (int i = 0; i < tileShapes.size(); i++) {
+			int teamIdx = i / RLConst::Dropshot::NUM_TILES_PER_TEAM;
+			int tileIdx = i % RLConst::Dropshot::NUM_TILES_PER_TEAM;
+
+			// Shift down so the collision doesn't peek through the floor
+			Vec pos = Vec(0, 0, -tileShapes[i]->getMargin());
+
+			auto tileRB = _AddStaticCollisionShape(tileShapes[i], pos, DROPSHOT_TILE, DROPSHOT_TILE);
+			tileRB->setUserIndex(BT_USERINFO_TYPE_DROPSHOT_TILE);
+			tileRB->setUserIndex2(i);
+			_worldDropshotTileRBs.push_back(tileRB);
 		}
 	}
 }

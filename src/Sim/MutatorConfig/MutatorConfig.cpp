@@ -12,6 +12,8 @@ MutatorConfig::MutatorConfig(GameMode gameMode) {
 	case GameMode::SNOWDAY:
 		ballRadius = Snowday::PUCK_RADIUS;
 		break;
+	case GameMode::DROPSHOT:
+		ballRadius = BALL_COLLISION_RADIUS_DROPSHOT;
 	default:
 		ballRadius = BALL_COLLISION_RADIUS_SOCCAR;
 	}
@@ -30,6 +32,10 @@ MutatorConfig::MutatorConfig(GameMode gameMode) {
 		// Infinite boost
 		carSpawnBoostAmount = 100;
 		boostUsedPerSecond = 0;
+	} else if (gameMode == GameMode::DROPSHOT) {
+		// Spawn with 100, and recharge
+		carSpawnBoostAmount = 100;
+		rechargeBoostEnabled = true;
 	}
 }
 
