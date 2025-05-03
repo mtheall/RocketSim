@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2019, ubuntu-20.04]
+        os: [windows-2019, ubuntu-22.04]
 
     steps:
       - uses: actions/checkout@v4
@@ -27,12 +27,12 @@ jobs:
           pip3 install wheel numpy PyGLM cibuildwheel
 
       - name: Build extension for ${{ matrix.os }}
-        if: matrix.os != 'ubuntu-20.04'
+        if: matrix.os != 'ubuntu-22.04'
         run: |
           python3 -m pip wheel . -w dist
 
       - name: Build extension for ${{ matrix.os }}
-        if: matrix.os == 'ubuntu-20.04'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           python3 -m cibuildwheel --output-dir dist
           for old in dist/*.whl
@@ -54,7 +54,7 @@ jobs:
     needs: build_wheel
     strategy:
       matrix:
-        os: [windows-2019, ubuntu-20.04]
+        os: [windows-2019, ubuntu-22.04]
 
     steps:
       - uses: actions/checkout@v4
@@ -133,10 +133,10 @@ jobs:
           name: wheel-windows-2019
           path: dist
 
-      - name: Download artifact ubuntu-20.04
+      - name: Download artifact ubuntu-22.04
         uses: actions/download-artifact@v4
         with:
-          name: wheel-ubuntu-20.04
+          name: wheel-ubuntu-22.04
           path: dist
 
       - name: Publish package distributions to PyPI
