@@ -1,6 +1,10 @@
 name: Build
 
-on: [push, pull_request]
+on: 
+  push:
+    tags:
+      - v*
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -8,7 +12,7 @@ concurrency:
 
 jobs:
   build_wheel:
-    name: ${{ matrix.os }}
+    name: build-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -24,12 +28,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip3 install wheel numpy PyGLM cibuildwheel
+          pip3 install wheel numpy cibuildwheel
 
       - name: Build extension for ${{ matrix.os }}
+        shell: bash
         if: matrix.os != 'ubuntu-22.04'
         run: |
           python3 -m pip wheel . -w dist
+          for old in dist/rocketsim-*.whl
+          do
+            new=$(echo $old | sed -E 's/-(cp[0-9]+)-cp[0-9]+-/-\1-abi3-/g')
+            mv $old $new
+          done
 
       - name: Build extension for ${{ matrix.os }}
         if: matrix.os == 'ubuntu-22.04'
@@ -37,7 +47,7 @@ jobs:
           python3 -m cibuildwheel --output-dir dist
           for old in dist/rocketsim-*.whl
           do
-            new=$(echo $old | sed 's/-cp.*/-cp39-abi3-manylinux2014_x86_64.whl/g')
+            new=$(echo $old | sed -E 's/-(cp[0-9]+)-cp[0-9]+-.*\.whl/-\1-abi3-manylinux2014_x86_64.whl/g')
             mv $old $new
           done
         env:
@@ -49,24 +59,25 @@ jobs:
           path: dist/rocketsim-*.whl
 
   test_wheel:
-    name: ${{ matrix.os }}
+    name: test-${{ matrix.os }}-python-${{ matrix.pyversion }}
     runs-on: ${{ matrix.os }}
     needs: build_wheel
     strategy:
       matrix:
         os: [windows-2019, ubuntu-22.04, macos-13]
+        pyversion: ['3.9', '3.10', '3.11', '3.12', '3.13']
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: ${{ matrix.pyversion }}
           cache: 'pip'
 
       - name: Install dependencies
         run: |
-          pip3 install wheel numpy PyGLM cibuildwheel
+          pip3 install numpy PyGLM
 
       - name: Download artifact ${{ matrix.os }}
         uses: actions/download-artifact@v4
