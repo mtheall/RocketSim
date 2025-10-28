@@ -12,14 +12,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2019, ubuntu-22.04, macos-13]
+        os: [windows-2025, ubuntu-22.04, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.11'
           cache: 'pip'
 
       - name: Install dependencies
@@ -54,14 +54,14 @@ jobs:
     needs: build_wheel
     strategy:
       matrix:
-        os: [windows-2019, ubuntu-22.04, macos-13]
+        os: [windows-2025, ubuntu-22.04, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.11'
           cache: 'pip'
 
       - name: Install dependencies
@@ -79,47 +79,72 @@ jobs:
         run: |
           pip3 install dist/rocketsim-*.whl
 
-      - name: Load collision meshes
-        uses: actions/cache/restore@v4
-        id: collision-cache-restore
-        with:
-          path: collision_meshes
-          key: collision-cache
-          enableCrossOsArchive: true
-
       - name: Download collision meshes
-        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
-        uses: suisei-cn/actions-download-file@v1.3.0
-        with:
-          url: https://mtheall.com/~mtheall/collision_meshes.tar
+        shell: bash
+        run: |
+          # Download collision meshes from Cloudflare R2 (using ZIP for all platforms)
+          echo "Downloading collision meshes..."
+          curl -L https://pub-1156019cab034572bdd5ea3bc9f51ee2.r2.dev/collision_meshes.zip -o collision_meshes.zip
 
-      - name: Extract collision meshes
-        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
-        uses: a7ul/tar-action@v1.1.3
-        with:
-          command: x
-          files: collision_meshes.tar
+          # Create collision_meshes directory and extract into it
+          echo "Extracting collision meshes..."
+          mkdir -p collision_meshes
+          unzip -q collision_meshes.zip -d collision_meshes
 
-      - name: Save collision meshes
-        if: steps.collision-cache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: collision_meshes
-          key: collision-cache
-          enableCrossOsArchive: true
+          # Verify extraction worked
+          if [ ! -d "collision_meshes/soccar" ] || [ ! -d "collision_meshes/dropshot" ]; then
+            echo "ERROR: Expected directories not found after extraction"
+            echo "Contents of collision_meshes:"
+            ls -la collision_meshes/ || echo "collision_meshes directory not found"
+            exit 1
+          fi
+
+          echo "Collision meshes extracted successfully:"
+          ls -la collision_meshes/
+
+          # Count and display .cmf files
+          echo "Found $(find collision_meshes -name "*.cmf" | wc -l) .cmf files"
 
       - name: Run unit tests
         run: |
           python3 python-mtheall/unit_test.py
+        env:
+          RS_COLLISION_MESHES: ${{ github.workspace }}/collision_meshes
 
       - name: Run regression tests
         run: |
           python3 python-mtheall/regression_test.py
+        env:
+          RS_COLLISION_MESHES: ${{ github.workspace }}/collision_meshes
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install build dependencies
+        run: |
+          pip3 install build "cmeel[build]" "numpy>=2.0,<3"
+
+      - name: Build sdist
+        run: |
+          python3 -m build --sdist --outdir dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/rocketsim-*.tar.gz
 
   publish_pypi:
     name: Publish PyPI
     runs-on: ubuntu-latest
-    needs: test_wheel
+    needs: [test_wheel, build_sdist]
     if: startsWith(github.ref, 'refs/tags/v')
     environment:
       name: pypi
@@ -127,10 +152,10 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Download artifact windows-2019
+      - name: Download artifact windows-2025
         uses: actions/download-artifact@v4
         with:
-          name: wheel-windows-2019
+          name: wheel-windows-2025
           path: dist
 
       - name: Download artifact ubuntu-22.04
@@ -143,6 +168,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: wheel-macos-13
+          path: dist
+
+      - name: Download artifact macos-14
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-macos-14
+          path: dist
+
+      - name: Download sdist
+        uses: actions/download-artifact@v4
+        with:
+          name: sdist
           path: dist
 
       - name: Publish package distributions to PyPI
