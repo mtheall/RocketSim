@@ -76,6 +76,10 @@ if(CMAKE_INSTALL_PREFIX MATCHES "cmeel.prefix")
 	install(TARGETS ${PROJECT_NAME}
 		LIBRARY DESTINATION ..
 	)
+
+	install(FILES ${PROJECT_NAME}.pyi
+    	DESTINATION ..
+    )
 else()
 	execute_process(
 		COMMAND ${Python3_EXECUTABLE} -m site --user-site
@@ -86,4 +90,7 @@ else()
 	install(TARGETS ${PROJECT_NAME}
 		LIBRARY DESTINATION ${USER_SITE}
 	)
+	install(FILES ${PROJECT_NAME}.pyi
+    	DESTINATION ${USER_SITE}
+    )
 endif()
