@@ -90,7 +90,7 @@ else()
 	install(TARGETS ${PROJECT_NAME}
 		LIBRARY DESTINATION ${USER_SITE}
 	)
-	install(TARGETS ${PROJECT_NAME}.pyi
+	install(FILES ${PROJECT_NAME}.pyi
     	DESTINATION ${USER_SITE}
     )
 endif()
