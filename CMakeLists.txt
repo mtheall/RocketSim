@@ -11,27 +11,7 @@ file(GLOB_RECURSE ROCKETSIM_BULLET3_SOURCES libsrc/bullet3-3.24/*.cpp)
 file(GLOB_RECURSE ROCKETSIM_SOURCES src/*.cpp)
 file(GLOB ROCKETSIM_PYTHON_SOURCES python-mtheall/*.cpp)
 
-add_library(${PROJECT_NAME} MODULE)
-
-set_target_properties(${PROJECT_NAME} PROPERTIES
-	PREFIX ""
-)
-
-if(WIN32)
-	set_target_properties(${PROJECT_NAME} PROPERTIES
-		OUTPUT_NAME ${PROJECT_NAME}
-	)
-
-	if(NOT CYGWIN)
-		set_target_properties(${PROJECT_NAME} PROPERTIES
-			SUFFIX .pyd
-		)
-	endif()
-else()
-	set_target_properties(${PROJECT_NAME} PROPERTIES
-		OUTPUT_NAME ${PROJECT_NAME}.${Python3_SOSABI}
-	)
-endif()
+Python3_add_library(${PROJECT_NAME} MODULE USE_SABI "3.9" WITH_SOABI)
 
 target_sources(${PROJECT_NAME} PRIVATE
 	${ROCKETSIM_BULLET3_SOURCES}
@@ -63,7 +43,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Python3::SABIModule Python3::NumPy
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
 	PY_SSIZE_T_CLEAN=1
-	Py_LIMITED_API=0x03090000
 	NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 	PY_ARRAY_UNIQUE_SYMBOL=RocketSim_ARRAY_API
 	NO_IMPORT_ARRAY=1
