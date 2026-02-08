@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2022, ubuntu-22.04, macos-14]
+        os: [windows-2022, ubuntu-22.04, ubuntu-22.04-arm, macos-14]
 
     steps:
       - uses: actions/checkout@v6
@@ -33,28 +33,34 @@ jobs:
 
       - name: Build extension for ${{ matrix.os }}
         shell: bash
-        if: matrix.os != 'ubuntu-22.04'
+        if: runner.os != 'Linux'
         run: |
           python3 -m pip wheel . -w dist
           for old in dist/rocketsim-*.whl
           do
-            new=$(echo $old | sed -E 's/-(cp[0-9]+)-cp[0-9]+-/-cp39-abi3-/g')
+            new=$(echo $old | sed -E 's/-(cp[0-9]+)-cp[0-9]+-/-cp36-abi3-/g')
             mv $old $new
           done
 
       - name: Build extension for ${{ matrix.os }}
-        if: matrix.os == 'ubuntu-22.04'
+        if: runner.os == 'Linux'
         run: |
           python3 -m cibuildwheel --output-dir dist
+          if [[ "${{ matrix.os }}" = "ubuntu-22.04-arm" ]]
+          then
+            arch="aarch64"
+          else
+            arch="x86_64"
+          fi
           for old in dist/rocketsim-*.whl
           do
-            new=$(echo $old | sed -E 's/-(cp[0-9]+)-cp[0-9]+-.*\.whl/-cp39-abi3-manylinux2014_x86_64.whl/g')
+            new=$(echo $old | sed -E "s/-(cp[0-9]+)-cp[0-9]+-.*\\.whl/-cp36-abi3-manylinux_2_27_${arch}.whl/g")
             mv $old $new
           done
 
       - uses: actions/upload-artifact@v6
         with:
-          name: wheel-${{ matrix.os }}
+          name: wheel-${{ runner.os }}-${{ runner.arch }}
           path: dist/rocketsim-*.whl
 
   test_wheel:
@@ -64,7 +70,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, ubuntu-22.04, macos-14]
+        os: [windows-2022, windows-2025, ubuntu-22.04, ubuntu-22.04-arm, ubuntu-24.04, ubuntu-24.04-arm, macos-14, macos-15]
         pyversion: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
@@ -82,7 +88,7 @@ jobs:
       - name: Download artifact ${{ matrix.os }}
         uses: actions/download-artifact@v7
         with:
-          name: wheel-${{ matrix.os }}
+          name: wheel-${{ runner.os }}-${{ runner.arch }}
           path: dist
 
       - name: Install extension
@@ -131,22 +137,28 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Download artifact windows-2022
+      - name: Download artifact Windows-X64
         uses: actions/download-artifact@v7
         with:
-          name: wheel-windows-2022
+          name: wheel-Windows-X64
           path: dist
 
-      - name: Download artifact ubuntu-22.04
+      - name: Download artifact Linux-X64
         uses: actions/download-artifact@v7
         with:
-          name: wheel-ubuntu-22.04
+          name: wheel-Linux-X64
           path: dist
 
-      - name: Download artifact macos-14
+      - name: Download artifact Linux-ARM64
         uses: actions/download-artifact@v7
         with:
-          name: wheel-macos-14
+          name: wheel-Linux-ARM64
+          path: dist
+
+      - name: Download artifact macOS-ARM64
+        uses: actions/download-artifact@v7
+        with:
+          name: wheel-macOS-ARM64
           path: dist
 
       - name: Publish package distributions to PyPI
