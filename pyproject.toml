@@ -1,6 +1,6 @@
 [project]
 name            = "RocketSim"
-version         = "2.2.0"
+version         = "2.2.1"
 description     = "This is Rocket League!"
 dependencies    = ["numpy"]
 requires-python = ">= 3.9"
